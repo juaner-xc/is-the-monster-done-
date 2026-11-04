@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "MatStone (灶台石砌)"
+albedo_color = Color(0.30, 0.28, 0.27, 1)
+roughness = 0.95
+metallic = 0.0

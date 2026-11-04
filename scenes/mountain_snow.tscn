@@ -1,0 +1,267 @@
+[gd_scene format=3]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.08, 0.09, 0.12, 1)
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="MatRock"]
+albedo_color = Color(0.25, 0.28, 0.38, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="MatRockDark"]
+albedo_color = Color(0.17, 0.19, 0.27, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="MatRockLight"]
+albedo_color = Color(0.42, 0.47, 0.6, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="MatSnow"]
+albedo_color = Color(0.88, 0.9, 0.95, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="MatSnowShade"]
+albedo_color = Color(0.7, 0.74, 0.85, 1)
+roughness = 0.95
+
+[sub_resource type="SphereMesh" id="MeshSnowMound"]
+radius = 1
+height = 2
+radial_segments = 16
+rings = 8
+
+[sub_resource type="PrismMesh" id="MeshPyr1"]
+left_to_right = 0.5
+size = Vector3(10, 15, 10)
+
+[sub_resource type="CylinderMesh" id="MeshConeMain"]
+top_radius = 3.2
+bottom_radius = 8
+height = 10
+radial_segments = 9
+rings = 1
+cap_top = true
+cap_bottom = true
+
+[sub_resource type="CylinderMesh" id="MeshConeLeft"]
+top_radius = 0.3
+bottom_radius = 2.6
+height = 7
+radial_segments = 8
+rings = 1
+cap_top = true
+cap_bottom = true
+
+[node name="MountainSnow" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.55, 0.6, 0)
+light_energy = 1.1
+light_color = Color(1, 0.97, 0.92, 1)
+shadow_enabled = true
+
+[node name="Fill" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.4, -2.2, 0)
+light_energy = 0.35
+light_color = Color(0.6, 0.7, 1, 1)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(13.5, 9, 15.5)
+rotation = Vector3(-0.24, 0.72, 0)
+
+[node name="ConeMain" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5, 0)
+mesh = SubResource("MeshConeMain")
+surface_material_override/0 = SubResource("MatRock")
+
+[node name="LeftSpire" type="MeshInstance3D" parent="."]
+position = Vector3(-9.5, 2.8, 2)
+rotation = Vector3(0, 0.35, 0.14)
+mesh = SubResource("MeshConeLeft")
+surface_material_override/0 = SubResource("MatRockDark")
+
+[node name="PeakA" type="CSGBox3D" parent="."]
+position = Vector3(0.3, 12.5, 0.2)
+rotation = Vector3(0.06, 0.4, -0.14)
+size = Vector3(2.2, 7, 2.2)
+material = SubResource("MatRockDark")
+
+[node name="PeakB" type="CSGBox3D" parent="."]
+position = Vector3(-1.6, 11.2, 1)
+rotation = Vector3(0.1, 1, 0.22)
+size = Vector3(1.6, 5.5, 1.6)
+material = SubResource("MatRock")
+
+[node name="PeakC" type="CSGBox3D" parent="."]
+position = Vector3(1.8, 11, -0.8)
+rotation = Vector3(-0.12, 0.15, -0.28)
+size = Vector3(1.5, 5, 1.5)
+material = SubResource("MatRock")
+
+[node name="PeakD" type="CSGBox3D" parent="."]
+position = Vector3(-0.6, 10, -1.8)
+rotation = Vector3(0.15, 0.8, 0.18)
+size = Vector3(1.4, 4.5, 1.4)
+material = SubResource("MatRockDark")
+
+[node name="PeakE" type="CSGBox3D" parent="."]
+position = Vector3(1.2, 9.8, 1.8)
+rotation = Vector3(-0.08, 1.3, -0.15)
+size = Vector3(1.3, 4, 1.3)
+material = SubResource("MatRockLight")
+
+[node name="PeakTip" type="CSGBox3D" parent="."]
+position = Vector3(0.5, 15.8, 0)
+rotation = Vector3(0.1, 0.7, -0.35)
+size = Vector3(1, 3, 1)
+material = SubResource("MatRockDark")
+
+[node name="Slab1" type="CSGBox3D" parent="."]
+position = Vector3(3.4, 6.5, 2.4)
+rotation = Vector3(0.1, 0.6, 0.18)
+size = Vector3(1.4, 5, 0.9)
+material = SubResource("MatRockDark")
+
+[node name="Slab2" type="CSGBox3D" parent="."]
+position = Vector3(-3, 7.5, 2.2)
+rotation = Vector3(-0.12, 1, -0.15)
+size = Vector3(1.2, 4.5, 0.8)
+material = SubResource("MatRockLight")
+
+[node name="Ledge1" type="CSGBox3D" parent="."]
+position = Vector3(3, 4.2, 3.2)
+rotation = Vector3(0.12, 0.5, 0)
+size = Vector3(1.6, 2.6, 1)
+material = SubResource("MatRockDark")
+
+[node name="Ledge2" type="CSGBox3D" parent="."]
+position = Vector3(-2.6, 6.8, 2.6)
+rotation = Vector3(-0.1, 0.9, 0)
+size = Vector3(1.2, 2.2, 0.9)
+material = SubResource("MatRockLight")
+
+[node name="Ledge3" type="CSGBox3D" parent="."]
+position = Vector3(2.6, 9.4, -1.4)
+rotation = Vector3(0.1, 0.2, 0)
+size = Vector3(1.1, 2.4, 0.9)
+material = SubResource("MatRockDark")
+
+[node name="Ledge4" type="CSGBox3D" parent="."]
+position = Vector3(-1.8, 11, -1.2)
+rotation = Vector3(0, 0.6, 0)
+size = Vector3(0.9, 1.8, 0.7)
+material = SubResource("MatRockLight")
+
+[node name="RockFoot1" type="CSGBox3D" parent="."]
+position = Vector3(6.5, 1.5, 5)
+rotation = Vector3(0, 0.4, 0.1)
+size = Vector3(2.6, 2.6, 2.2)
+material = SubResource("MatRock")
+
+[node name="RockFoot2" type="CSGBox3D" parent="."]
+position = Vector3(8, 1, -2)
+rotation = Vector3(0, 1.1, -0.12)
+size = Vector3(2.4, 2, 2)
+material = SubResource("MatRockDark")
+
+[node name="RockFoot3" type="CSGBox3D" parent="."]
+position = Vector3(-8.5, 1, -3.5)
+rotation = Vector3(0, 0.2, 0.15)
+size = Vector3(2.2, 2, 2)
+material = SubResource("MatRock")
+
+[node name="SnowBase1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0)
+scale = Vector3(11, 1.1, 10)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowBase2" type="MeshInstance3D" parent="."]
+position = Vector3(-6, 0.4, 3)
+scale = Vector3(5, 1, 4.5)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnowShade")
+
+[node name="SnowBase3" type="MeshInstance3D" parent="."]
+position = Vector3(6.5, 0.35, -3)
+scale = Vector3(5.5, 0.9, 5)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowBase4" type="MeshInstance3D" parent="."]
+position = Vector3(2, 0.3, 7)
+scale = Vector3(4.5, 0.8, 4)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnowShade")
+
+[node name="SnowRimF" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 10.1, 0.3)
+scale = Vector3(3, 0.4, 3)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowRimB" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 10, -0.2)
+scale = Vector3(2.4, 0.35, 2.4)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnowShade")
+
+[node name="SnowBlob1" type="MeshInstance3D" parent="."]
+position = Vector3(2.6, 9.6, 1.6)
+scale = Vector3(1.2, 0.9, 1.2)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowBlob2" type="MeshInstance3D" parent="."]
+position = Vector3(-2.2, 9.4, 1.2)
+scale = Vector3(1.1, 0.8, 1.1)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnowShade")
+
+[node name="SnowCapB" type="MeshInstance3D" parent="."]
+position = Vector3(-1.6, 13.9, 1)
+scale = Vector3(0.9, 0.3, 0.9)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowCapE" type="MeshInstance3D" parent="."]
+position = Vector3(1.2, 11.8, 1.8)
+scale = Vector3(0.8, 0.3, 0.8)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowShoulder" type="MeshInstance3D" parent="."]
+position = Vector3(2.2, 4.7, 2.2)
+rotation = Vector3(0.25, 0.4, 0)
+scale = Vector3(2, 0.5, 2)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowLedgeL" type="MeshInstance3D" parent="."]
+position = Vector3(-3.6, 4.2, 1.4)
+rotation = Vector3(0.2, 0.9, 0)
+scale = Vector3(1.8, 0.45, 1.8)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowFoot1" type="MeshInstance3D" parent="."]
+position = Vector3(5.5, 1.8, 3)
+scale = Vector3(3.2, 0.7, 3.2)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")
+
+[node name="SnowFoot2" type="MeshInstance3D" parent="."]
+position = Vector3(-5, 1.6, -2)
+scale = Vector3(3, 0.65, 3)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnowShade")
+
+[node name="SnowSpire" type="MeshInstance3D" parent="."]
+position = Vector3(-5.5, 2.6, 1.5)
+scale = Vector3(2.4, 0.55, 2.4)
+mesh = SubResource("MeshSnowMound")
+surface_material_override/0 = SubResource("MatSnow")

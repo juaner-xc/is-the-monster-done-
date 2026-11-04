@@ -1,0 +1,712 @@
+[gd_scene format=3 uid="uid://65o7aicgbeyk"]
+
+[ext_resource type="Texture2D" uid="uid://dy3wdmpxyab5d" path="res://assets/Textures/Snow/7/7_diffuseOriginal.bmp" id="1_snow"]
+[ext_resource type="Texture2D" uid="uid://h6hf8pxygdh4" path="res://assets/Textures/Snow/7/7_height.bmp" id="2_hgt"]
+[ext_resource type="Texture2D" uid="uid://bb26gd7wuw0dy" path="res://assets/Textures/Snow/7/7_metallic.bmp" id="3_mtl"]
+[ext_resource type="Texture2D" uid="uid://kp1yy28slljc" path="res://assets/Textures/Snow/7/7_normal.bmp" id="4_nrm"]
+[ext_resource type="PackedScene" uid="uid://byxd6qc10ijjs" path="res://assets/Blender/Trees/TreeL.blend" id="5_tl"]
+[ext_resource type="PackedScene" uid="uid://dh6rcoatr221j" path="res://assets/Blender/Trees/TreeM.blend" id="6_tm"]
+[ext_resource type="PackedScene" uid="uid://bcta7b1eomtda" path="res://assets/Blender/Trees/TreeS.blend" id="7_ts"]
+[ext_resource type="PackedScene" uid="uid://63ccisyp04vb" path="res://scenes/snow_fall.tscn" id="8_snowfall"]
+[ext_resource type="Script" path="res://scripts/tree_streamer.gd" id="9_streamer"]
+[ext_resource type="PackedScene" path="res://scenes/snow_dining_house.tscn" id="10_house"]
+[ext_resource type="PackedScene" path="res://scenes/mountain_snow.tscn" id="11_mtn"]
+[ext_resource type="PackedScene" path="res://scenes/ice_cave.tscn" id="12_cave"]
+[ext_resource type="PackedScene" path="res://scenes/dumpling_ice.tscn" id="13_dum"]
+[ext_resource type="PackedScene" path="res://assets/Blender/Boulder.blend" id="14_bold"]
+[ext_resource type="ArrayMesh" path="res://assets/meshes/snow_berm.tres" id="27_berm"]
+[ext_resource type="PackedScene" path="res://scenes/rope_ladder.tscn" id="28_ladder"]
+[ext_resource type="ArrayMesh" path="res://assets/meshes/lighthouse.tres" id="29_lh"]
+[ext_resource type="Material" path="res://assets/materials/mat_ice_boulder.tres" id="15_icemat"]
+[ext_resource type="PackedScene" path="res://scenes/container_tub.tscn" id="16_tub"]
+[ext_resource type="PackedScene" path="res://scenes/container_crate.tscn" id="17_crate"]
+[ext_resource type="PackedScene" path="res://scenes/container_cart.tscn" id="18_cart"]
+[ext_resource type="PackedScene" path="res://scenes/container_cargo.tscn" id="19_cargo"]
+[ext_resource type="PackedScene" path="res://scenes/container_bigbag.tscn" id="20_bigbag"]
+[ext_resource type="Mesh" path="res://assets/models/lake/water_surface.obj" id="23_water"]
+[ext_resource type="Script" path="res://scripts/water_zone.gd" id="24_waterzone"]
+[ext_resource type="Texture2D" path="res://assets/Textures/waterfall_texture_colored.png" id="25_watertex"]
+[ext_resource type="PackedScene" path="res://scenes/bridge.tscn" id="30_bridge"]
+[ext_resource type="PackedScene" path="res://scenes/stele.tscn" id="31_stele"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_bottom_color = Color(0.86, 0.9, 0.94, 1)
+ground_horizon_color = Color(0.86, 0.9, 0.94, 1)
+
+[sub_resource type="Sky" id="Sky_sky"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_env"]
+background_mode = 2
+sky = SubResource("Sky_sky")
+tonemap_mode = 2
+
+[sub_resource type="Shader" id="Shader_glass"]
+code = "shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
+uniform vec4 field_color : source_color = vec4(0.45, 0.72, 1.0, 1.0);
+uniform float wall_height = 60.0;
+uniform float strength = 0.35;
+varying float v_h;
+varying vec3 v_pos;
+void vertex() { v_h = VERTEX.y; v_pos = VERTEX; }
+void fragment() {
+float t = clamp((v_h + wall_height * 0.5) / wall_height, 0.0, 1.0);
+float fade = pow(1.0 - t, 1.3);
+float rim = smoothstep(0.12, 0.0, t) * 0.3;
+float stripe = 0.88 + 0.12 * sin(v_pos.x * 0.3 + v_pos.z * 0.3);
+ALBEDO = field_color.rgb;
+ALPHA = clamp((strength * fade + rim) * stripe, 0.0, 0.85);
+}"
+
+[sub_resource type="Shader" id="Shader_mist"]
+code = "shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
+uniform vec4 mist_color : source_color = vec4(0.86, 0.93, 1.0, 1.0);
+uniform vec4 line_color : source_color = vec4(0.35, 0.62, 1.0, 1.0);
+uniform float inner = 340.0;
+uniform float outer = 400.0;
+varying vec3 v_wpos;
+void vertex() { v_wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+float r = length(v_wpos.xz);
+float t = smoothstep(inner, outer, r);
+float line = smoothstep(8.0, 2.0, abs(r - 396.0));
+vec3 col = mix(mist_color.rgb, line_color.rgb, line);
+ALBEDO = col;
+ALPHA = max(t * 0.8, line * 0.95);
+}"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mist"]
+shader = SubResource("Shader_mist")
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_mist"]
+material = SubResource("ShaderMaterial_mist")
+size = Vector2(800, 800)
+subdivide_width = 32
+subdivide_depth = 32
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_glass"]
+shader = SubResource("Shader_glass")
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_glass"]
+material = SubResource("ShaderMaterial_glass")
+top_radius = 400.0
+bottom_radius = 400.0
+height = 60.0
+radial_segments = 64
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_snow"]
+albedo_texture = ExtResource("1_snow")
+metallic = 1.0
+metallic_texture = ExtResource("3_mtl")
+normal_enabled = true
+normal_texture = ExtResource("4_nrm")
+uv1_scale = Vector3(0.09, 0.09, 0.09)
+uv1_triplanar = true
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+size = Vector2(800, 800)
+
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_floor"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_wall"]
+height = 60.0
+radius = 400.0
+
+[sub_resource type="BoxShape3D" id="ColBoxCave"]
+size = Vector3(18, 10, 18)
+
+[sub_resource type="BoxShape3D" id="ColBoxMountain"]
+size = Vector3(26, 20, 26)
+
+[sub_resource type="SphereShape3D" id="ColSphereBoulder"]
+radius = 2.0
+
+[sub_resource type="StandardMaterial3D" id="berm_mat"]
+albedo_color = Color(0.93, 0.95, 0.98, 1)
+roughness = 1.0
+
+[sub_resource type="ConvexPolygonShape3D" id="berm_shape"]
+points = PackedVector3Array(-9, 0, -5, 9, 0, -5, -9, 0, 5, 9, 0, 5, -6, 13, -2.5, 6, 13, -2.5, -6, 13, 2.5, 6, 13, 2.5)
+
+[sub_resource type="StandardMaterial3D" id="lh_mat"]
+vertex_color_use_as_albedo = true
+roughness = 1.0
+
+[sub_resource type="CylinderShape3D" id="lh_shape"]
+radius = 2.6
+height = 26.0
+
+[sub_resource type="SphereShape3D" id="ColSphereDumpling"]
+radius = 0.6
+
+[sub_resource type="Shader" id="Shader_water"]
+code = "shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
+uniform sampler2D water_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform vec4 deep_color : source_color = vec4(0.05, 0.22, 0.48, 1.0);
+uniform vec4 shallow_color : source_color = vec4(0.35, 0.68, 0.90, 1.0);
+uniform float opacity : hint_range(0.0, 1.0) = 0.8;
+uniform vec2 flow_a = vec2(0.025, -0.045);
+uniform vec2 flow_b = vec2(-0.015, 0.03);
+varying vec3 v_world;
+void vertex() {
+v_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+vec2 uv = v_world.xz / 14.0;
+vec3 t1 = texture(water_tex, uv + TIME * flow_a).rgb;
+vec3 t2 = texture(water_tex, uv * 1.9 + vec2(0.37, 0.62) + TIME * flow_b).rgb;
+vec3 tex = mix(t1, t2, 0.5);
+float lum = dot(tex, vec3(0.333));
+vec3 col = mix(deep_color.rgb, shallow_color.rgb, smoothstep(0.25, 0.8, lum));
+ALBEDO = col;
+ALPHA = opacity;
+}"
+
+[sub_resource type="ShaderMaterial" id="StandardMaterial3D_lakewater"]
+shader = SubResource("Shader_water")
+shader_parameter/water_tex = ExtResource("25_watertex")
+
+[node name="SnowMap" type="Node3D" unique_id=2062679552]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=795645936]
+transform = Transform3D(-0.866024, -0.433016, 0.250001, 0, 0.499998, 0.866026, -0.500003, 0.749999, -0.43301, 0, 0, 0)
+light_color = Color(0.674815, 0.674815, 0.674815, 1)
+light_energy = 0.5
+shadow_enabled = true
+shadow_bias = 0.15
+shadow_normal_bias = 3.0
+shadow_blur = 1.4
+shadow_max_distance = 70.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=927843120]
+environment = SubResource("Environment_env")
+
+[node name="Floor" type="StaticBody3D" parent="." unique_id=12854740]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor" unique_id=951258101]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+material_override = SubResource("StandardMaterial3D_snow")
+mesh = SubResource("PlaneMesh_floor")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor" unique_id=459791583]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+shape = SubResource("WorldBoundaryShape3D_floor")
+
+[node name="Trees" type="Node3D" parent="." unique_id=570698181]
+
+[node name="TreeL1" parent="Trees" unique_id=19803737 instance=ExtResource("5_tl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, -15)
+
+[node name="TreeL2" parent="Trees" unique_id=1901101166 instance=ExtResource("5_tl")]
+transform = Transform3D(0.866, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866, 26, 0, -38)
+
+[node name="TreeL3" parent="Trees" unique_id=1833616176 instance=ExtResource("5_tl")]
+transform = Transform3D(0.94, 0, -0.34, 0, 1, 0, 0.34, 0, 0.94, -22, 0, -68)
+
+[node name="TreeL4" parent="Trees" unique_id=306462891 instance=ExtResource("5_tl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34, 0, -85)
+
+[node name="TreeL5" parent="Trees" unique_id=1314463595 instance=ExtResource("5_tl")]
+transform = Transform3D(0.77, 0, 0.64, 0, 1, 0, -0.64, 0, 0.77, -40, 0, -105)
+
+[node name="TreeL6" parent="Trees" unique_id=1267395153 instance=ExtResource("5_tl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 44, 0, 8)
+
+[node name="TreeM1" parent="Trees" unique_id=984272443 instance=ExtResource("6_tm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, -30)
+
+[node name="TreeM2" parent="Trees" unique_id=1309064555 instance=ExtResource("6_tm")]
+transform = Transform3D(0.985, 0, 0.174, 0, 1, 0, -0.174, 0, 0.985, 12, 0, -22)
+
+[node name="TreeM3" parent="Trees" unique_id=673524844 instance=ExtResource("6_tm")]
+transform = Transform3D(0.87, 0, -0.5, 0, 1, 0, 0.5, 0, 0.87, -6, 0, -52)
+
+[node name="TreeM4" parent="Trees" unique_id=1682439559 instance=ExtResource("6_tm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -62)
+
+[node name="TreeM5" parent="Trees" unique_id=1586915054 instance=ExtResource("6_tm")]
+transform = Transform3D(0.94, 0, 0.34, 0, 1, 0, -0.34, 0, 0.94, -32, 0, -45)
+
+[node name="TreeM6" parent="Trees" unique_id=676974009 instance=ExtResource("6_tm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -92)
+
+[node name="TreeM7" parent="Trees" unique_id=1176067383 instance=ExtResource("6_tm")]
+transform = Transform3D(0.985, 0, -0.174, 0, 1, 0, 0.174, 0, 0.985, -46, 0, -50)
+
+[node name="TreeM8" parent="Trees" unique_id=1614128322 instance=ExtResource("6_tm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38, 0, -55)
+
+[node name="TreeS1" parent="Trees" unique_id=1559619144 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -12)
+
+[node name="TreeS2" parent="Trees" unique_id=2071159193 instance=ExtResource("7_ts")]
+transform = Transform3D(0.985, 0, 0.174, 0, 1, 0, -0.174, 0, 0.985, 4, 0, -35)
+
+[node name="TreeS3" parent="Trees" unique_id=53935220 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0, -40)
+
+[node name="TreeS4" parent="Trees" unique_id=73422508 instance=ExtResource("7_ts")]
+transform = Transform3D(0.94, 0, -0.34, 0, 1, 0, 0.34, 0, 0.94, 22, 0, -48)
+
+[node name="TreeS5" parent="Trees" unique_id=1190639540 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26, 0, -88)
+
+[node name="TreeS6" parent="Trees" unique_id=1588362659 instance=ExtResource("7_ts")]
+transform = Transform3D(0.87, 0, 0.5, 0, 1, 0, -0.5, 0, 0.87, 14, 0, -75)
+
+[node name="TreeS7" parent="Trees" unique_id=857757956 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, -15)
+
+[node name="TreeS8" parent="Trees" unique_id=504444565 instance=ExtResource("7_ts")]
+transform = Transform3D(0.985, 0, -0.174, 0, 1, 0, 0.174, 0, 0.985, -2, 0, -68)
+
+[node name="TreeS9" parent="Trees" unique_id=1204533141 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -36, 0, -58)
+
+[node name="TreeS10" parent="Trees" unique_id=1861514174 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 42, 0, -30)
+
+[node name="TreeS11" parent="Trees" unique_id=1126529495 instance=ExtResource("7_ts")]
+transform = Transform3D(0.94, 0, 0.34, 0, 1, 0, -0.34, 0, 0.94, 20, 0, -100)
+
+[node name="TreeS12" parent="Trees" unique_id=1285959587 instance=ExtResource("7_ts")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -44, 0, -35)
+
+[node name="snow_fall" parent="." unique_id=404775313 instance=ExtResource("8_snowfall")]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=462440537]
+transform = Transform3D(1, 0, 0, 0, 0.642788, 0.766044, 0, -0.766044, 0.642788, 0, 15, 10)
+
+[node name="TreeStreamer" type="Node3D" parent="." unique_id=431156728]
+script = ExtResource("9_streamer")
+tree_scenes = Array[PackedScene]([ExtResource("5_tl"), ExtResource("6_tm"), ExtResource("7_ts")])
+enabled = true
+view_cells = 2
+trees_per_cell = 1
+exclusion_radius = 14.0
+no_spawn_zones = Array[Vector3]([Vector3(-55, -20, 16), Vector3(88, -34, 14), Vector3(10.65, 0, 13)])
+
+[node name="BoundaryWall" type="StaticBody3D" parent="." unique_id=440164343]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BoundaryWall" unique_id=1298147247]
+shape = SubResource("CylinderShape3D_wall")
+disabled = true
+
+[node name="BoundaryGlass" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30, 0)
+cast_shadow = 0
+mesh = SubResource("CylinderMesh_glass")
+
+[node name="BoundaryMist" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_mist")
+
+[node name="House" parent="." instance=ExtResource("10_house")]
+transform = Transform3D(1.42, 0, 0, 0, 1, 0, 0, 0, 1.36, 10.65, 0.75, 0)
+
+[node name="Dumpling" parent="." instance=ExtResource("13_dum")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.02, 12)
+
+[node name="Collision" type="StaticBody3D" parent="Dumpling"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Dumpling/Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+shape = SubResource("ColSphereDumpling")
+
+[node name="Boulder" parent="." instance=ExtResource("14_bold")]
+transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 24, 0.02, 6)
+
+[node name="Icosphere" parent="Boulder" index="0"]
+surface_material_override/0 = ExtResource("15_icemat")
+
+[node name="Collision" type="StaticBody3D" parent="Boulder"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Boulder/Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("ColSphereBoulder")
+
+[node name="SnowBarrier" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.02, -20)
+mesh = ExtResource("27_berm")
+material_override = SubResource("berm_mat")
+
+[node name="Collision" type="StaticBody3D" parent="SnowBarrier"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SnowBarrier/Collision"]
+shape = SubResource("berm_shape")
+
+[node name="RopeLadder" parent="SnowBarrier" instance=ExtResource("28_ladder")]
+groups = ["ladder"]
+transform = Transform3D(1, 0, 0, 0, 0.982, 0.189, 0, -0.189, 0.982, 0, 0, 5.0)
+
+[node name="Lighthouse" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 88, 0, -34)
+mesh = ExtResource("29_lh")
+material_override = SubResource("lh_mat")
+
+[node name="Collision" type="StaticBody3D" parent="Lighthouse"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Lighthouse/Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13, 0)
+shape = SubResource("lh_shape")
+
+[node name="IceCave" parent="." instance=ExtResource("12_cave")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55, 0.02, -50)
+
+[node name="WorldEnvironment" parent="IceCave" index="0"]
+environment = null
+
+[node name="MeshInstance3D" parent="IceCave/Floor" index="0"]
+visible = false
+
+[node name="DirectionalLight3D" parent="IceCave" index="0"]
+light_energy = 0.0
+
+[node name="CaveInnerLight" parent="IceCave" index="0"]
+light_energy = 0.0
+
+[node name="LanternOmniLight" parent="IceCave/LampPost/Lantern" index="0"]
+light_energy = 0.0
+
+[node name="LanternSpotLight" parent="IceCave/LampPost/Lantern" index="0"]
+light_energy = 0.0
+
+[node name="Camera3D" parent="IceCave" index="0"]
+current = false
+
+[node name="Collision" type="StaticBody3D" parent="IceCave"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="IceCave/Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+shape = SubResource("ColBoxCave")
+
+[node name="SnowMountain" parent="." instance=ExtResource("11_mtn")]
+transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, 0, 0.02, -170)
+
+[node name="WorldEnvironment" parent="SnowMountain" index="0"]
+environment = null
+
+[node name="Sun" parent="SnowMountain" index="0"]
+light_energy = 0.0
+
+[node name="Fill" parent="SnowMountain" index="0"]
+light_energy = 0.0
+
+[node name="Camera3D" parent="SnowMountain" index="0"]
+current = false
+
+[node name="Collision" type="StaticBody3D" parent="SnowMountain"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SnowMountain/Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
+shape = SubResource("ColBoxMountain")
+
+[node name="Tub" parent="." instance=ExtResource("16_tub")]
+transform = Transform3D(1.1142, 0, -0.7623, 0, 1.3500, 0, 0.7623, 0, 1.1142, 35, 0.02, 15)
+
+[node name="WorldEnvironment" parent="Tub" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Tub" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Tub" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Tub" index="0"]
+current = false
+
+[node name="Crate" parent="." instance=ExtResource("17_crate")]
+transform = Transform3D(0.4892, 0, 1.2583, 0, 1.3500, 0, -1.2583, 0, 0.4892, -40, 0.02, 20)
+
+[node name="WorldEnvironment" parent="Crate" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Crate" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Crate" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Crate" index="0"]
+current = false
+
+[node name="Cart" parent="." instance=ExtResource("18_cart")]
+transform = Transform3D(-0.6815, 0, -1.1653, 0, 1.3500, 0, 1.1653, 0, -0.6815, 15, 0.02, 35)
+
+[node name="WorldEnvironment" parent="Cart" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cart" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cart" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cart" index="0"]
+current = false
+
+[node name="Cargo" parent="." instance=ExtResource("19_cargo")]
+transform = Transform3D(1.2897, 0, -0.3990, 0, 1.3500, 0, 0.3990, 0, 1.2897, -30, 0.02, -45)
+
+[node name="WorldEnvironment" parent="Cargo" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cargo" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cargo" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cargo" index="0"]
+current = false
+
+[node name="Bigbag" parent="." instance=ExtResource("20_bigbag")]
+transform = Transform3D(0.9406, 0, 0.9684, 0, 1.3500, 0, -0.9684, 0, 0.9406, 45, 0.02, -20)
+
+[node name="WorldEnvironment" parent="Bigbag" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Bigbag" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Bigbag" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Bigbag" index="0"]
+current = false
+
+[node name="Tub2" parent="." instance=ExtResource("16_tub")]
+transform = Transform3D(0.6804, 0, -1.3368, 0, 1.5000, 0, 1.3368, 0, 0.6804, -50, 0.02, 0)
+
+[node name="WorldEnvironment" parent="Tub2" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Tub2" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Tub2" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Tub2" index="0"]
+current = false
+
+[node name="Tub3" parent="." instance=ExtResource("16_tub")]
+transform = Transform3D(1.4041, 0, 0.7671, 0, 1.6000, 0, -0.7671, 0, 1.4041, 60, 0.02, 30)
+
+[node name="WorldEnvironment" parent="Tub3" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Tub3" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Tub3" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Tub3" index="0"]
+current = false
+
+[node name="Crate2" parent="." instance=ExtResource("17_crate")]
+transform = Transform3D(-1.0324, 0, -0.9456, 0, 1.4000, 0, 0.9456, 0, -1.0324, 55, 0.02, -40)
+
+[node name="WorldEnvironment" parent="Crate2" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Crate2" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Crate2" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Crate2" index="0"]
+current = false
+
+[node name="Crate3" parent="." instance=ExtResource("17_crate")]
+transform = Transform3D(0.9324, 0, -1.1750, 0, 1.5000, 0, 1.1750, 0, 0.9324, -60, 0.02, 60)
+
+[node name="WorldEnvironment" parent="Crate3" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Crate3" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Crate3" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Crate3" index="0"]
+current = false
+
+[node name="Cart2" parent="." instance=ExtResource("18_cart")]
+transform = Transform3D(-0.6034, 0, 1.3185, 0, 1.4500, 0, -1.3185, 0, -0.6034, -20, 0.02, 60)
+
+[node name="WorldEnvironment" parent="Cart2" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cart2" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cart2" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cart2" index="0"]
+current = false
+
+[node name="Cart3" parent="." instance=ExtResource("18_cart")]
+transform = Transform3D(1.3816, 0, -0.5841, 0, 1.5000, 0, 0.5841, 0, 1.3816, 70, 0.02, 10)
+
+[node name="WorldEnvironment" parent="Cart3" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cart3" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cart3" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cart3" index="0"]
+current = false
+
+[node name="Cargo2" parent="." instance=ExtResource("19_cargo")]
+transform = Transform3D(0.0990, 0, 1.3965, 0, 1.4000, 0, -1.3965, 0, 0.0990, 10, 0.02, -70)
+
+[node name="WorldEnvironment" parent="Cargo2" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cargo2" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cargo2" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cargo2" index="0"]
+current = false
+
+[node name="Cargo3" parent="." instance=ExtResource("19_cargo")]
+transform = Transform3D(-0.3408, 0, -1.4608, 0, 1.5000, 0, 1.4608, 0, -0.3408, -65, 0.02, -30)
+
+[node name="WorldEnvironment" parent="Cargo3" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cargo3" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cargo3" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cargo3" index="0"]
+current = false
+
+[node name="Bigbag2" parent="." instance=ExtResource("20_bigbag")]
+transform = Transform3D(1.5191, 0, -0.3079, 0, 1.5500, 0, 0.3079, 0, 1.5191, 0, 0.02, 50)
+
+[node name="WorldEnvironment" parent="Bigbag2" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Bigbag2" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Bigbag2" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Bigbag2" index="0"]
+current = false
+
+[node name="Bigbag3" parent="." instance=ExtResource("20_bigbag")]
+transform = Transform3D(0.8645, 0, 1.3464, 0, 1.6000, 0, -1.3464, 0, 0.8645, 50, 0.02, 60)
+
+[node name="WorldEnvironment" parent="Bigbag3" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Bigbag3" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Bigbag3" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Bigbag3" index="0"]
+current = false
+
+[node name="Tub4" parent="." instance=ExtResource("16_tub")]
+transform = Transform3D(-1.2425, 0, -0.7475, 0, 1.4500, 0, 0.7475, 0, -1.2425, 0, 0.02, -60)
+
+[node name="WorldEnvironment" parent="Tub4" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Tub4" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Tub4" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Tub4" index="0"]
+current = false
+
+[node name="Crate4" parent="." instance=ExtResource("17_crate")]
+transform = Transform3D(1.1473, 0, 0.9663, 0, 1.5000, 0, -0.9663, 0, 1.1473, -10, 0.02, 80)
+
+[node name="WorldEnvironment" parent="Crate4" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Crate4" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Crate4" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Crate4" index="0"]
+current = false
+
+[node name="Cart4" parent="." instance=ExtResource("18_cart")]
+transform = Transform3D(0.3745, 0, -1.3490, 0, 1.4000, 0, 1.3490, 0, 0.3745, 40, 0.02, -10)
+
+[node name="WorldEnvironment" parent="Cart4" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cart4" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cart4" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cart4" index="0"]
+current = false
+
+[node name="Cargo4" parent="." instance=ExtResource("19_cargo")]
+transform = Transform3D(-0.8828, 0, 1.2127, 0, 1.5000, 0, -1.2127, 0, -0.8828, -45, 0.02, -80)
+
+[node name="WorldEnvironment" parent="Cargo4" index="0"]
+environment = null
+
+[node name="DirectionalLight3D" parent="Cargo4" index="0"]
+light_energy = 0.0
+
+[node name="Floor" parent="Cargo4" index="0"]
+visible = false
+
+[node name="Camera3D" parent="Cargo4" index="0"]
+current = false
+
+[node name="LakeWater" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 135, 0.05, -55)
+mesh = ExtResource("23_water")
+material_override = SubResource("StandardMaterial3D_lakewater")
+
+[node name="WaterZone" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 129.5, 0, -49.7)
+script = ExtResource("24_waterzone")
+groups = Array[String](["water_zone"])
+
+[node name="Bridge" parent="." instance=ExtResource("30_bridge")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 135, 1.0, -55)
+
+[node name="Stele" parent="." instance=ExtResource("31_stele")]
+transform = Transform3D(0.969, 0, -0.247, 0, 1, 0, 0.247, 0, 0.969, 139, 0, -12.5)
+

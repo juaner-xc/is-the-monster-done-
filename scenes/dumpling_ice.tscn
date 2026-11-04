@@ -1,0 +1,133 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="MatIce"]
+albedo_color = Color(0.62, 0.8, 0.95, 1)
+metallic = 0.15
+roughness = 0.08
+rim = 0.6
+rim_tint = 0.1
+
+[sub_resource type="StandardMaterial3D" id="MatIceSkirt"]
+albedo_color = Color(0.56, 0.76, 0.93, 1)
+metallic = 0.15
+roughness = 0.12
+rim = 0.6
+rim_tint = 0.1
+
+[sub_resource type="StandardMaterial3D" id="MatInk"]
+albedo_color = Color(0.06, 0.05, 0.07, 1)
+metallic = 0.4
+roughness = 0.1
+
+[sub_resource type="StandardMaterial3D" id="MatGlint"]
+albedo_color = Color(1, 1, 1, 1)
+roughness = 0.05
+emission_enabled = true
+emission = Color(0.8, 0.9, 1, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="SphereMesh" id="MeshLobe"]
+radius = 1
+height = 2
+radial_segments = 20
+rings = 10
+
+[sub_resource type="TorusMesh" id="MeshSmile"]
+inner_radius = 0.085
+outer_radius = 0.105
+rings = 24
+ring_segments = 8
+
+[sub_resource type="BoxMesh" id="MeshRidge"]
+size = Vector3(0.09, 0.08, 0.28)
+
+[node name="DumplingIce" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.45, 0)
+scale = Vector3(0.6, 0.43, 0.51)
+mesh = SubResource("MeshLobe")
+surface_material_override/0 = SubResource("MatIce")
+
+[node name="Pleats" type="Node3D" parent="."]
+
+[node name="Ridge0" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(0, 0.865, 0.2)
+rotation = Vector3(0.3, 0, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Ridge1" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(0.162, 0.865, 0.126)
+rotation = Vector3(0.3, 0.898, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Ridge2" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(0.194, 0.865, -0.062)
+rotation = Vector3(0.3, 1.795, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Ridge3" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(0.098, 0.865, -0.173)
+rotation = Vector3(0.3, 2.693, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Ridge4" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(-0.098, 0.865, -0.173)
+rotation = Vector3(0.3, 3.59, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Ridge5" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(-0.194, 0.865, -0.062)
+rotation = Vector3(0.3, 4.488, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Ridge6" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(-0.162, 0.865, 0.126)
+rotation = Vector3(0.3, 5.385, 0)
+mesh = SubResource("MeshRidge")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="PleatCenter" type="MeshInstance3D" parent="Pleats"]
+position = Vector3(0, 0.9, 0.02)
+scale = Vector3(0.07, 0.06, 0.07)
+mesh = SubResource("MeshLobe")
+surface_material_override/0 = SubResource("MatIceSkirt")
+
+[node name="Face" type="Node3D" parent="."]
+
+[node name="EyeL" type="MeshInstance3D" parent="Face"]
+position = Vector3(-0.16, 0.52, 0.46)
+scale = Vector3(0.048, 0.055, 0.03)
+mesh = SubResource("MeshLobe")
+surface_material_override/0 = SubResource("MatInk")
+
+[node name="EyeR" type="MeshInstance3D" parent="Face"]
+position = Vector3(0.16, 0.52, 0.46)
+scale = Vector3(0.048, 0.055, 0.03)
+mesh = SubResource("MeshLobe")
+surface_material_override/0 = SubResource("MatInk")
+
+[node name="GlintL" type="MeshInstance3D" parent="Face"]
+position = Vector3(-0.145, 0.545, 0.482)
+scale = Vector3(0.014, 0.014, 0.012)
+mesh = SubResource("MeshLobe")
+surface_material_override/0 = SubResource("MatGlint")
+
+[node name="GlintR" type="MeshInstance3D" parent="Face"]
+position = Vector3(0.175, 0.545, 0.482)
+scale = Vector3(0.014, 0.014, 0.012)
+mesh = SubResource("MeshLobe")
+surface_material_override/0 = SubResource("MatGlint")
+
+[node name="Smile" type="MeshInstance3D" parent="Face"]
+position = Vector3(0, 0.455, 0.46)
+rotation = Vector3(1.22, 0, 0)
+scale = Vector3(1.4, 1.4, 1)
+mesh = SubResource("MeshSmile")
+surface_material_override/0 = SubResource("MatInk")

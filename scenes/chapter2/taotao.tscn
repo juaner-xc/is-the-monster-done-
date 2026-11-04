@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter2/taotao.gd" id="1"]
+[ext_resource type="PackedScene" path="res://assets/models/taotao/taotao_model.tscn" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="Body"]
+radius = 0.55
+height = 2.05
+
+[node name="TaoTao" type="StaticBody3D"]
+script = ExtResource("1")
+
+[node name="TaoTaoModel" parent="." instance=ExtResource("2")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0,1.025,0)
+shape = SubResource("Body")

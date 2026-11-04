@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "MatIceBoulder"
+albedo_color = Color(0.62, 0.8, 0.95, 1)
+metallic = 0.15
+roughness = 0.08
+rim = 0.6
+rim_tint = 0.1

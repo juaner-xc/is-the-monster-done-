@@ -1,0 +1,148 @@
+[gd_scene load_steps=15 format=3]
+
+[sub_resource type="StandardMaterial3D" id="MatWood"]
+albedo_color = Color(0.45, 0.28, 0.16, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="MatMetal"]
+albedo_color = Color(0.2, 0.2, 0.23, 1)
+metallic = 0.85
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="MatGlow"]
+albedo_color = Color(1, 0.9, 0.65, 1)
+emission_enabled = true
+emission = Color(1, 0.78, 0.45, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="CylinderMesh" id="MeshPost"]
+top_radius = 0.09
+bottom_radius = 0.14
+height = 5.0
+
+[sub_resource type="CylinderMesh" id="MeshBase"]
+top_radius = 0.36
+bottom_radius = 0.46
+height = 0.25
+
+[sub_resource type="BoxMesh" id="MeshArm"]
+size = Vector3(1.9, 0.14, 0.2)
+
+[sub_resource type="BoxMesh" id="MeshBrace"]
+size = Vector3(0.1, 0.9, 0.1)
+
+[sub_resource type="BoxMesh" id="MeshCap"]
+size = Vector3(0.24, 0.1, 0.24)
+
+[sub_resource type="CylinderMesh" id="MeshChain"]
+top_radius = 0.022
+bottom_radius = 0.022
+height = 0.9
+
+[sub_resource type="BoxMesh" id="MeshGlowBox"]
+size = Vector3(0.32, 0.4, 0.32)
+
+[sub_resource type="BoxMesh" id="MeshBar"]
+size = Vector3(0.045, 0.48, 0.045)
+
+[sub_resource type="CylinderMesh" id="MeshRoof"]
+top_radius = 0.02
+bottom_radius = 0.3
+height = 0.28
+
+[sub_resource type="CylinderMesh" id="MeshPlate"]
+top_radius = 0.27
+bottom_radius = 0.27
+height = 0.06
+
+[sub_resource type="SphereMesh" id="MeshFinial"]
+radius = 0.045
+height = 0.09
+
+[node name="LampPost" type="Node3D"]
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.12, 0)
+mesh = SubResource("MeshBase")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Post" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.5, 0)
+mesh = SubResource("MeshPost")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="PostCap" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5.05, 0)
+mesh = SubResource("MeshCap")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Arm" type="MeshInstance3D" parent="."]
+position = Vector3(-0.85, 4.98, 0)
+mesh = SubResource("MeshArm")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Brace" type="MeshInstance3D" parent="."]
+position = Vector3(-0.35, 4.55, 0)
+rotation = Vector3(0, 0, 0.7)
+mesh = SubResource("MeshBrace")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Lantern" type="Node3D" parent="."]
+position = Vector3(-1.45, 3.95, 0)
+
+[node name="Chain" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(0, 0.72, 0)
+mesh = SubResource("MeshChain")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="GlowCore" type="MeshInstance3D" parent="Lantern"]
+mesh = SubResource("MeshGlowBox")
+surface_material_override/0 = SubResource("MatGlow")
+
+[node name="Bar1" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(0.14, 0, 0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Bar2" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(0.14, 0, -0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Bar3" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(-0.14, 0, 0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Bar4" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(-0.14, 0, -0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Roof" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(0, 0.34, 0)
+mesh = SubResource("MeshRoof")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Finial" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("MeshFinial")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="BottomPlate" type="MeshInstance3D" parent="Lantern"]
+position = Vector3(0, -0.26, 0)
+mesh = SubResource("MeshPlate")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="LanternOmniLight" type="OmniLight3D" parent="Lantern"]
+light_color = Color(1, 0.83, 0.58, 1)
+light_energy = 7.0
+omni_range = 20.0
+shadow_enabled = false
+
+[node name="LanternSpotLight" type="SpotLight3D" parent="Lantern"]
+rotation = Vector3(-2.09, 0, 0)
+light_color = Color(1, 0.85, 0.6, 1)
+light_energy = 3.5
+spot_range = 14.0
+spot_angle = 40.0

@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/chapter2/shaders/lava_fall.gdshader" id="1_shader"]
+
+[resource]
+resource_name = "MatLavaFall (流淌岩浆自发光)"
+shader = ExtResource("1_shader")
+shader_parameter/flow_speed = 0.45
+shader_parameter/repeats = 5.0

@@ -1,0 +1,53 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/dumpling_ice.tscn" id="Dumpling"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.1, 0.14, 1)
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="MatFloor"]
+albedo_color = Color(0.16, 0.17, 0.22, 1)
+metallic = 0.2
+roughness = 0.4
+
+[sub_resource type="PlaneMesh" id="MeshGround"]
+size = Vector2(12, 12)
+
+[node name="DumplingIceShow" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.6, 0.5, 0)
+light_energy = 1.2
+light_color = Color(1, 0.98, 0.95, 1)
+shadow_enabled = true
+
+[node name="Fill" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.35, -2.4, 0)
+light_energy = 0.4
+light_color = Color(0.55, 0.7, 1, 1)
+
+[node name="BackLight" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.2, 3.4, 0)
+light_energy = 0.5
+light_color = Color(0.7, 0.85, 1, 1)
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+position = Vector3(1.1, 0, 0.3)
+mesh = SubResource("MeshGround")
+surface_material_override/0 = SubResource("MatFloor")
+
+[node name="DumplingA" parent="." instance=ExtResource("Dumpling")]
+
+[node name="DumplingB" parent="." instance=ExtResource("Dumpling")]
+position = Vector3(2.2, 0, 0.5)
+rotation = Vector3(0, 3.1416, 0)
+scale = Vector3(0.85, 0.85, 0.85)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(1.9, 1.9, 2.7)
+rotation = Vector3(-0.5, 0.52, 0)

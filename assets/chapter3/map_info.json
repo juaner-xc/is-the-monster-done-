@@ -1,0 +1,10 @@
+{
+  "mesh_groups": 26,
+  "triangles": 335008,
+  "colliders": 97,
+  "footprint_m": [
+    60,
+    86
+  ],
+  "source_assets": "Kenney CC0 props from github.com/Hidencod/tge-assets"
+}

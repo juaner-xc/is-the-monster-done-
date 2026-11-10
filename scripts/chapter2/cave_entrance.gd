@@ -16,14 +16,17 @@ const ROCK_CHUNK_MESHES := [
 
 const CORRIDOR_WIDTH := 5.2        # 隧道内宽
 const CORRIDOR_HEIGHT := 6.6       # 隧道内高
-const CORRIDOR_LENGTH := 24.0      # 门洞到隧道尽头的深度
+const CORRIDOR_LENGTH := 28.0      # 门洞到隧道尽头的深度
 const RAIL_GAUGE := 1.1            # 轨距
 const RAIL_TOP_OFFSET := 0.14      # 轨面离地高度
 const SLEEPER_SPACING := 1.15      # 枕木间距
-const CART_START_INSET := 5.0      # 矿车初始位置离隧道尽头的距离（回到隧道内出发）
-const COAST_DISTANCE := 23.0       # 矿车滑行距离（从洞口外滑到生活区地台）
-## 隧道尽头的 x：整体放在洞窟西侧一半距离处，玩家出洞后能快速到达中心
-const SITE_BACK_X := -76.0
+const CART_START_INSET := 7.0      # 矿车初始位置离隧道尽头的距离（给第三人称相机留出退身位）
+## 滑行距离：从洞内一路滑出洞口、停在营地地台外缘的站台上
+const COAST_DISTANCE := 25.0
+## 洞口外那段石砌站台：只连到生活区地台边缘，不再伸进营地
+const APRON_LENGTH := 6.5
+## 营地地台顶面：站台比它高一点，接缝处补一段小坡
+const HUB_DECK_Y := 0.58
 ## 隧道后方（外侧）的巨石堆布局：横向位置 z / 纵向偏移 x / 缩放 / 偏转角（弧度）
 ## 把隧道尽头包进一座石丘里，看起来是从巨石中凿出来的
 const BACK_ROCKS := [
@@ -37,10 +40,16 @@ const BACK_ROCKS := [
 	[5.3, 0.2, 2.8, 2.7],
 ]
 
-var minecart: StaticBody3D         # 矿车（原点在轨面高度）
-var cart_forward := Vector3.RIGHT  # 出洞方向
-var mouth_position := Vector3.ZERO # 门洞地面中心
+var minecart: StaticBody3D          # 矿车（原点在轨面高度）
+var cart_forward := Vector3.FORWARD # 出洞方向（世界坐标）
+var mouth_position := Vector3.ZERO  # 门洞地面中心（世界坐标）
 var coast_distance := COAST_DISTANCE
+## 由主控在 add_child 之前写入：洞口在轴线上的落点。
+## 隧道沿局部 +X 搭，整体绕 Y 轴转 +90° 之后，局部 +X 就指向世界 -Z，
+## 于是「出洞方向」= 关卡正向（营地 → 阶梯 → 主炉）。
+var axis_x := -39.0
+var floor_world_y := 0.95
+var mouth_z := 36.0
 
 var _rock: Material
 var _stone: Material
@@ -76,59 +85,88 @@ func _load_materials() -> void:
 
 
 func _build() -> void:
-	# 隧道整体放在洞窟西侧一半距离处（方便玩家出洞后快速到达中心），
-	# 尽头包进一座巨石堆里，洞口朝向洞窟。
-	var site := _select_site()
-	var back_x := site.x
-	var floor_y := site.y
-	var anchor_z := site.z
-	var mouth_x := back_x + CORRIDOR_LENGTH
-	mouth_position = Vector3(mouth_x, floor_y, anchor_z)
-	cart_forward = Vector3.RIGHT
-	position = Vector3(0.0, 0.0, anchor_z)  # 局部按 z=0 搭建，整体平移
+	# 隧道沿局部 +X 搭建，洞口落在局部原点；整体绕 Y 轴转 +90°，
+	# 局部 +X 于是变成世界 -Z —— 玩家出洞即正对关卡轴线（阶梯 → 运输站 → 主炉）。
+	var mouth_x := 0.0
+	var back_x := -CORRIDOR_LENGTH
+	var floor_y := 0.0
+	position = Vector3(axis_x, floor_world_y, mouth_z)
+	rotation = Vector3(0.0, PI * 0.5, 0.0)
+	mouth_position = position
+	cart_forward = Vector3.FORWARD  # 世界 -Z
 
 	_build_corridor(back_x, mouth_x, floor_y)
-	_build_portal_frames(mouth_x, floor_y)
-	_build_depth_glow(back_x, floor_y)
+	# 门框要凸出岩体表面（岩体收到局部 x=0.5），否则整圈框子被埋在石头里
+	_build_portal_frames(mouth_x + 0.55, floor_y)
+	_build_depth_glow(back_x, floor_y, mouth_x)
 	_build_back_rocks(back_x, floor_y)
 	_build_rails(back_x, mouth_x + 8.0, floor_y)
 	_build_lever(mouth_x - 4.5, floor_y)
 	_build_sign(mouth_x, floor_y)
 	_build_minecart(Vector3(back_x + CART_START_INSET, floor_y + RAIL_TOP_OFFSET, 0.0))
-	_build_ramp(mouth_x + 10.0, floor_y, anchor_z)
+	_build_apron(mouth_x, floor_y)
 
 
-## 选址：返回 (back_x, 轨床顶面高度, anchor_z)
-## 隧道尽头固定在半程位置，在几个候选 z 里挑轨床沿线最平缓的一条
-func _select_site() -> Vector3:
-	var best := Vector3(SITE_BACK_X, 0.3, 0.0)
-	var best_high := 100.0
-	for z in [0.0, -10.0, 10.0, -20.0, 20.0, -30.0, 30.0]:
-		var high := _bed_max(SITE_BACK_X, SITE_BACK_X + CORRIDOR_LENGTH, z)
-		if high < best_high:
-			best_high = high
-			best = Vector3(SITE_BACK_X, high + 0.1, z)
-	return best
-
-
+## 隧道尽头固定在轴线后方；选址与地形采样已不需要（洞口恒定落在营地南侧）。
 # ------------------------------------------------------------------ 隧道主体
 func _build_corridor(back_x: float, mouth_x: float, floor_y: float) -> void:
 	var half_w := CORRIDOR_WIDTH * 0.5
-	var apron_end := mouth_x + 10.0  # 地板向洞内延伸成轨床，衔接轨道区
-	var floor_len := mouth_x + 10.0 - (back_x - 0.5)
+	# 洞内地板只铺到洞口（多出 0.4 与站台搭接）。以前这里一直铺到站台尽头，
+	# 和 _build_apron 的台面顶在同一高度、又重叠 6.5 m，两个共面的面互相抢深度，
+	# 玩家站在站台上时地面会整片闪。室外那截交给 _build_apron，并压低 8 mm。
+	var floor_end := mouth_x + 0.4
+	var floor_len := floor_end - (back_x - 0.5)
 	_solid_box(Vector3(floor_len, 0.6, CORRIDOR_WIDTH),
-			Vector3((back_x - 0.5 + apron_end) * 0.5, floor_y - 0.3, 0.0), _stone)
-	# 隧道两侧和顶部补完整：之前为了避开北侧台地石层而拆掉，
-	# 但真正的穿模源是 North_Terrace_Mid，已经删除；隧道本体恢复。
-	_solid_box(Vector3(CORRIDOR_LENGTH + 1.0, CORRIDOR_HEIGHT + 0.6, 0.6),
-			Vector3((back_x + mouth_x) * 0.5, floor_y + CORRIDOR_HEIGHT * 0.5, -(half_w + 0.3)), _rock)
-	_solid_box(Vector3(CORRIDOR_LENGTH + 1.0, CORRIDOR_HEIGHT + 0.6, 0.6),
-			Vector3((back_x + mouth_x) * 0.5, floor_y + CORRIDOR_HEIGHT * 0.5, half_w + 0.3), _rock)
-	# 顶板
-	_solid_box(Vector3(CORRIDOR_LENGTH + 1.0, 0.5, CORRIDOR_WIDTH + 1.4),
-			Vector3((back_x + mouth_x) * 0.5, floor_y + CORRIDOR_HEIGHT + 0.25, 0.0), _rock)
+			Vector3((back_x - 0.5 + floor_end) * 0.5, floor_y - 0.3, 0.0), _stone)
+	# 两侧岩壁加厚成实体岩体，外面再压几块巨石，读成「从岩丘里凿出来的洞」
+	_solid_box(Vector3(CORRIDOR_LENGTH + 1.0, CORRIDOR_HEIGHT + 2.4, 3.4),
+			Vector3((back_x + mouth_x) * 0.5, floor_y + (CORRIDOR_HEIGHT + 2.4) * 0.5 - 1.2, -(half_w + 1.5)), _rock)
+	_solid_box(Vector3(CORRIDOR_LENGTH + 1.0, CORRIDOR_HEIGHT + 2.4, 3.4),
+			Vector3((back_x + mouth_x) * 0.5, floor_y + (CORRIDOR_HEIGHT + 2.4) * 0.5 - 1.2, half_w + 1.5), _rock)
+	# 顶板（加厚）
+	_solid_box(Vector3(CORRIDOR_LENGTH + 1.0, 2.2, CORRIDOR_WIDTH + 8.2),
+			Vector3((back_x + mouth_x) * 0.5, floor_y + CORRIDOR_HEIGHT + 1.1, 0.0), _rock)
 	_solid_box(Vector3(0.6, CORRIDOR_HEIGHT + 1.2, CORRIDOR_WIDTH + 1.4),
 			Vector3(back_x - 0.3, floor_y + CORRIDOR_HEIGHT * 0.5, 0.0), _rock)
+	_build_rock_mass(back_x, mouth_x, floor_y)
+
+
+## 岩体表面的巨石：把隧道外壳的方盒子轮廓打碎。
+func _build_rock_mass(back_x: float, mouth_x: float, floor_y: float) -> void:
+	var rock_mat: Material = load(ROCK_SHELL_MAT_PATH)
+	var half_w := CORRIDOR_WIDTH * 0.5
+	var span := mouth_x - back_x
+	var stations := 7
+	for i in range(stations):
+		var t := float(i) / float(stations - 1)
+		var x := back_x + 1.0 + span * t
+		for side in [-1.0, 1.0]:
+			_rock_chunk(rock_mat,
+					Vector3(x + sin(float(i) * 2.1 + side) * 1.6,
+							floor_y + 1.0 + sin(float(i) * 1.3) * 0.8,
+							side * (half_w + 2.7)),
+					4.2 + sin(float(i) * 0.9 + side) * 1.4,
+					float(i) * 1.7)
+		_rock_chunk(rock_mat,
+				Vector3(x, floor_y + CORRIDOR_HEIGHT + 1.6, sin(float(i) * 2.7) * 2.4),
+				4.6 + cos(float(i) * 1.1) * 1.2,
+				float(i) * 2.3)
+
+
+func _rock_chunk(mat: Material, pos: Vector3, scale_value: float, yaw: float) -> void:
+	var body := StaticBody3D.new()
+	body.collision_mask = 0
+	add_child(body)
+	var mi := MeshInstance3D.new()
+	var meshes: Array = ROCK_CHUNK_MESHES
+	mi.mesh = load(meshes[int(absf(yaw * 10.0)) % meshes.size()])
+	mi.material_override = mat
+	body.add_child(mi)
+	var aabb: AABB = mi.get_aabb()
+	var base: float = maxf(maxf(aabb.size.x, aabb.size.y), maxf(aabb.size.z, 0.001))
+	body.scale = Vector3.ONE * (scale_value / base)
+	body.position = pos - Vector3(0.0, aabb.position.y * body.scale.y, 0.0)
+	body.rotation.y = yaw
 
 
 ## 隧道后方（外侧）的巨石堆：把隧道尽头包进石丘里（带碰撞）
@@ -158,16 +196,38 @@ func _build_back_rocks(back_x: float, floor_y: float) -> void:
 		body.rotation.y = float(row[3])
 
 
-## 轨床尽头与洞窟地面之间的缓坡，方便上下轨道区
-func _build_ramp(apron_end: float, floor_y: float, anchor_z: float) -> void:
-	var ground_y := _floor_height(Vector2(apron_end + 2.0, anchor_z))
-	var drop := floor_y - ground_y
-	if drop < 0.2:
+## 洞口外的石砌站台：比隧道宽一圈，两侧压矮墙，尽头用一段小坡落到营地地台。
+## 站台比营地地台高 37 cm——那正是矿车停住的地方，玩家下车后走坡进营地。
+func _build_apron(mouth_x: float, floor_y: float) -> void:
+	var length := APRON_LENGTH
+	var half_w := CORRIDOR_WIDTH * 0.5
+	# 台面比洞内地板低 8 mm：两者在洞口附近有 0.4 m 的搭接段，
+	# 高度错开一点就不会共面闪烁，8 mm 的落差肉眼看不出。
+	var deck_y := floor_y - 0.008
+	_solid_box(Vector3(length + 0.4, 1.0, CORRIDOR_WIDTH + 2.8),
+			Vector3(mouth_x - 0.2 + length * 0.5, deck_y - 0.5, 0.0), _stone)
+	for side in [-1.0, 1.0]:
+		_solid_box(Vector3(length, 0.7, 0.36),
+				Vector3(mouth_x + length * 0.5, deck_y + 0.3, side * (half_w + 1.2)), _stone)
+	# 注意：floor_y 是**局部**高度（洞口为 0），营地地台高度是世界值，
+	# 落差要用 floor_world_y 去算，否则算出来是负的、坡直接不建。
+	var drop := floor_world_y - HUB_DECK_Y
+	if drop <= 0.05:
 		return
-	var length := 3.4
-	var body := _solid_box(Vector3(length, 0.3, CORRIDOR_WIDTH + 1.0),
-			Vector3(apron_end + length * 0.5, floor_y - drop * 0.5 - 0.12, 0.0), _stone)
-	body.rotation.z = -atan2(drop, length)
+	var run := 1.9
+	var ramp := _solid_box(Vector3(run, 0.3, CORRIDOR_WIDTH + 2.8),
+			Vector3(mouth_x + length + run * 0.5, deck_y - drop * 0.5 - 0.14, 0.0), _stone)
+	ramp.rotation.z = -atan2(drop, run)
+
+	# 站台灯：洞口现在立在营地外面，靠环境光读不出体量，
+	# 在站台外沿上方补一盏暖灯，把门框、站台面和轨道口一起照亮。
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(mouth_x + length * 0.8, floor_y + 4.6, 0.0)
+	lamp.light_color = Color(1.0, 0.66, 0.40)
+	lamp.light_energy = 2.6
+	lamp.omni_range = 18.0
+	lamp.shadow_enabled = false
+	add_child(lamp)
 
 
 # ------------------------------------------------------------------ 方形门洞（三层门框）
@@ -245,7 +305,7 @@ void fragment() {
 "
 
 
-func _build_depth_glow(back_x: float, floor_y: float) -> void:
+func _build_depth_glow(back_x: float, floor_y: float, mouth_x: float) -> void:
 	var glow := MeshInstance3D.new()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(3.4, 4.4)
@@ -276,7 +336,7 @@ func _build_depth_glow(back_x: float, floor_y: float) -> void:
 	fill.light_energy = 0.85
 	fill.omni_range = 11.0
 	add_child(fill)
-	fill.position = Vector3(mouth_position.x - 6.0, floor_y + 3.4, 0.0)
+	fill.position = Vector3(mouth_x - 6.0, floor_y + 3.4, 0.0)
 
 
 func _deco_cone(pos: Vector3, radius: float, height: float) -> void:
@@ -308,7 +368,9 @@ func _build_rails(back_x: float, end_x: float, floor_y: float) -> void:
 
 # ------------------------------------------------------------------ 木质操控杆
 func _build_lever(x: float, floor_y: float) -> void:
-	var wall_z := CORRIDOR_WIDTH * 0.5 - 0.08
+	# 侧壁加厚到 3.4 之后内表面退到 half_w - 0.2，支架要跟着往里收，
+	# 否则只剩一根杆子悬在半空。
+	var wall_z := CORRIDOR_WIDTH * 0.5 - 0.3
 	_solid_box(Vector3(0.52, 0.72, 0.1), Vector3(x, floor_y + 1.55, wall_z), _wood_dark)
 	_solid_box(Vector3(0.14, 0.5, 0.06), Vector3(x, floor_y + 1.55, wall_z - 0.07), _dark_mat)
 	var pivot := Node3D.new()
@@ -345,13 +407,15 @@ func _build_sign(mouth_x: float, floor_y: float) -> void:
 	sign.text = "火山洞窟"
 	sign.font = font
 	sign.font_size = 220
-	sign.pixel_size = 0.008
+	sign.pixel_size = 0.0042
 	sign.modulate = Color("ffe9b8")
 	sign.outline_size = 26
 	sign.outline_modulate = Color(0.14, 0.07, 0.04)
-	sign.rotation.y = PI / 2.0  # 朝洞内方向
+	sign.rotation.y = PI / 2.0  # 朝洞外（世界 -Z，正对营地）
 	add_child(sign)
-	sign.position = Vector3(mouth_position.x + 0.25, floor_y + CORRIDOR_HEIGHT + 1.5, 0.0)
+	# 放在门楣横梁上方、岩体正面外侧：横梁在 y≈7.6，岩体顶在 y≈8.8，
+	# 这四个字刚好塞进中间那条空档。
+	sign.position = Vector3(mouth_x + 0.80, floor_y + 8.10, 0.0)
 
 
 # ------------------------------------------------------------------ 矿车
@@ -397,25 +461,6 @@ func _deco_wheel(parent: Node3D, pos: Vector3) -> void:
 	mi.rotation.z = PI / 2.0  # 轮轴沿 X
 	parent.add_child(mi)
 	mi.position = pos
-
-
-# ------------------------------------------------------------------ 测量
-## 轨床沿线（含洞内延伸段）的地形最高点
-func _bed_max(back_x: float, mouth_x: float, z: float) -> float:
-	var top := -100.0
-	var x := back_x - 0.5
-	while x <= mouth_x + 12.0:
-		for offset in [-2.4, 0.0, 2.4]:
-			top = maxf(top, _floor_height(Vector2(x, z + offset)))
-		x += 2.0
-	return top if top > -50.0 else 0.0
-
-
-func _floor_height(xz: Vector2) -> float:
-	var space := get_world_3d().direct_space_state
-	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(
-			Vector3(xz.x, 60.0, xz.y), Vector3(xz.x, -40.0, xz.y), 1))
-	return (hit.position as Vector3).y if not hit.is_empty() else 0.0
 
 
 # ------------------------------------------------------------------ 通用构件

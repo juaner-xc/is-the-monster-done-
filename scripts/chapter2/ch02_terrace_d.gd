@@ -52,7 +52,7 @@ func _build() -> void:
 # ------------------------------------------------------------------ 地面
 func _build_floor() -> void:
 	var stone := StandardMaterial3D.new()
-	stone.albedo_color = Color(0.20, 0.185, 0.175)
+	stone.albedo_color = Color(0.155, 0.163, 0.185)
 	stone.roughness = 0.94
 	stone.emission_enabled = true
 	stone.emission = Color(0.055, 0.038, 0.028)
@@ -368,8 +368,11 @@ func spawn_valve() -> Node:
 	_valve = valve_script.new()
 	_valve.name = "StuckValve"
 	_valve.label = "支阀"
-	_valve.position = valve_anchor
 	add_child(_valve)
+	# valve_anchor 是世界坐标。三层拓扑把整个台地节点平移过（position 不再是零），
+	# 这时候 position 直接当世界用会让支阀飘到几十米外，只能走 global_position。
+	# _build 里的家具没这个问题——它们和节点一起被平移。
+	_valve.global_position = valve_anchor
 	return _valve
 
 

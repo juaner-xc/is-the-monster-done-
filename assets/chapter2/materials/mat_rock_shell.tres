@@ -5,10 +5,15 @@
 [resource]
 resource_name = "MatCaveShell (洞壁与顶壁)"
 albedo_texture = ExtResource("1_rock")
-albedo_color = Color(0.9, 0.87, 1, 1)
+albedo_color = Color(0.4, 0.43, 0.52, 1)
 vertex_color_use_as_albedo = true
 vertex_color_is_srgb = false
 roughness = 1.0
 metallic = 0.0
 uv1_scale = Vector3(0.28, 0.28, 0.28)
 uv1_triplanar = true
+# 洞顶离所有火盆都很远，纯受光时是一块死黑。给一点冷色自发光，
+# 远处山体和洞顶才有层次（对应概念图里天顶的冷紫）。
+emission_enabled = true
+emission = Color(0.085, 0.095, 0.13, 1)
+emission_energy_multiplier = 0.9

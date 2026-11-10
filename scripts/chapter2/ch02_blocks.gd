@@ -22,9 +22,12 @@ const EMBER_MAT := "res://assets/chapter2/materials/mat_ember.tres"
 
 # 三个功能区抬到与石台地层相同的高度（3.6 / 7.4 / 11.2 米），
 # 中间用斜廊连接。数值是相对生活区地面（0.58 米）的抬升量。
-const TRANSPORT_OFFSET := 3.02
-const CORE_OFFSET := 6.82
-const BOSS_OFFSET := 10.62
+## 三层拓扑（概念图口径）：L0 营地 0.58 → L1 运输站 5.23 → L2 主炉广场 9.88
+## 层高 4.65 m（18 级 × 0.26），总高差 9.30 m。
+## 千席宴炉与控制区同层，用平台接缝连通，不再单独抬高一层。
+const TRANSPORT_OFFSET := 4.65
+const CORE_OFFSET := 9.30
+const BOSS_OFFSET := 9.30
 
 var origin := Vector3.ZERO
 var player: Node3D
@@ -64,21 +67,14 @@ func setup(world_origin: Vector3, host_player: Node3D) -> void:
 	player = host_player
 	_load_materials()
 	_container = self
-	# 生活区地面（0.58）→ 运输站平台（3.6）→ 主炉控制区（7.4）→ 千席宴炉（11.2）
-	_build_ramp_corridor("Ramp_Hub_Transport", Vector3(0, 0, 0), 10.0,
-			origin.y + 0.06, origin.y + 0.06 + TRANSPORT_OFFSET)
 	_transport_section = _make_section("TransportSection", TRANSPORT_OFFSET)
 	_container = _transport_section
 	_build_transport()
 	_container = self
-	_build_ramp_corridor("Ramp_Transport_Core", Vector3(46, 0, 0), 6.0,
-			origin.y + 0.06 + TRANSPORT_OFFSET, origin.y + 0.06 + CORE_OFFSET)
 	_core_section = _make_section("CoreSection", CORE_OFFSET)
 	_container = _core_section
 	_build_core_gate()
 	_container = self
-	_build_ramp_corridor("Ramp_Core_Boss", Vector3(72, 0, 0), 7.0,
-			origin.y + 0.06 + CORE_OFFSET, origin.y + 0.06 + BOSS_OFFSET)
 	_boss_section = _make_section("BossSection", BOSS_OFFSET)
 	_container = _boss_section
 	_build_boss_arena()
@@ -91,76 +87,6 @@ func _make_section(section_name: String, offset: float) -> Node3D:
 	section.position.y = offset
 	add_child(section)
 	return section
-
-
-## 斜廊：连接两个不同高度的功能区。碰撞是一条斜面，视觉上加了一列石踏步。
-## 玩家不需要跳，直接沿斜坡走上去；坡度控制在 33° 以内。
-func _build_ramp_corridor(label: String, at: Vector3, length: float,
-		start_y: float, end_y: float, width := 7.0) -> void:
-	var rise := end_y - start_y
-	var slope := atan2(rise, length)
-	var slope_len := sqrt(length * length + rise * rise)
-	var cx := origin.x + at.x + length * 0.5
-	var cz := origin.z + at.z
-	var cy := (start_y + end_y) * 0.5
-
-	var body := StaticBody3D.new()
-	body.name = label
-	body.position = Vector3(cx, cy - 0.25, cz)
-	body.rotation.z = slope
-	add_child(body)
-
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(slope_len, 0.5, width)
-	var visual := MeshInstance3D.new()
-	visual.mesh = mesh
-	visual.material_override = _plank
-	body.add_child(visual)
-
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = mesh.size
-	shape.shape = box
-	body.add_child(shape)
-
-	# 只保留一道细金属扶手；原先两侧 1m 高石墙全部删除。
-	for side in [-1.0, 1.0]:
-		var rail := MeshInstance3D.new()
-		var rb := BoxMesh.new()
-		rb.size = Vector3(slope_len, 0.07, 0.08)
-		rail.mesh = rb
-		rail.material_override = _metal
-		rail.position = Vector3(cx, cy + 1.0, cz + side * (width * 0.5 - 0.15))
-		rail.rotation.z = slope
-		add_child(rail)
-
-	# 厚石踏步：视觉上是真正一级一级的台阶，碰撞仍用上面的斜面，
-	# 这样远看能读懂「从这里上楼」，走起来又不会被每级台阶卡住。
-	var steps := maxi(10, int(length / 0.62))
-	for i in range(steps):
-		var t0 := float(i) / float(steps)
-		var t1 := float(i + 1) / float(steps)
-		var step_top := start_y + rise * t1
-		var step := MeshInstance3D.new()
-		var step_mesh := BoxMesh.new()
-		step_mesh.size = Vector3(length / float(steps) * 0.92, 0.38, width - 0.55)
-		step.mesh = step_mesh
-		step.material_override = _panel
-		step.position = Vector3(origin.x + at.x + length * (t0 + t1) * 0.5,
-				step_top - 0.19, cz)
-		add_child(step)
-		# 踏面前缘压条，远处也能看出阶梯的节奏
-		var nose := MeshInstance3D.new()
-		var nose_mesh := BoxMesh.new()
-		nose_mesh.size = Vector3(length / float(steps) * 0.14, 0.10, width - 0.45)
-		nose.mesh = nose_mesh
-		nose.material_override = _stone
-		nose.position = Vector3(origin.x + at.x + length * t0 + 0.06,
-				step_top + 0.04, cz)
-		add_child(nose)
-
-
-	_light(Vector3(cx, cy + 3.0, cz), Color(1.0, 0.55, 0.28), 1.5, 10.0)
 
 
 func _load_materials() -> void:
@@ -290,27 +216,38 @@ func _build_transport() -> void:
 	]:
 		_place_model("rock.glb", hall + Vector3(spot[0], 0.0, spot[1]), spot[2], spot[3])
 
-	# 运输线：两条轨道 + 一排支墩
+	# 运输线：轨道转 90°，沿南北向贯通整个运输站（与全场轴线同向）。
+	# 轨距收到 1.9 m 对上矿车轮距，双轨 + 枕木 + 两端缓冲器。
 	for side in [-1.0, 1.0]:
-		_box(Vector3(34.0, 0.12, 0.16), hall + Vector3(0, 0.26, 2.4 * side), _metal)
+		_box(Vector3(0.16, 0.12, 34.0), hall + Vector3(0.95 * side, 0.26, 0.0), _metal)
 	for i in 9:
-		var x := -15.0 + 3.75 * float(i)
-		_box(Vector3(0.5, 0.5, 6.0), hall + Vector3(x, 0.25, 0), _charcoal)
+		var zt := -15.0 + 3.75 * float(i)
+		_box(Vector3(3.2, 0.5, 0.5), hall + Vector3(0.0, 0.25, zt), _charcoal)
+	# 两端缓冲器：铸铁块 + 横梁，轨道「贯通」到站口读得出来
+	for end_z in [-17.2, 17.2]:
+		_box(Vector3(2.6, 0.7, 0.5), hall + Vector3(0.0, 0.6, end_z), _metal)
+		_box(Vector3(0.4, 1.4, 0.4), hall + Vector3(-1.4, 0.7, end_z), _charcoal)
+		_box(Vector3(0.4, 1.4, 0.4), hall + Vector3(1.4, 0.7, end_z), _charcoal)
 
-	# 三个喷口 + 三个阀门：关掉喷口才能安全穿过轨道区
+	# 三个喷口 + 三个阀门：关掉喷口才能安全穿过轨道区。
+	# 喷口沿轨道两侧交替布置，不占轨道本体。
+	var vent_x := [-5.4, 5.4, -5.4]
 	for i in 3:
-		var x := -8.0 + 9.0 * float(i)
-		_vents.append(_steam_vent(hall + Vector3(x, 0.0, 0.0)))
+		var zt := -9.0 + 9.0 * float(i)
+		_vents.append(_steam_vent(hall + Vector3(vent_x[i], 0.0, zt)))
 		var valve := VALVE_SCRIPT.new()
 		valve.name = "Valve_%d" % i
 		valve.label = "喷气阀 %d" % (i + 1)
-		valve.position = hall + Vector3(x, 0.0, 4.6)
+		valve.position = hall + Vector3(vent_x[i] + (1.9 if vent_x[i] > 0.0 else -1.9), 0.0, zt + 1.2)
 		_container.add_child(valve)
 		valve.turned.connect(_on_valve_turned.bind(i))
 		_valves.append(valve)
 
-	# 敌人：占着运输线的敌对单位
-	for spot in [Vector3(-6, 0, -8), Vector3(6, 0, 8), Vector3(14, 0, -6), Vector3(2, 0, 11), Vector3(15, 0, 3)]:
+	# 蒸汽机械：锅炉 + 管线 + 抽气泵，让运输站读成一台活着的机器
+	_build_steam_machinery(hall)
+
+	# 敌人：占着运输线的敌对单位（避开轨道中线和机械位）
+	for spot in [Vector3(-6, 0, -8), Vector3(6, 0, 8), Vector3(14, 0, -6), Vector3(6, 0, 12), Vector3(15, 0, 3)]:
 		var enemy := ENEMY_SCRIPT.new()
 		enemy.name = "LineHolder"
 		enemy.position = hall + spot
@@ -329,16 +266,124 @@ func _build_transport() -> void:
 	_upgrade = _make_upgrade(hall + Vector3(12.0, 0.4, -12.0))
 	_upgrade.visible = false
 
-	# 路灯：两侧各四根立杆，把运输线整条照亮
+	# 路灯：沿轨道两侧南北各四根，把贯通运输线整条照亮
 	for i in 4:
-		var lamp_x := -12.0 + 9.0 * float(i)
+		var lamp_z := -12.0 + 9.0 * float(i)
 		for side in [-1.0, 1.0]:
-			var foot := hall + Vector3(lamp_x, 0.0, 12.0 * side)
+			var foot := hall + Vector3(10.0 * side, 0.0, lamp_z)
 			_box(Vector3(0.16, 3.4, 0.16), foot + Vector3(0, 1.7, 0), _metal)
 			_lamp_head(foot + Vector3(0, 3.5, 0))
 			_light(foot + Vector3(0, 3.2, 0), Color(1.0, 0.56, 0.16), 2.1, 13.0)
 	_light(hall + Vector3(0, 6.0, 0), Color(1.0, 0.5, 0.22), 1.6, 26.0)
 	_add_checkpoint("Checkpoint_Transport", Vector3(origin.x + 12.0, 1.0, origin.z), "运输站")
+
+
+## 蒸汽机械：西墙一台锅炉（罐体 + 支座 + 压力表 + 顶管），
+## 东墙一列竖管 + 横联管，南侧两台抽气泵（跷梁往复摆动）。
+## 全部纯静态盒/柱 + 一个 Tween，不进碰撞（机器本体用 _box 有碰撞，横梁避让动线）。
+func _build_steam_machinery(hall: Vector3) -> void:
+	# 锅炉：卧罐沿南北躺，两个砖支座
+	var boiler := MeshInstance3D.new()
+	var bt := CylinderMesh.new()
+	bt.top_radius = 1.15
+	bt.bottom_radius = 1.15
+	bt.height = 4.6
+	boiler.mesh = bt
+	boiler.material_override = _metal
+	boiler.rotation.x = PI * 0.5
+	boiler.position = hall + Vector3(-14.5, 1.55, 6.0)
+	_container.add_child(boiler)
+	for bz in [4.0, 8.0]:
+		_box(Vector3(2.4, 0.9, 1.2), hall + Vector3(-14.5, 0.45, bz), _charcoal)
+	# 封头 + 检修孔铆圈 + 压力表
+	_shell_machinery_box(Vector3(2.6, 2.6, 0.3), hall + Vector3(-14.5, 1.55, 8.45), _metal)
+	var gauge := MeshInstance3D.new()
+	var gt := CylinderMesh.new()
+	gt.top_radius = 0.28
+	gt.bottom_radius = 0.28
+	gt.height = 0.2
+	gauge.mesh = gt
+	gauge.material_override = _ember
+	gauge.rotation.x = PI * 0.5
+	gauge.position = hall + Vector3(-14.5, 2.1, 8.65)
+	_container.add_child(gauge)
+	# 顶管：从罐顶竖到接近站台顶
+	_shell_machinery_box(Vector3(0.36, 3.2, 0.36), hall + Vector3(-14.5, 3.6, 6.0), _metal)
+	_shell_machinery_box(Vector3(0.36, 0.36, 3.0), hall + Vector3(-14.5, 5.2, 4.6), _metal)
+
+	# 东墙管线：四根立管 + 一条横联管 + 弯头
+	for pz in [-12.0, -4.0, 4.0, 12.0]:
+		_shell_machinery_box(Vector3(0.3, 3.6, 0.3),
+				hall + Vector3(16.8, 1.8, pz), _metal)
+		_shell_machinery_box(Vector3(0.4, 0.4, 0.4),
+				hall + Vector3(16.8, 3.7, pz), _ember)
+	_shell_machinery_box(Vector3(0.3, 0.3, 26.0),
+			hall + Vector3(16.8, 3.4, 0.0), _metal)
+
+	# 抽气泵 ×2：基座 + 立柱 + 跷梁（往复摆）+ 配重球
+	for k in 2:
+		var pump := Node3D.new()
+		pump.name = "SteamPump_%d" % k
+		pump.position = hall + Vector3(12.5, 0.0, -4.0 + 11.0 * float(k))
+		_container.add_child(pump)
+		var base := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(2.6, 0.7, 1.8)
+		base.mesh = bm
+		base.material_override = _charcoal
+		base.position = Vector3(0.0, 0.35, 0.0)
+		pump.add_child(base)
+		var post := MeshInstance3D.new()
+		var pm := CylinderMesh.new()
+		pm.top_radius = 0.18
+		pm.bottom_radius = 0.22
+		pm.height = 2.6
+		post.mesh = pm
+		post.material_override = _metal
+		post.position = Vector3(0.0, 2.0, 0.0)
+		pump.add_child(post)
+		var beam := MeshInstance3D.new()
+		var bmm := BoxMesh.new()
+		bmm.size = Vector3(3.6, 0.22, 0.3)
+		beam.mesh = bmm
+		beam.material_override = _metal
+		beam.position = Vector3(0.0, 3.3, 0.0)
+		pump.add_child(beam)
+		for beam_side in [-1.0, 1.0]:
+			var rod := MeshInstance3D.new()
+			var rm := CylinderMesh.new()
+			rm.top_radius = 0.07
+			rm.bottom_radius = 0.07
+			rm.height = 1.1
+			rod.mesh = rm
+			rod.material_override = _metal
+			rod.position = Vector3(beam_side * 1.7, 2.7, 0.0)
+			pump.add_child(rod)
+			var head := MeshInstance3D.new()
+			var hm := CylinderMesh.new()
+			hm.top_radius = 0.3
+			hm.bottom_radius = 0.3
+			hm.height = 0.5
+			head.mesh = hm
+			head.material_override = _ember
+			head.position = Vector3(beam_side * 1.7, 2.15, 0.0)
+			pump.add_child(head)
+		# 跷梁往复摆：机器「活着」的最直接读法
+		var swing := create_tween().set_loops()
+		swing.tween_property(beam, "rotation:z", 0.16, 0.9) \
+				.set_trans(Tween.TRANS_SINE)
+		swing.tween_property(beam, "rotation:z", -0.16, 0.9) \
+				.set_trans(Tween.TRANS_SINE)
+
+
+func _shell_machinery_box(size: Vector3, center: Vector3, material: Material) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = material
+	mi.position = center
+	_container.add_child(mi)
 
 
 func _steam_vent(pos: Vector3) -> Node3D:
@@ -407,15 +452,13 @@ func _make_upgrade(pos: Vector3) -> Node3D:
 func _build_core_gate() -> void:
 	var room := origin + Vector3(62.0, 0, 0)
 	_floor(room, Vector3(20.0, 0.4, 22.0))
-	# 西墙留 8 米门洞接走廊，东墙留 6 米门洞接 Boss 场——
-	# 之前这两面都是整块实心墙，玩家走过去就是撞墙，看起来像「门没开」。
-	for side in [-1.0, 1.0]:
-		_box(Vector3(0.6, 5.0, 7.0), room + Vector3(-10.0, 2.5, 7.5 * side), _panel)
-		_box(Vector3(0.6, 5.0, 8.0), room + Vector3(10.0, 2.5, 7.0 * side), _panel)
-	_box(Vector3(0.6, 1.4, 8.0), room + Vector3(-10.0, 4.3, 0), _panel)
-	_box(Vector3(0.6, 1.4, 6.0), room + Vector3(10.0, 4.3, 0), _panel)
-	for side in [-1.0, 1.0]:
-		_box(Vector3(20.0, 5.0, 0.6), room + Vector3(0, 2.5, 11.0 * side), _panel)
+	# 主路改成沿 -Z 叠层后，控制区的主门必须开在南北两面：
+	# 南面接 L1→L2 大阶梯，北面接千席宴炉；东西两面留作侧门。
+	for x_side in [-1.0, 1.0]:
+		_box(Vector3(7.0, 5.0, 0.6), room + Vector3(6.5 * x_side, 2.5, -11.0), _panel)
+		_box(Vector3(7.0, 5.0, 0.6), room + Vector3(6.5 * x_side, 2.5, 11.0), _panel)
+	_box(Vector3(6.0, 1.6, 0.6), room + Vector3(0, 4.2, -11.0), _panel)
+	_box(Vector3(6.0, 1.6, 0.6), room + Vector3(0, 4.2, 11.0), _panel)
 
 	# 控制台
 	_console = VALVE_SCRIPT.new()
@@ -426,8 +469,8 @@ func _build_core_gate() -> void:
 	_container.add_child(_console)
 	_console.turned.connect(_on_console_used)
 
-	# 通往 Boss 的门
-	_boss_gate = _box(Vector3(0.6, 4.2, 6.0), room + Vector3(10.0, 2.1, 0), _panel)
+	# 通往 Boss 的门：北墙（-Z 侧，z-78）正中，正对千席宴炉
+	_boss_gate = _box(Vector3(6.0, 4.2, 0.6), room + Vector3(0, 2.1, -11.0), _panel)
 	_light(room + Vector3(0, 4.0, 0), Color(0.9, 0.6, 0.3), 1.6, 16.0)
 	_add_checkpoint("Checkpoint_Core", Vector3(origin.x + 54.0, 1.0, origin.z), "主炉控制区")
 
@@ -479,8 +522,9 @@ func _build_boss_arena() -> void:
 	_container.add_child(collider)
 
 	for i in 12:
-		# 正西那根正好堵在入口上，跳过，西侧留出入口
-		if i == 6:
+		# 主路改沿 -Z 之后，入口在 +Z 一侧（面向主炉控制区），跳过那根柱；
+		# 正北那根（i==9，z=-113）现在被压到炉体里，也跳过。
+		if i == 3 or i == 9:
 			continue
 		var angle := TAU * float(i) / 12.0
 		_box(Vector3(2.4, 5.0, 2.4),
@@ -795,7 +839,7 @@ func _start_minecart() -> void:
 	var hall: Vector3 = origin + Vector3(28.0, 0.0, 0.0)
 	_minecart = Node3D.new()
 	_minecart.name = "Minecart"
-	_minecart.position = hall + Vector3(-16.0, 0.62, 0.0)
+	_minecart.position = hall + Vector3(0.0, 0.62, -16.0)
 	_transport_section.add_child(_minecart)
 
 	var body_mat := StandardMaterial3D.new()
@@ -805,6 +849,9 @@ func _start_minecart() -> void:
 	metal.albedo_color = Color(0.26, 0.24, 0.22)
 	metal.metallic = 0.55
 	metal.roughness = 0.45
+
+	# 车头朝南，沿南北向轨道往返
+	_minecart.rotation.y = PI * 0.5
 
 	var bed := MeshInstance3D.new()
 	var bed_mesh := BoxMesh.new()
@@ -838,10 +885,10 @@ func _start_minecart() -> void:
 			wheel.material_override = metal
 			_minecart.add_child(wheel)
 
-	# 来回跑
+	# 来回跑：沿南北轨道往返（轨道已转 90°，与全场轴线同向）
 	var tween := create_tween().set_loops()
-	tween.tween_property(_minecart, "position:z", 0.0, 0.01)
-	tween.tween_property(_minecart, "position:x", hall.x + 16.0, 7.0) \
+	tween.tween_property(_minecart, "position:x", _minecart.position.x, 0.01)
+	tween.tween_property(_minecart, "position:z", hall.z + 16.0, 7.0) \
 			.set_trans(Tween.TRANS_SINE)
-	tween.tween_property(_minecart, "position:x", hall.x - 16.0, 7.0) \
+	tween.tween_property(_minecart, "position:z", hall.z - 16.0, 7.0) \
 			.set_trans(Tween.TRANS_SINE)

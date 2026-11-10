@@ -12,6 +12,7 @@ var _rests: Array[Transform3D] = []
 var _globals: Array[Transform3D] = []
 var _track_path: String
 var _moving := false
+var _swing_index := 0
 
 func setup(model: Node3D) -> bool:
 	var rigs := model.find_children("*", "Skeleton3D", true, false)
@@ -45,6 +46,8 @@ func update(speed: float, base_speed: float, vertical: float, climbing: bool) ->
 	var next := &"Idle"
 	if climbing:
 		next = &"Climb"
+	elif vertical > 1.0:
+		next = &"Jump"
 	elif vertical < -3.5:
 		next = &"Fall"
 	elif _moving:
@@ -54,7 +57,11 @@ func update(speed: float, base_speed: float, vertical: float, climbing: bool) ->
 	wardrobe.update(next, _moving)
 
 func perform(clip: StringName) -> bool:
-	if action == &"Backflip" or (clip == &"Wave" and (_moving or action != &"")):
+	if clip == &"PanSwing":
+		_swing_index += 1
+		if _swing_index % 2 == 0:
+			clip = &"PanReturn"
+	if action in [&"Backflip", &"SpinDodge"] or (clip == &"Wave" and (_moving or action != &"")):
 		return false
 	if not player.has_animation(LIB + clip):
 		return false
@@ -65,8 +72,9 @@ func perform(clip: StringName) -> bool:
 
 func end_dodge() -> void:
 	action = &""
-	_play(&"Idle", 0.10)
-	wardrobe.update(&"Idle", _moving)
+	var next := &"Run" if _moving else &"Idle"
+	_play(next, 0.13)
+	wardrobe.update(next, _moving)
 
 func _play(clip: StringName, blend: float, restart := false) -> void:
 	if restart or clip != current:
@@ -105,6 +113,9 @@ func _build_clips() -> void:
 	_add(library, "BenchRest", 1.0, [_frame(0.0, -0.004, Vector3(7,0,3), Vector3(12,0,-6),
 		[Vector3(-0.32,-0.85,0.24),Vector3(0.12,-0.24,0.97),Vector3(0.38,-0.84,0.20),Vector3(-0.14,-0.19,0.98)],
 		[Vector3(-0.25,-0.12,0.96),Vector3(0,-1,0.07),Vector3(0.25,-0.12,0.96),Vector3(0,-1,0.07)])], true)
+	_add(library, "Jump", 0.5, [_frame(0.0,-0.004,Vector3(3,0,0),Vector3(-3,0,0),
+		[Vector3(-0.60,-0.65,0.32),Vector3(-0.20,-0.70,0.46),Vector3(0.60,-0.65,0.32),Vector3(0.20,-0.70,0.46)],
+		[Vector3(-0.18,-1,0.24),Vector3(0,-1,-0.20),Vector3(0.18,-1,0.24),Vector3(0,-1,-0.20)])], true)
 	_add(library, "Fall", 0.5, [_frame(0.0,-0.01,Vector3(-6,0,0),Vector3(6,0,0),
 		[Vector3(-0.83,-0.30,0.34),Vector3(-0.30,0.67,0.53),Vector3(0.83,-0.30,0.34),Vector3(0.30,0.67,0.53)])], true)
 
@@ -144,6 +155,23 @@ func _build_clips() -> void:
 			[Vector3(-0.36,-0.85,-0.25),Vector3.ZERO,Vector3(0.31,-0.2,0.95),Vector3(-0.22,0.11,0.96)]),
 		_frame(1.0)])
 
+	# Reference: upright top-like turn, relaxed arms, small buoyant leg movement.
+	# The visual pivot supplies yaw only; no somersault, cartwheel or tucked body.
+	_add(library, "SpinDodge", 0.55, [
+		_frame(0.0),
+		_frame(0.12,-0.009,Vector3(2,0,0),Vector3(-1,0,0),
+			[Vector3(-0.56,-0.82,0.10),Vector3(-0.32,-0.94,0.08),Vector3(0.56,-0.82,0.10),Vector3(0.32,-0.94,0.08)],
+			[Vector3(-0.18,-1,0.16),Vector3(0,-1,-0.12),Vector3(0.18,-1,0.16),Vector3(0,-1,-0.12)]),
+		_frame(0.37,0.003,Vector3.ZERO,Vector3.ZERO,
+			[Vector3(-0.66,-0.75,0.04),Vector3(-0.40,-0.91,0.02),Vector3(0.66,-0.75,0.04),Vector3(0.40,-0.91,0.02)],
+			[Vector3(-0.15,-1,0.06),Vector3(0,-1,-0.04),Vector3(0.15,-1,0.10),Vector3(0,-1,-0.08)]),
+		_frame(0.65,0.002,Vector3.ZERO,Vector3.ZERO,
+			[Vector3(-0.63,-0.77,-0.03),Vector3(-0.36,-0.93,-0.04),Vector3(0.63,-0.77,-0.03),Vector3(0.36,-0.93,-0.04)],
+			[Vector3(-0.15,-1,0.10),Vector3(0,-1,-0.08),Vector3(0.15,-1,0.06),Vector3(0,-1,-0.04)]),
+		_frame(0.84,0.0,Vector3.ZERO,Vector3.ZERO,
+			[Vector3(-0.50,-0.86,0.05),Vector3(-0.28,-0.96,0.05),Vector3(0.50,-0.86,0.05),Vector3(0.28,-0.96,0.05)]),
+		_frame(0.92,-0.012,Vector3(3,0,0),Vector3(-2,0,0)),
+		_frame(1.0)])
 	_add(library, "Backflip", 0.55, [
 		_frame(0.0,-0.018,Vector3(17,0,0),Vector3(-5,0,0),
 			[Vector3(-0.47,-0.8,-0.45),Vector3.ZERO,Vector3(0.47,-0.8,-0.45),Vector3.ZERO]),
@@ -155,6 +183,17 @@ func _build_clips() -> void:
 		_frame(0.90,-0.025,Vector3(20,0,0),Vector3(-9,0,0),
 			[],[Vector3(-0.18,-0.93,0.45),Vector3(0,-0.88,-0.47),Vector3(0.18,-0.93,0.45),Vector3(0,-0.88,-0.47)]),
 		_frame(1.0)])
+	_add(library, "PanReturn", 0.37, [
+		_frame(0.0),
+		_frame(0.22, -0.008, Vector3(5,28,5), Vector3(-3,-18,-3),
+			[Vector3(-0.45,-0.8,0.3),Vector3.ZERO,Vector3(0.22,-0.3,0.93),Vector3(-0.78,0.16,0.60)]),
+		_frame(0.53, 0.004, Vector3(8,-32,-6), Vector3(-5,20,3),
+			[Vector3(-0.55,-0.7,-0.2),Vector3.ZERO,Vector3(0.85,-0.12,-0.20),Vector3(0.62,0.20,0.62)]),
+		_frame(0.80, -0.002, Vector3(4,-12,-2), Vector3(0,8,0)), _frame(1.0)])
+	_add(library, "Hurt", 0.26, [
+		_frame(0.0), _frame(0.24,-0.012,Vector3(-14,0,-7),Vector3(12,0,8),
+			[Vector3(-0.65,-0.6,0.45),Vector3(0,0.2,0.9),Vector3(0.65,-0.6,0.45),Vector3(0,0.2,0.9)]),
+		_frame(0.62,-0.004,Vector3(6,0,3),Vector3(-4,0,-3)), _frame(1.0)])
 	player.add_animation_library("adventure", library)
 
 func _frame(t: float, lift := 0.0, spine := Vector3.ZERO, head := Vector3.ZERO, arms: Array = [], legs: Array = [], hands: Array = []) -> Dictionary:

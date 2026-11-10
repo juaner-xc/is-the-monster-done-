@@ -1,5 +1,9 @@
 extends CharacterBody3D
 
+const HeroInput = preload("res://scripts/hero_input.gd")
+const JUMP_SPEED := 7.2
+var _jumping := false
+
 const PanHeat = preload("res://scripts/pan_heat.gd")
 var pan_heat := PanHeat.new()
 
@@ -15,13 +19,13 @@ const PROJECTILE_SCENE: PackedScene = preload("res://scenes/projectile.tscn")
 const NAILONG_MODEL_PATH := "res://assets/models/nailong_adventure.glb"
 const NAILONG_FALLBACK_PATH := "res://assets/models/nailong_runner.glb"
 
-## ---- 后空翻闪避手感参数 ----
-const DODGE_DURATION := 0.55      # 翻滚总时长，与 Backflip 动画长度一致
+## ---- 水平旋身闪避手感参数 ----
+const DODGE_DURATION := 0.55      # 翻滚总时长，与 SpinDodge 动画长度一致
 const DODGE_COOLDOWN := 0.90
-const DODGE_IFRAME := 0.45        # 无敌时间，覆盖起跳到落地
-const DODGE_JUMP_SPEED := 6.2     # 起跳初速：腾空约 0.52s，正好翻完一圈落地
+const DODGE_IFRAME := 0.50        # 无敌时间，覆盖起跳到落地
+const DODGE_JUMP_SPEED := 5.8     # 轻跃起速：身体直立完成水平转身后落地
 const DODGE_SPEED_MULT := 3.2     # 起跳段水平速度倍率
-const DODGE_MIN_LAND := 0.45      # 翻滚进度超过此比例后允许提前落地
+const DODGE_MIN_LAND := 0.86      # 翻滚进度超过此比例后允许提前落地
 
 var move_speed := 6.2
 var basic_damage := 18.0
@@ -35,6 +39,13 @@ var damage_multiplier := 1.0
 var health_regeneration := 0.0
 var active_recipes: Array[String] = []
 
+var travel_combat := false
+var staff_mode := false
+var cooking := false
+var input_latch := false
+var timed: Dictionary = {}
+var spicy_shots := 0
+var crust_hits := 0
 var level := 1
 var experience := 0
 var experience_needed := 35
@@ -43,12 +54,15 @@ var skill_cooldown := 0.0
 var dodge_cooldown := 0.0
 var dodge_time := 0.0
 var dodge_direction := Vector3.ZERO
+var dodge_side := 1.0 # 无左右输入时沿用上次侧闪方向，首次默认右侧
 var invulnerable_time := 0.0
+var dodge_invulnerable_time := 0.0
 var camera: Camera3D
 var visual_root: Node3D
 var pan_root: Node3D
 var pan_tween: Tween
-var dodge_tween: Tween
+const DodgePresentation = preload("res://scripts/dodge_presentation.gd")
+var dodge_presentation: DodgePresentation
 var gravity := 24.0
 var animation_player: AnimationPlayer
 const HeroMotion = preload("res://scripts/hero_motion.gd")
@@ -71,12 +85,16 @@ var _climb_dir := Vector3.UP
 var _ladder_lock := 0.0  # 到顶翻越后的爬梯锁定，防止在坡顶被重新吸附
 
 func _ready() -> void:
+	HeroInput.ensure()
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_to_group("player")
 	add_to_group("Player")
 	collision_layer = 1
 	collision_mask = 3
 	_build_body()
+	dodge_presentation = DodgePresentation.new()
+	add_child(dodge_presentation)
+	dodge_presentation.setup(self, visual_root)
 	pan_heat.cooling_rate = _pan_cooling_rate()
 	pan_heat.position = Vector3(0.52, 0.65, -0.42)
 	pan_heat.bind_pan(hero_motion.wardrobe.pan if hero_motion != null else pan_root)
@@ -95,6 +113,7 @@ func _physics_process(delta: float) -> void:
 	skill_cooldown = maxf(0.0, skill_cooldown - delta)
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
 	invulnerable_time = maxf(0.0, invulnerable_time - delta)
+	dodge_invulnerable_time = maxf(0.0, dodge_invulnerable_time - delta)
 	if health_regeneration > 0.0 and health < max_health:
 		health = minf(max_health, health + health_regeneration * delta)
 
@@ -125,36 +144,50 @@ func _physics_process(delta: float) -> void:
 		var lp := lnode.global_transform.affine_inverse() * global_position
 		if absf(lp.x) < 1.4 and absf(lp.z) < 1.4 and lp.y > -1.3 and lp.y < 13.9:
 			ladder_near = true
-	if not climbing and _ladder_lock <= 0.0 and ladder_near and (Input.is_action_pressed("move_forward") or Input.is_action_pressed("move_back")):
+	if dodge_time <= 0.0 and not climbing and _ladder_lock <= 0.0 and ladder_near and (Input.is_action_pressed("move_forward") or Input.is_action_pressed("move_back")):
 		climbing = true
 	if climbing:
 		_handle_climb(delta)
 		return
 
 	if Input.is_action_just_pressed("dodge") and dodge_cooldown <= 0.0 and dodge_time <= 0.0:
+		_jumping = false
 		pan_heat.adjust(-30.0)
 		dodge_time = DODGE_DURATION
 		dodge_cooldown = DODGE_COOLDOWN
-		dodge_direction = movement.normalized() if movement.length_squared() > 0.01 else -global_transform.basis.z
-		dodge_direction.y = 0.0
-		dodge_direction = dodge_direction.normalized()
-		# 起跳瞬间就转向翻滚方向，避免侧着翻的滑步感
-		rotation.y = atan2(-dodge_direction.x, -dodge_direction.z)
+		# Sideways relative to the camera; preserve a forward-facing combat stance.
+		if absf(input_vector.x) > 0.1:
+			dodge_side = signf(input_vector.x)
+		var previous_heading := rotation.y
+		var side_axis := Vector3.RIGHT
+		rotation.y = 0.0 if camera == null else rotation.y
+		if camera != null:
+			side_axis = camera.global_basis.x
+			var facing := -camera.global_basis.z
+			facing.y = 0.0
+			if facing.length_squared() > 0.001:
+				rotation.y = atan2(-facing.x, -facing.z)
+		side_axis.y = 0.0
+		dodge_direction = side_axis.normalized() * dodge_side
+		dodge_presentation.facing_offset = wrapf(previous_heading - rotation.y, -PI, PI)
 		# 空中翻滚不再获得上升速度，避免下落中按闪避变成二段跳
 		velocity.y = DODGE_JUMP_SPEED if is_on_floor() else velocity.y
 		invulnerable_time = DODGE_IFRAME
+		dodge_invulnerable_time = DODGE_IFRAME
 		_play_dodge_visual()
 
+	if Input.is_action_just_pressed("jump") and is_on_floor() and dodge_time <= 0.0:
+		velocity.y = JUMP_SPEED
+		_jumping = true
+
 	if dodge_time > 0.0:
-		dodge_time -= delta
+		dodge_time = maxf(0.0, dodge_time - delta)
 		var progress := clampf(1.0 - dodge_time / DODGE_DURATION, 0.0, 1.0)
 		# 位移曲线：起跳段最快，展体落地时收力
 		var mult := lerpf(DODGE_SPEED_MULT, 0.9, smoothstep(0.30, 1.0, progress))
 		velocity.x = dodge_direction.x * move_speed * mult
 		velocity.z = dodge_direction.z * move_speed * mult
-		if progress > DODGE_MIN_LAND and is_on_floor():
-			dodge_time = 0.0
-			_finish_dodge(true)
+
 	else:
 		velocity.x = movement.x * move_speed
 		velocity.z = movement.z * move_speed
@@ -180,10 +213,10 @@ func _physics_process(delta: float) -> void:
 	else:
 		water_column.visible = false
 		water_col_h = 0.0
-		if is_on_floor() and velocity.y <= 0.0 and dodge_time <= 0.0:
-			velocity.y = -0.8
-		else:
-			velocity.y -= gravity * delta
+	if is_on_floor() and velocity.y <= 0.0 and dodge_time <= 0.0:
+		velocity.y = -0.8
+	else:
+		velocity.y -= gravity * delta
 	if in_water and Vector2(velocity.x, velocity.z).length() > 0.5:
 		ripple_timer -= delta
 		if ripple_timer <= 0.0:
@@ -192,16 +225,48 @@ func _physics_process(delta: float) -> void:
 	else:
 		ripple_timer = 0.0
 	move_and_slide()
+	if _jumping and is_on_floor() and velocity.y <= 0.0:
+		_jumping = false
+		if not dodge_presentation.active:
+			dodge_presentation.land()
+	if dodge_presentation.active:
+		var progress := clampf(1.0 - dodge_time / DODGE_DURATION, 0.0, 1.0)
+		dodge_presentation.advance(delta, progress)
+		if dodge_time <= 0.0 or (progress >= DODGE_MIN_LAND and is_on_floor()):
+			dodge_time = 0.0
+			_finish_dodge(is_on_floor())
+	else:
+		dodge_presentation.advance(delta, 1.0)
 	if dodge_time <= 0.0:
 		_update_facing(movement, delta)
 	_update_locomotion()
 
-	if health > 0.0 and pan_heat.wash_left <= 0.0 and Input.is_action_pressed("basic_attack") and attack_cooldown <= 0.0:
+	if travel_combat:
+		_tick_kitchen(delta)
+		if hero_motion != null and not hero_motion.wardrobe.pan_received:
+			return
+		if cooking or input_latch:
+			return
+	if health > 0.0 and dodge_time <= 0.0 and pan_heat.wash_left <= 0.0 and Input.is_action_pressed("basic_attack") and attack_cooldown <= 0.0:
 		attack_cooldown = 0.48
-		_basic_attack()
-	if health > 0.0 and pan_heat.wash_left <= 0.0 and Input.is_action_pressed("main_skill") and skill_cooldown <= 0.0:
+		if travel_combat and staff_mode:
+			if spend_dish("ice_shot"):
+				_fire_projectile()
+		else:
+			_basic_attack()
+	if health > 0.0 and dodge_time <= 0.0 and pan_heat.wash_left <= 0.0 and Input.is_action_pressed("main_skill") and skill_cooldown <= 0.0:
 		skill_cooldown = 0.62
-		_fire_projectile()
+		if not travel_combat or has_meta("opening_combat"):
+			_fire_projectile()
+		elif not staff_mode and spend_dish("fire_ring"):
+			_play_pan_swing()
+			var wave := FIRE_RING_WAVE.instantiate()
+			get_tree().current_scene.add_child(wave)
+			wave.configure(global_position, 0.0, 4.25, 0.45, true)
+			var power := meal_power()
+			for enemy in get_tree().get_nodes_in_group("enemies"):
+				if enemy.global_position.distance_to(global_position) <= 4.25:
+					enemy.take_damage(basic_damage * power, Vector3.ZERO)
 
 
 func configure_build(modifiers: Dictionary, recipes: Array[String]) -> void:
@@ -232,7 +297,14 @@ func take_damage(amount: float) -> void:
 	if health <= 0.0 or has_meta("snow_shelter"):
 		return
 	if invulnerable_time > 0.0:
+		if amount > 0.0 and dodge_time > 0.0 and dodge_invulnerable_time > 0.0:
+			dodge_presentation.confirm_evade()
 		return
+	cooking = false
+	if travel_combat and crust_hits > 0:
+		amount *= 0.7
+		crust_hits -= 1
+	play_hero_action(&"Hurt")
 	invulnerable_time = 0.32
 	health -= amount * (1.0 - damage_reduction)
 	_pulse_shield()
@@ -336,7 +408,7 @@ func _basic_attack() -> void:
 		if offset.length() <= reach and forward.dot(offset.normalized()) > -0.05:
 			enemy.take_damage(basic_damage * damage_multiplier * heat_damage, offset.normalized() * 5.5)
 			hit_targets[enemy] = true
-	if not pan_heat.is_cold() and active_recipes.has("fire_ring"):
+	if not travel_combat and not pan_heat.is_cold() and active_recipes.has("fire_ring"):
 		for enemy in get_tree().get_nodes_in_group("enemies"):
 			if is_instance_valid(enemy) and enemy.global_position.distance_to(global_position) <= 4.25:
 				var push: Vector3 = enemy.global_position - global_position
@@ -357,12 +429,15 @@ func _fire_projectile() -> void:
 	if has_meta("opening_combat"):
 		get_meta("opening_combat").serve()
 		return
-	var heat_damage := pan_heat.damage_scale()
-	var wok_breath := pan_heat.has_wok_breath()
+	var heat_damage := 1.0 if travel_combat else pan_heat.damage_scale()
+	var wok_breath := not travel_combat and pan_heat.has_wok_breath()
 	var can_trigger_recipe := not pan_heat.is_cold()
 	if wok_breath:
 		_spawn_action_flash(Color("ffbb59"), 1.7, 0.27)
-	pan_heat.adjust(-18.0)
+	if travel_combat:
+		heat_damage *= meal_power() / damage_multiplier
+	else:
+		pan_heat.adjust(-18.0)
 	play_hero_action(&"Cast")
 	var ember_power := 1.0
 	if _uses_ember_charge() and can_trigger_recipe and RunState.ember_cooking_charges > 0:
@@ -374,7 +449,10 @@ func _fire_projectile() -> void:
 	var projectile := PROJECTILE_SCENE.instantiate()
 	get_tree().current_scene.add_child(projectile)
 	var forward := -global_transform.basis.z
-	var recipe_slow := slow_strength
+	if travel_combat and camera != null:
+		var aim := camera.global_position - camera.global_basis.z * 40.0
+		forward = (aim - global_position - Vector3.UP * 0.75).normalized()
+	var recipe_slow := 0.4 if travel_combat else slow_strength
 	if can_trigger_recipe and active_recipes.has("ice_shot"):
 		recipe_slow = maxf(recipe_slow, 0.4)
 	projectile.configure(
@@ -444,7 +522,7 @@ func _configure_animation(model: Node) -> void:
 		animation_player = motion.player
 		idle_clip = &"adventure/Idle"
 		run_clip = &"adventure/Run"
-		dodge_clip = &"adventure/Backflip"
+		dodge_clip = &"adventure/SpinDodge"
 		return
 	animation_player = _find_animation_player(model)
 	if animation_player == null:
@@ -598,43 +676,17 @@ func _play_pan_swing() -> void:
 
 
 func _play_dodge_visual() -> void:
-	if dodge_tween != null and dodge_tween.is_running():
-		dodge_tween.kill()
-	visual_root.rotation_degrees = Vector3.ZERO
-	# 骨骼动画负责团身与展体，这里负责整体向后翻转一周
 	if hero_motion != null:
-		play_hero_action(&"Backflip")
+		play_hero_action(&"SpinDodge")
 	elif animation_player != null and not dodge_clip.is_empty():
-		animation_player.play(dodge_clip, 0.05, 1.0, false)
+		animation_player.play(idle_clip, 0.05, 1.0, false)
 		locomotion_clip = StringName()
-	dodge_tween = create_tween()
-	# 前段快速翻过大半圈，后段收力稳稳落地
-	dodge_tween.tween_property(visual_root, "rotation_degrees", Vector3(255.0, 0.0, 0.0), 0.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	dodge_tween.tween_property(visual_root, "rotation_degrees", Vector3(360.0, 0.0, 0.0), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	dodge_tween.tween_callback(func() -> void: _finish_dodge(false))
-	_spawn_action_flash(Color(0.45, 0.87, 1.0, 0.56), 1.1, 0.25)
+	dodge_presentation.start(dodge_side)
 
 
-## 翻滚收尾：姿态归零、落地缓冲，并把移动动画交还给 Idle / Run
 func _finish_dodge(landed: bool) -> void:
-	if dodge_tween != null and dodge_tween.is_running():
-		dodge_tween.kill()
-	dodge_tween = null
-	# 未翻满时快速补完剩余角度，避免姿态硬切回正
-	var rest_angle := 360.0 - visual_root.rotation_degrees.x
-	if rest_angle > 8.0 and rest_angle < 180.0:
-		var snap := create_tween()
-		snap.tween_property(visual_root, "rotation_degrees", Vector3(360.0, 0.0, 0.0), 0.06).set_trans(Tween.TRANS_LINEAR)
-		snap.tween_callback(func() -> void: visual_root.rotation_degrees = Vector3.ZERO)
-	else:
-		visual_root.rotation_degrees = Vector3.ZERO
+	dodge_presentation.finish(landed)
 	locomotion_clip = StringName()
-	if landed:
-		# 落地缓冲：轻微下压再回弹
-		var squash := create_tween()
-		squash.tween_property(visual_root, "scale", Vector3(1.12, 0.86, 1.12), 0.06).set_trans(Tween.TRANS_QUAD)
-		squash.tween_property(visual_root, "scale", Vector3.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		_spawn_action_flash(Color(0.85, 0.93, 1.0, 0.45), 0.85, 0.22)
 	if hero_motion != null:
 		hero_motion.end_dodge()
 	elif animation_player != null and not idle_clip.is_empty():
@@ -678,6 +730,14 @@ func _build_fallback_visual(visual_root: Node3D) -> void:
 
 
 func _handle_climb(delta: float) -> void:
+	if Input.is_action_just_pressed("jump"):
+		climbing = false
+		_ladder_lock = 0.35
+		velocity = global_transform.basis.z * 2.5 + Vector3.UP * JUMP_SPEED
+		_jumping = true
+		move_and_slide()
+		_update_locomotion()
+		return
 	var lnode := _ladder as Node3D
 	var up_in := 0.0
 	if Input.is_action_pressed("move_forward"):
@@ -749,3 +809,48 @@ func _pan_cooling_rate() -> float:
 
 func _uses_ember_charge() -> bool:
 	return true
+
+func spend_dish(id: String) -> bool:
+	var inv := RunState.cooking_inventory
+	if inv.dish_count(id) <= 0:
+		return false
+	inv.dishes[id] = inv.dish_count(id) - 1
+	inv.changed.emit()
+	return true
+
+func meal_power() -> float:
+	var boosted := spicy_shots > 0
+	pan_heat.adjust(-10.0 if boosted else -18.0)
+	spicy_shots = maxi(0, spicy_shots - 1)
+	return damage_multiplier * (1.2 if boosted else 1.0)
+
+func kitchen_status() -> String:
+	if cooking:
+		return "备餐中…"
+	var id := "ice_shot" if staff_mode else "fire_ring"
+	return "%s  × %d" % [FoodData.dish_name(id), RunState.cooking_inventory.dish_count(id)]
+
+func _tick_kitchen(delta: float) -> void:
+	if input_latch:
+		input_latch = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	for id in timed.keys():
+		var step := minf(delta, float(timed[id]))
+		if id == "dish_lava_pudding" or id == "bitter":
+			heal(max_health * (0.05 if id == "dish_lava_pudding" else 0.0625) * step)
+		timed[id] -= step
+		if timed[id] <= 0:
+			timed.erase(id)
+			if id == "crust":
+				crust_hits = 0
+	var guards := RunState.guards
+	max_health = 100 + 8 * int("cream_guard" in guards) + 10 * int("baked_sweet_potato" in guards) - 8 * int("dark_dish" in guards)
+	health = minf(health, max_health)
+	health_regeneration = 0.35 if "cream_guard" in guards else 0.0
+	damage_reduction = 0.08 * (int("pastry_shield" in guards) + int("baked_sweet_potato" in guards)) + 0.2 * int(timed.has("dish_smooth_sauce"))
+	damage_multiplier = 1.0 + 0.28 * int("dark_dish" in guards) + 0.15 * int(timed.has("dish_lava_candy"))
+	move_speed = 6.2 * (1.15 if timed.has("dish_caramel_oil") else 1.0) * (0.9 if timed.has("bitter") or crust_hits > 0 else 1.0)
+	if hero_motion != null:
+		hero_motion.wardrobe.combat_mode = "staff" if staff_mode else "pan"
+		hero_motion.wardrobe.update(hero_motion.current, false)
+	if camera != null:
+		camera.fov = lerpf(camera.fov, 50.0 if staff_mode and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) else 65.0, minf(1.0,delta*12.0))

@@ -42,6 +42,8 @@ var notice_label: Label
 var notice_panel: PanelContainer
 var upgrade_overlay: ColorRect
 var upgrade_button_box: HBoxContainer
+var upgrade_title: Label
+var upgrade_subtitle: Label
 var end_overlay: ColorRect
 var end_title: Label
 var pause_overlay: ColorRect
@@ -61,23 +63,31 @@ func update_status(player: Node, recipe_system: Node, time_left: float, wave: in
 	health_bar.max_value = player.max_health
 	health_bar.value = maxf(player.health, 0.0)
 	health_label.text = "%d / %d" % [roundi(player.health), roundi(player.max_health)]
-	experience_bar.max_value = player.experience_needed
-	experience_bar.value = player.experience
-	experience_label.text = "Lv.%d   散逸魔力 %d / %d" % [player.level, player.experience, player.experience_needed]
-	build_label.text = recipe_system.get_build_summary()
+	update_condensation(player.experience, player.experience_needed)
+	build_label.text = player.kitchen_status() if player.has_method("kitchen_status") else ""
 	var total_seconds := maxi(0, ceili(time_left))
 	timer_label.text = "%02d:%02d" % [floori(float(total_seconds) / 60.0), total_seconds % 60]
 	wave_label.text = "第 %d 波  ·  场上 %d" % [wave, enemy_count]
 
 
-func show_upgrade(options: Array[Dictionary]) -> void:
+func update_condensation(current: int, needed: int) -> void:
+	var filled := mini(current, needed)
+	experience_bar.max_value = needed
+	experience_bar.value = filled
+	experience_label.text = "%d / %d" % [filled, needed]
+
+
+func show_upgrade(options: Array[Dictionary], discovery := false) -> void:
+	upgrade_title.text = "发现魔力凝材" if discovery else "魔力凝材"
+	upgrade_subtitle.text = "散逸的魔力凝结了 · 选择一种食材" if discovery else "选择一种食材"
 	for child in upgrade_button_box.get_children():
+		upgrade_button_box.remove_child(child)
 		child.queue_free()
 	for option in options:
 		var button := Button.new()
 		var option_id: String = option["id"]
 		var accent := Color(INGREDIENT_COLORS.get(option_id, "f28b2f"))
-		button.text = "%s\n\n升级至 Lv.%d\n\n%s" % [option["name"], option["next_level"], option["description"]]
+		button.text = option["name"]
 		button.custom_minimum_size = Vector2(275.0, 235.0)
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -89,6 +99,8 @@ func show_upgrade(options: Array[Dictionary]) -> void:
 		button.pressed.connect(func() -> void: _choose_upgrade(option_id))
 		upgrade_button_box.add_child(button)
 	upgrade_overlay.visible = true
+	if upgrade_button_box.get_child_count() > 0:
+		upgrade_button_box.get_child(0).grab_focus()
 
 
 func is_upgrade_open() -> bool:
@@ -110,7 +122,7 @@ func show_notice(text: String) -> void:
 
 
 func set_paused_hint(paused: bool) -> void:
-	help_label.text = "暂停中  ·  按 Esc 返回厨房" if paused else "左键 挥锅 · 右键 调味 · 空格 翻滚\nV 挥手 / Tab 料理手记 / Esc 暂停"
+	help_label.text = "暂停中  ·  按 Esc 返回厨房" if paused else "左键 挥锅 · 右键 调味 · Shift 闪避 · 空格 跳跃\nV 挥手 / Tab 料理手记 / Esc 暂停"
 	pause_overlay.visible = paused
 	confirming_return = false
 	_update_pause_menu()
@@ -209,6 +221,7 @@ func _build_interface() -> void:
 	add_child(root)
 
 	_build_status_card(root)
+	_build_condensation_card(root)
 	_build_timer_card(root)
 	_build_recipe_card(root)
 	_build_help_bar(root)
@@ -231,17 +244,41 @@ func _build_status_card(root: Control) -> void:
 	var frame=load("res://scripts/arcane_trim.gd").new()
 	root.add_child(frame)
 	frame.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	frame.offset_left=28;frame.offset_right=298;frame.offset_top=-112;frame.offset_bottom=-30
+	frame.offset_left=28;frame.offset_right=298;frame.offset_top=-160;frame.offset_bottom=-103
 	var title=Label.new();title.text="◇  "+(RunState.player_name if RunState.has_profile() else "奶蛙")
 	title.position=Vector2(16,9);title.add_theme_font_size_override("font_size",16);title.add_theme_color_override("font_color",Color("e1d5b4"));frame.add_child(title)
 	health_bar=ProgressBar.new();frame.add_child(health_bar);health_bar.position=Vector2(17,37);health_bar.size=Vector2(230,8);health_bar.show_percentage=false
 	_style_progress_bar(health_bar,Color("17262b"),Color("81bbb1"))
 	health_bar.add_theme_font_size_override("font_size",1);health_bar.size.y=8
 	health_label=Label.new();frame.add_child(health_label);health_label.position=Vector2(170,10);health_label.size.x=80;health_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT;health_label.add_theme_font_size_override("font_size",14)
-	experience_bar=ProgressBar.new();frame.add_child(experience_bar);experience_bar.position=Vector2(17,55);experience_bar.size=Vector2(230,3);experience_bar.show_percentage=false
-	_style_progress_bar(experience_bar,Color("17262b"),Color("c5a76e"))
-	experience_bar.add_theme_font_size_override("font_size",1);experience_bar.size.y=3
-	experience_label=Label.new();frame.add_child(experience_label);experience_label.position=Vector2(17,62);experience_label.add_theme_font_size_override("font_size",10)
+
+
+func _build_condensation_card(root: Control) -> void:
+	var frame := preload("res://scripts/arcane_trim.gd").new()
+	root.add_child(frame)
+	frame.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	frame.offset_left = 28
+	frame.offset_right = 298
+	frame.offset_top = -93
+	frame.offset_bottom = -30
+	var title := Label.new()
+	title.text = "魔力凝结"
+	title.position = Vector2(17, 10)
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", CREAM)
+	frame.add_child(title)
+	experience_label = Label.new()
+	experience_label.position = Vector2(122, 12)
+	experience_label.size.x = 125
+	experience_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	experience_label.add_theme_font_size_override("font_size", 14)
+	frame.add_child(experience_label)
+	experience_bar = ProgressBar.new()
+	experience_bar.position = Vector2(17, 39)
+	experience_bar.size = Vector2(230, 9)
+	experience_bar.show_percentage = false
+	_style_progress_bar(experience_bar, Color("26383c"), Color("e0ba73"))
+	frame.add_child(experience_bar)
 
 
 func _build_timer_card(root: Control) -> void:
@@ -257,10 +294,10 @@ func _build_recipe_card(root: Control) -> void:
 
 
 func _build_help_bar(root: Control) -> void:
-	help_label=Label.new();root.add_child(help_label)
+	help_label=Label.new();root.add_child(help_label);help_label.hide()
 	help_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	help_label.offset_left=-330;help_label.offset_right=-30;help_label.offset_top=-66;help_label.offset_bottom=-25
-	help_label.text="左键 挥锅  ·  右键 调味  ·  空格 翻滚\nV 挥手  /  Tab 料理手记  /  Esc 暂停"
+	help_label.text="左键 挥锅  ·  右键 调味  ·  Shift 闪避 · 空格 跳跃\nV 挥手  /  Tab 背包  /  Esc 暂停"
 	help_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 	help_label.add_theme_font_size_override("font_size",13);help_label.add_theme_color_override("font_color",Color("ddd5bd"));help_label.add_theme_color_override("font_shadow_color",Color("15242a"));help_label.add_theme_constant_override("shadow_outline_size",4)
 
@@ -307,18 +344,16 @@ func _build_upgrade_overlay(root: Control) -> void:
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 14)
 	panel.add_child(layout)
-	var title := Label.new()
-	title.text = "新鲜食材送达"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", INK)
-	layout.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "选一份加入料理台，组合会自动发现新配方"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 16)
-	subtitle.add_theme_color_override("font_color", Color("76523d"))
-	layout.add_child(subtitle)
+	upgrade_title = Label.new()
+	upgrade_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	upgrade_title.add_theme_font_size_override("font_size", 34)
+	upgrade_title.add_theme_color_override("font_color", INK)
+	layout.add_child(upgrade_title)
+	upgrade_subtitle = Label.new()
+	upgrade_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	upgrade_subtitle.add_theme_font_size_override("font_size", 16)
+	upgrade_subtitle.add_theme_color_override("font_color", Color("76523d"))
+	layout.add_child(upgrade_subtitle)
 	upgrade_button_box = HBoxContainer.new()
 	upgrade_button_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	upgrade_button_box.add_theme_constant_override("separation", 20)
@@ -419,7 +454,7 @@ func _style_ingredient_button(button: Button, accent: Color) -> void:
 
 
 func show_aftermath() -> void:
-	experience_label.text = "炉火已熄 · 可安心检视残骸"
+	experience_label.text = "炉火已熄"
 	experience_bar.hide()
 	upgrade_overlay.hide()
 	pause_overlay.hide()

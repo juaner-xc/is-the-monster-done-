@@ -7,7 +7,10 @@ const MEDAL := "banquet_medal"
 var skeleton: Skeleton3D
 var collar: Node3D
 var sprout: Node3D
+var helmet: Node3D
 var hide_adventure_gear := false
+var combat_mode := ""
+var pan_received := not RunState.chapter_mode or RunState.snow_opening_seen
 var staff_hand: Node3D
 var staff_back: Node3D
 var lantern: Node3D
@@ -21,6 +24,9 @@ func build(rig: Skeleton3D) -> void:
 	_build_collar()
 	sprout = _socket("Head", "SnowleafSprig", Vector3(-0.018,0.608,-0.017))
 	_build_sprout(sprout)
+	helmet = _socket("Head", "SnowleafHelmet", Vector3(-0.018, 0.55, -0.038))
+	_oval(helmet, Vector3.ZERO, Vector3(0.24, 0.12, 0.21), _mat(Color("4a6040"), 0.32))
+	_oval(helmet, Vector3(0, -0.043, 0.027), Vector3(0.25, 0.026, 0.24), _mat(Color("a59059"), 0.44))
 	staff_hand = _socket("Hand.L", "StaffGrip", Vector3(-0.164, 0.227, 0.057))
 	_build_staff(staff_hand)
 	staff_back = _socket("Spine", "StaffSling", Vector3(0.025, 0.325, -0.146))
@@ -73,13 +79,16 @@ func _build_sprout(parent: Node3D) -> void:
 func update(clip: StringName, moving: bool) -> void:
 	var has_leaf: bool = not hide_adventure_gear and RunState.has_gear(LEAF)
 	var in_hand := clip in [&"Idle", &"ReceiveGift", &"Wave"] and not moving
+	if combat_mode != "":
+		in_hand = combat_mode == "staff"
 	collar.visible = has_leaf
 	sprout.visible = has_leaf
+	helmet.visible = has_leaf
 	staff_hand.visible = has_leaf and in_hand
 	staff_back.visible = has_leaf and not in_hand
 	lantern.visible = not hide_adventure_gear and RunState.has_gear(LANTERN)
 	medal.visible = not hide_adventure_gear and RunState.has_gear(MEDAL)
-	pan.visible = clip == &"PanSwing" or bool(pan.get_meta("overheated", false))
+	pan.visible = pan_received and (combat_mode == "pan" or clip in [&"PanSwing", &"PanReturn"] or bool(pan.get_meta("overheated", false)))
 
 func _socket(bone_name: String, socket_name: String, origin: Vector3) -> Node3D:
 	var index := skeleton.find_bone(bone_name)

@@ -59,13 +59,13 @@ const RECIPE_DETAILS := {
 		"ingredients": ["chili", "oil"], "formula": "辣椒 + 热油",
 		"kind": "近身范围", "color": "e7a166",
 		"effect": "挥锅时，对周围 4.25 米内的敌人追加范围伤害，伤害为基础攻击的 42%，并受到伤害倍率加成。",
-		"usage": "鼠标左键挥锅时自动触发。适合接近敌群后出手，再翻滚脱离。",
+		"usage": "锅模式右键使用一份。接近敌群后出手，再闪避脱离。",
 	},
 	"ice_shot": {
 		"ingredients": ["fruit", "ice"], "formula": "魔法水果 + 冰块",
 		"kind": "远程减速", "color": "8dcfdf",
 		"effect": "调味弹命中后，使敌人至少减速 40%，持续 2.5 秒。更高等级的冰块可进一步提高减速。",
-		"usage": "鼠标右键发射。边退边打，利用减速拉开距离。",
+		"usage": "滚轮向上切法杖，右键瞄准，左键消耗一份冰沙弹。",
 	},
 	"cream_guard": {
 		"ingredients": ["mushroom", "cream"], "formula": "蘑菇 + 奶油",

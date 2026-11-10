@@ -132,6 +132,8 @@ static func dish_ids() -> Array[String]:
 
 
 static func dish_name(id: String) -> String:
+	var dark_names := {"dark_dish":"黑盐焦糊锅","spicy":"焦辣爆酱","bitter":"苦甜焦糖块","cold":"冰渣冷羹","crust":"焦皮脆饼"}
+	if dark_names.has(id): return dark_names[id]
 	if BattleRecipes.RECIPE_NAMES.has(id):
 		return BattleRecipes.RECIPE_NAMES[id]
 	var data: Dictionary = DISHES.get(id, {})
@@ -158,8 +160,10 @@ static func find_recipe(id_a: String, id_b: String) -> Dictionary:
 		var second := String(inputs[1])
 		if (first == id_a and second == id_b) or (first == id_b and second == id_a):
 			return recipe
-	if id_a == BURNT or id_b == BURNT or id_a == "black_salt" or id_b == "black_salt":
-		return {"id": "dark_dish", "dish": "dark_dish"}
+	if id_a == BURNT or id_b == BURNT:
+		var other := id_b if id_a == BURNT else id_a
+		var dark: String = {"black_salt":"dark_dish","chili":"spicy","caramel":"bitter","ice":"cold","flour":"crust"}.get(other,"")
+		return {} if dark.is_empty() else {"id":dark,"dish":dark}
 	for id in BattleRecipes.RECIPE_DETAILS:
 		var inputs: Array = BattleRecipes.RECIPE_DETAILS[id]["ingredients"]
 		if inputs.has(id_a) and inputs.has(id_b):

@@ -40,7 +40,7 @@ static func card() -> PanelContainer:
 func say(actor: Node3D, text: String, who: String = "肯德齐 · 雪原食堂", allow_close := true) -> void:
 	speaker = actor
 	caption.text = who
-	controls_hint.text = "F / Enter 继续    ·    Esc 稍后再聊" if allow_close else "F / Enter 继续"
+	controls_hint.hide()
 	speech.text = text
 	speech.visible_ratio = 0
 	create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).tween_property(speech, "visible_ratio", 1.0, minf(text.length() * 0.025, 1.2))

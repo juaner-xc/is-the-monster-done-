@@ -7,7 +7,14 @@ const ENEMY_PROJECTILE_SCENE: PackedScene = preload("res://scenes/enemy_projecti
 const FurnaceCombat = preload("res://scripts/furnace_combat.gd")
 const FURNACE_SCENE: PackedScene = preload("res://scenes/bosses/gluttonous_oven.tscn")
 
+const STORY_MODELS := {
+	"cargo_loader": ["res://assets/story_enemies/cargo_loader.glb", 0.418],
+	"swelling_dough": ["res://assets/story_enemies/swelling_dough.glb", 0.723],
+	"mushroom": ["res://assets/story_enemies/spore_mushroom.glb", 0.88],
+}
 const TYPE_DATA := {
+	"cargo_loader": {"color": "b78e48", "damage": 13.0, "range": 1.7, "experience": 16, "scale": 1.7},
+	"swelling_dough": {"color": "dbc482", "damage": 11.0, "range": 1.4, "experience": 12, "scale": 1.0},
 	"slime": {"color": "82c95b", "damage": 9.0, "range": 1.35, "experience": 10, "scale": 1.0},
 	"fork_imp": {"color": "d9685a", "damage": 13.0, "range": 1.25, "experience": 14, "scale": 0.9},
 	"toast": {"color": "9a5b35", "damage": 10.0, "range": 8.0, "experience": 16, "scale": 1.08},
@@ -39,6 +46,7 @@ var telegraph: MeshInstance3D
 var gravity := 24.0
 var furnace_visual: Node3D
 var dead := false
+var tutorial_toast := false
 var furnace_collision: CollisionShape3D
 var furnace_brain: Node3D
 
@@ -68,6 +76,8 @@ func setup(player_target: Node3D, health_value: float, speed_value: float, kind:
 	if body_material != null:
 		body_material.albedo_color = Color(String(data["color"]))
 		body_material.emission = body_material.albedo_color * 0.12
+	if STORY_MODELS.has(enemy_type):
+		_install_story_model(STORY_MODELS[enemy_type])
 	if enemy_type == "toast" and body_mesh != null:
 		body_mesh.rotation_degrees.z = 90.0
 	if enemy_type in ["elite_cooker", "boss_furnace"]:
@@ -115,10 +125,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	match enemy_type:
-		"fork_imp":
+		"fork_imp", "cargo_loader", "swelling_dough":
 			_process_fork_imp(to_target, distance)
 		"toast":
-			_process_toast(to_target, distance)
+			if tutorial_toast:
+				_process_chaser(to_target, distance)
+			else:
+				_process_toast(to_target, distance)
 		"mushroom":
 			_process_mushroom(to_target, distance)
 		"elite_cooker":
@@ -251,6 +264,16 @@ func take_damage(amount: float, knockback: Vector3 = Vector3.ZERO) -> void:
 		tween.tween_property(body_material, "emission", body_material.albedo_color * 0.12, 0.12)
 	if health <= 0.0:
 		dead = true
+		if tutorial_toast:
+			set_physics_process(false)
+			set_deferred("collision_layer", 0)
+			remove_from_group("enemies")
+			var soften := create_tween()
+			soften.tween_property(self, "scale:y", scale.y * 0.22, 0.3)
+			soften.tween_callback(func():
+				killed.emit(experience_value, global_position, false)
+				queue_free())
+			return
 		if is_instance_valid(furnace_visual):
 			var fallen := furnace_visual
 			fallen.reparent(get_tree().current_scene, true)
@@ -337,6 +360,26 @@ func _build_body() -> void:
 	telegraph.material_override = telegraph_material
 	telegraph.visible = false
 	add_child(telegraph)
+
+
+func _install_story_model(data: Array) -> void:
+	var packed := load(data[0]) as PackedScene
+	if packed == null:
+		return
+	var model := packed.instantiate() as Node3D
+	if model == null:
+		return
+	for child in get_children():
+		if child is MeshInstance3D and child != telegraph:
+			child.hide()
+	model.name = "StoryEnemyModel"
+	add_child(model)
+	model.position.y = float(data[1])
+	if enemy_type == "cargo_loader":
+		var bounds := BoxShape3D.new()
+		bounds.size = Vector3(1.55, 0.84, 1.05)
+		furnace_collision.shape = bounds
+		furnace_collision.position.y = 0.42
 
 
 func _install_furnace_visual() -> void:

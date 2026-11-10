@@ -1,5 +1,5 @@
 extends SceneTree
-# 运行时验证后空翻闪避：起跳、翻转、无敌帧、落地收尾。
+# 运行时验证水平旋身闪避：起跳、翻转、无敌帧、落地收尾。
 # 运行：Godot --headless --path <项目> --script res://tools/validate_dodge.gd
 
 var player: Node = null
@@ -40,13 +40,13 @@ func _process(_delta: float) -> bool:
 	if player.dodge_time > 0.0:
 		dodge_started = true
 		max_y = max(max_y, player.velocity.y)
-		var roll: float = absf(player.visual_root.rotation_degrees.x)
+		var roll: float = absf(player.visual_root.rotation_degrees.y)
 		max_roll = max(max_roll, roll)
 		if player.invulnerable_time > 0.0:
 			saw_iframes = true
 
 	if dodge_started and player.dodge_time <= 0.0 and frames > 8:
-		landed_clean = absf(player.visual_root.rotation_degrees.x) < 1.0
+		landed_clean = absf(player.visual_root.rotation_degrees.y) < 1.0
 		_finish()
 		return true
 
@@ -58,7 +58,7 @@ func _process(_delta: float) -> bool:
 
 
 func _finish() -> void:
-	print("---- 后空翻验证结果 ----")
+	print("---- 水平旋身验证结果 ----")
 	print("  触发闪避      : ", dodge_started)
 	print("  起跳最大 y 速度: %.2f (期望 > 3.0)" % max_y)
 	print("  翻转最大角度  : %.1f 度 (期望接近 360)" % max_roll)

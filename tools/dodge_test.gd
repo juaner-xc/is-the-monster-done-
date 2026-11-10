@@ -1,5 +1,5 @@
 extends Node
-# 后空翻闪避自检场景（正常启动，autoload 与 InputMap 均可用）。
+# 水平旋身闪避自检场景（正常启动，autoload 与 InputMap 均可用）。
 # 运行：Godot --headless --path <项目> res://tools/dodge_test.tscn
 
 var player: Node = null
@@ -37,12 +37,12 @@ func _physics_process(_delta: float) -> void:
 	if player.dodge_time > 0.0:
 		dodge_started = true
 		max_y = max(max_y, player.velocity.y)
-		max_roll = max(max_roll, absf(player.visual_root.rotation_degrees.x))
+		max_roll = max(max_roll, absf(player.visual_root.rotation_degrees.y))
 		if player.invulnerable_time > 0.0:
 			saw_iframes = true
 		if frames % 6 == 0:
 			print("   t=", frames, " y=", "%.2f" % player.velocity.y,
-				" roll=", "%.0f" % player.visual_root.rotation_degrees.x,
+				" roll=", "%.0f" % player.visual_root.rotation_degrees.y,
 				" iframe=", "%.2f" % player.invulnerable_time)
 
 	if dodge_started and player.dodge_time <= 0.0 and frames > 12:
@@ -57,8 +57,8 @@ func _physics_process(_delta: float) -> void:
 
 func _finish() -> void:
 	finished = true
-	var roll_clean := absf(player.visual_root.rotation_degrees.x) < 1.0
-	print("---- 后空翻验证结果 ----")
+	var roll_clean := absf(player.visual_root.rotation_degrees.y) < 1.0
+	print("---- 水平旋身验证结果 ----")
 	print("  触发闪避       : ", dodge_started)
 	print("  起跳最大 y 速度 : %.2f  (期望 > 3.0)" % max_y)
 	print("  翻转最大角度   : %.1f 度 (期望接近 360)" % max_roll)

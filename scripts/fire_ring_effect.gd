@@ -15,14 +15,16 @@ var _hit: Dictionary = {}
 var _mat: StandardMaterial3D
 var _finishing := false
 var _visual_only := false
+var _targets: Variant = null
 
 
-func configure(center: Vector3, damage: float, max_radius: float, duration: float, visual_only := false) -> void:
+func configure(center: Vector3, damage: float, max_radius: float, duration: float, visual_only := false, targets: Variant = null) -> void:
 	_center = center
 	_damage = damage
 	_max_radius = max_radius
 	_duration = duration
 	_visual_only = visual_only
+	_targets = targets
 	position = Vector3(center.x, 0.12, center.z)
 
 
@@ -53,7 +55,7 @@ func _physics_process(delta: float) -> void:
 	var world_radius := _max_radius * e
 	scale = Vector3(world_radius / RING_BASE, 1.0, world_radius / RING_BASE)
 	# 波前扫过敌人时，按距离逐个结算一次伤害（水波扩散感）
-	for enemy in get_tree().get_nodes_in_group("enemies"):
+	for enemy in (get_tree().get_nodes_in_group("enemies") if _targets == null else _targets):
 		if _hit.has(enemy) or not is_instance_valid(enemy) or _visual_only:
 			continue
 		var d: float = enemy.global_position.distance_to(_center)

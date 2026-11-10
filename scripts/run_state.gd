@@ -1,6 +1,7 @@
 extends Node
 
 const SAVE_PATH := "user://adventure.cfg"
+const PERSIST_PROGRESS := false
 const CHAPTERS := [
 	{"id": "snow", "title": "第一章 · 雪原边境", "status": "available", "scene": "res://scenes/main.tscn", "debug_hint": "战斗 / 烤炉二阶段 / 炉芯剧情"},
 	{"id": "second", "title": "第二章 · 火山洞窟", "status": "available", "scene": "res://scenes/chapter2/volcano_cave.tscn", "debug_hint": "工坊剧情 / 战斗 / 三层平台"},
@@ -60,6 +61,7 @@ var snow_dining_restored := false
 var ember_cooking_charges := 0
 var snow_tunnel_seen := false
 var snow_opening_seen := false
+var snowleaf_rack_claimed := false
 
 func can_receive_evacuees() -> bool:
 	return snow_dining_restored
@@ -79,6 +81,7 @@ func resolve_snow_core(use: String) -> bool:
 
 
 var cooking_inventory := FoodInventory.new()
+var guards: Array = []
 var cooking_journal: Array[String] = []
 
 
@@ -127,7 +130,13 @@ func rename_player(new_name: String) -> Error:
 
 
 func has_gear(id: String) -> bool:
+	if id == "snowleaf" and chapter_mode and chapter_id == "snow" and needs_snowleaf_tutorial():
+		return false
 	return gear.has(id)
+
+
+func needs_snowleaf_tutorial() -> bool:
+	return not snowleaf_rack_claimed and not (completed_chapters.has("snow") and gear.has("snowleaf"))
 
 
 func collect_gear(id: String) -> bool:
@@ -141,15 +150,21 @@ func collect_gear(id: String) -> bool:
 
 
 func save_progress() -> Error:
+	if not PERSIST_PROGRESS:
+		return OK
 	var config := ConfigFile.new()
 	config.set_value("snow_story", "core_found", snow_core_found)
 	config.set_value("snow_story", "core_use", snow_core_use)
 	config.set_value("snow_story", "dining_restored", snow_dining_restored)
 	config.set_value("snow_story", "cooking_charges", ember_cooking_charges)
 	config.set_value("snow_story", "tunnel_seen", snow_tunnel_seen)
-	config.set_value("snow_story", "hearth_opening_seen", snow_opening_seen)
+	config.set_value("snow_story", "table_soup_opening_seen", snow_opening_seen)
+	config.set_value("snow_story", "snowleaf_rack_claimed", snowleaf_rack_claimed)
 	config.set_value("hero", "name", player_name)
 	config.set_value("cooking", "journal", cooking_journal)
+	config.set_value("cooking","ingredients",cooking_inventory.ingredients)
+	config.set_value("cooking","dishes",cooking_inventory.dishes)
+	config.set_value("cooking","guards",guards)
 	config.set_value("cinematics", "recipe_arrival_seen", recipe_arrival_seen)
 	config.set_value("journey", "chapter", chapter_id)
 	config.set_value("journey", "completed_chapters", completed_chapters)
@@ -165,9 +180,14 @@ func save_progress() -> Error:
 
 
 func load_progress() -> void:
+	if not PERSIST_PROGRESS:
+		return
 	var config := ConfigFile.new()
 	if config.load(progress_path) != OK:
 		return
+	cooking_inventory.ingredients = config.get_value("cooking","ingredients",{})
+	cooking_inventory.dishes = config.get_value("cooking","dishes",{})
+	guards = config.get_value("cooking","guards",[])
 	cooking_journal.clear()
 	var saved_journal: Variant = config.get_value("cooking", "journal", [])
 	if saved_journal is Array:
@@ -179,8 +199,9 @@ func load_progress() -> void:
 	snow_dining_restored = bool(config.get_value("snow_story", "dining_restored", false))
 	ember_cooking_charges = clampi(int(config.get_value("snow_story", "cooking_charges", 0)), 0, 1)
 	snow_tunnel_seen = bool(config.get_value("snow_story", "tunnel_seen", false))
-	# Older saves see the new upstairs opening once, while keeping their adventure progress.
-	snow_opening_seen = bool(config.get_value("snow_story", "hearth_opening_seen", false))
+	# Re-enter the revised opening once on saves from before the table and soup sequence.
+	snow_opening_seen = bool(config.get_value("snow_story", "table_soup_opening_seen", false))
+	snowleaf_rack_claimed = bool(config.get_value("snow_story", "snowleaf_rack_claimed", false))
 	recipe_arrival_seen = bool(config.get_value("cinematics", "recipe_arrival_seen", false))
 	player_name = String(config.get_value("hero", "name", "")).strip_edges().substr(0, 18)
 	chapter_id = String(config.get_value("journey", "chapter", "snow"))
@@ -215,6 +236,7 @@ func load_progress() -> void:
 
 func reset_run() -> void:
 	cooking_inventory.clear()
+	guards.clear()
 	cooking_journal.clear()
 	gear.clear()
 	snow_core_found = false
@@ -223,6 +245,7 @@ func reset_run() -> void:
 	ember_cooking_charges = 0
 	snow_tunnel_seen = false
 	snow_opening_seen = false
+	snowleaf_rack_claimed = false
 	recipe_arrival_seen = false
 	chapter_mode = false
 	completed_chapters.clear()

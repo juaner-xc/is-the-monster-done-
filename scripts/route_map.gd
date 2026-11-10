@@ -114,7 +114,7 @@ func _build_loader() -> void:
 	loading_bar.add_theme_stylebox_override("background",Book.style(Color("242921"),Color("645739"),0))
 	loading_bar.add_theme_stylebox_override("fill",Book.style(Book.GOLD,Book.GOLD,0))
 	column.add_child(loading_bar)
-	var hint := Book.label("WASD 移动   ·   左键挥锅   ·   空格翻滚",17,Book.MUTED)
+	var hint := Book.label("WASD 移动   ·   左键挥锅   ·   Shift 闪避 · 空格跳跃",17,Book.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(hint)
 

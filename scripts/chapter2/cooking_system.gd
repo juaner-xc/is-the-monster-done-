@@ -54,7 +54,8 @@ func craft(id_a: String, id_b: String) -> Dictionary:
 	if not inventory.take_pair(id_a, id_b):
 		return _failure(id_a, id_b, FAIL_MISSING)
 	var dish_id := String(result["dish_id"])
-	inventory.add_dish(dish_id)
+	inventory.add_dish(dish_id, 6 if dish_id == "ice_shot" else (3 if dish_id == "fire_ring" else 1))
+	RunState.save_progress()
 	result["message"] = "做成了 %s，已记进料理手记。" % FoodData.dish_name(dish_id)
 	dish_crafted.emit(dish_id, recipe_id)
 	return result

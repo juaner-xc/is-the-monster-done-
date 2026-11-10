@@ -171,6 +171,10 @@ func _ride() -> void:
 	tween.tween_property(fade, "color:a", 1.0, 1.4)
 	await tween.finished
 	if ResourceLoader.exists(CHAPTER3_SCENE):
+		if not RunState.completed_chapters.has("second"):
+			RunState.completed_chapters.append("second")
+		RunState.select_chapter("third")
+		RunState.save_progress()
 		get_tree().change_scene_to_file(CHAPTER3_SCENE)
 	else:
 		_announce("第三章的场景还没做好。")

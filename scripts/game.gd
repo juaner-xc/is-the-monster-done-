@@ -22,6 +22,7 @@ const MAX_ENEMIES := 24
 const TERRAIN_SIZE := 220.0
 const TERRAIN_RESOLUTION := 110
 
+var kitchen = preload("res://scripts/travel_kitchen.gd").new()
 var recipe_arrival_active := false
 var recipe_book: CanvasLayer
 var recipe_book_was_paused := false
@@ -141,6 +142,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if cinematic_entry or recipe_arrival_active:
 		return
+	if kitchen.page != "": return
 	# M 键：开/收雪原布局图（关闭在暂停态由地图自身处理）
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event.keycode == KEY_M or event.physical_keycode == KEY_M) \
@@ -148,13 +150,6 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			_toggle_map()
 			return
-	# Handle Tab before GUI focus navigation, including from the pause menu.
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_TAB or event.physical_keycode == KEY_TAB:
-			if map_open: return
-			get_viewport().set_input_as_handled()
-			if not recipe_book.is_open():
-				_open_recipe_book()
 	# Enter 键：乘坐 / 下梯摩天轮（不用鼠标，仅在靠近、按钮可见时生效）
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event.keycode == KEY_ENTER or event.physical_keycode == KEY_ENTER) \
@@ -275,6 +270,8 @@ func _start_run() -> void:
 	player.died.connect(func() -> void: _finish_run(false))
 	player.camera_shake_requested.connect(_on_camera_shake_requested)
 
+	add_child(kitchen)
+	kitchen.setup(self)
 	hud = HudScript.new()
 	add_child(hud)
 	hud.upgrade_chosen.connect(_on_upgrade_chosen)
@@ -298,7 +295,7 @@ func _start_run() -> void:
 	spawn_timer.process_mode = Node.PROCESS_MODE_PAUSABLE
 	spawn_timer.timeout.connect(_on_spawn_timer)
 	add_child(spawn_timer)
-	var opening := RunState.chapter_mode and not RunState.snow_opening_seen
+	var opening := RunState.chapter_mode and (not RunState.snow_opening_seen or RunState.needs_snowleaf_tutorial())
 	for arg in OS.get_cmdline_user_args():
 		if arg in ["--boss-now", "--visit-kendeqi"] or arg.begins_with("--start-wave="):
 			opening = false
@@ -382,22 +379,7 @@ func _random_spot(used: Array[Vector2]) -> Vector2:
 
 func _on_pickup_collected(id: String) -> void:
 	RunState.cooking_inventory.add_ingredient(id)
-	recipe_system.fresh_picks += 1
-	var before: Array[String] = recipe_system.get_active_recipes()
-	recipe_system.add_upgrade(id)
-	player.configure_build(recipe_system.get_modifiers(), recipe_system.get_active_recipes())
-	if id == "cream":
-		player.heal(10.0)
-	hud.show_notice("拾取新鲜食材：%s（翻炒伤害 +1）" % RecipeSystemScript.UPGRADE_DEFS[id]["name"])
-	# 组合判定：新激活的配方弹提示
-	for recipe_id in recipe_system.get_active_recipes():
-		if not before.has(recipe_id):
-			hud.show_notice("配方组合成功：%s（Tab 查看图鉴）" % RecipeSystemScript.RECIPE_NAMES[recipe_id])
-	# 辣椒/热油：火圈合成后重装充能（仅 (1)(1) 充能制火圈有 rearm_fire_ring，用 has_method 保护）
-	if id in ["chili", "oil"] and recipe_system.get_active_recipes().has("fire_ring"):
-		if player.has_method("rearm_fire_ring"):
-			player.rearm_fire_ring()
-
+	hud.show_notice("+ " + FoodData.ingredient_name(id))
 
 ## 左键点击：收集玩家附近（约 1.8m 内）的食材
 func _try_click_pickup() -> void:
@@ -444,6 +426,10 @@ func _return_to_route_map() -> void:
 	get_tree().paused = false
 	if last_result_won:
 		RunState.complete_selected()
+		if RunState.chapter_mode and RunState.chapter_id == "snow" and RunState.select_chapter("second"):
+			RunState.save_progress()
+			get_tree().change_scene_to_file("res://scenes/chapter2/volcano_cave.tscn")
+			return
 	else:
 		RunState.fail_selected()
 	get_tree().change_scene_to_file("res://scenes/route_map.tscn")
@@ -482,13 +468,13 @@ func _on_spawn_timer() -> void:
 		_spawn_enemy("elite_cooker")
 		hud.show_notice("精英单位：高压锅守卫")
 		return
-	var pool: Array[String] = ["slime", "slime", "slime"]
+	var pool: Array[String] = ["slime", "swelling_dough", "swelling_dough"]
 	if current_wave >= 2:
-		pool.append_array(["fork_imp", "fork_imp"])
+		pool.append_array(["cargo_loader", "cargo_loader"])
 	if current_wave >= 3:
 		pool.append_array(["toast", "mushroom"])
 	if current_wave >= 4:
-		pool.append_array(["fork_imp", "toast", "mushroom"])
+		pool.append_array(["cargo_loader", "swelling_dough", "mushroom"])
 	var spawn_count := 1
 	if current_wave >= 3 and rng.randf() < 0.38:
 		spawn_count = 2
@@ -590,26 +576,15 @@ func _on_level_up_requested() -> void:
 	if aftermath_active:
 		return
 	get_tree().paused = true
-	hud.show_upgrade(recipe_system.get_upgrade_options(3))
+	map_mini.hide()
+	hud.update_condensation(player.experience, player.experience_needed)
+	hud.show_upgrade(recipe_system.get_upgrade_options(3), player.has_meta("opening_combat"))
 
 
 func _on_upgrade_chosen(id: String) -> void:
-	var previous: Array[String] = recipe_system.get_active_recipes()
 	RunState.cooking_inventory.add_ingredient(id)
-	recipe_system.add_upgrade(id)
-	player.configure_build(recipe_system.get_modifiers(), recipe_system.get_active_recipes())
-	if id == "cream":
-		player.heal(10.0)
-	hud.show_notice("散逸魔力凝成：%s" % RecipeSystemScript.UPGRADE_DEFS[id]["name"])
-	var discovered: Array[String] = []
-	for recipe_id in recipe_system.get_active_recipes():
-		if not recipe_id in previous:
-			discovered.append(recipe_id)
-	if not discovered.is_empty() and not RunState.recipe_arrival_seen:
-		_show_recipe_arrival(discovered)
-	else:
-		get_tree().paused = false
-
+	map_mini.visible = not map_open
+	get_tree().paused = false
 
 func _show_recipe_arrival(discovered: Array[String]) -> void:
 	recipe_arrival_active = true
@@ -1111,7 +1086,8 @@ func _ensure_input_actions() -> void:
 	_add_key_action("move_back", KEY_S)
 	_add_key_action("move_left", KEY_A)
 	_add_key_action("move_right", KEY_D)
-	_add_key_action("dodge", KEY_SPACE)
+	_add_key_action("dodge", KEY_SHIFT)
+	_add_key_action("jump", KEY_SPACE)
 	_add_key_action("interact", KEY_F)
 	_add_key_action("side_skill_1", KEY_Q)
 	_add_key_action("side_skill_2", KEY_E)

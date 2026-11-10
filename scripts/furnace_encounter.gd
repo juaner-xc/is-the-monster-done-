@@ -407,7 +407,7 @@ func _tick_intro(delta: float) -> void:
 		var blend := smoothstep(0.82, 1.0, t)
 		intro_camera.global_transform = intro_camera.global_transform.interpolate_with(game.game_camera.global_transform, blend)
 	intro_panel.modulate.a = minf(1, intro_elapsed / 0.4) * (1 - smoothstep(3.1, 3.8, intro_elapsed))
-	if intro_elapsed >= 3.8 or (intro_elapsed > 0.65 and Input.is_action_just_pressed("dodge")):
+	if intro_elapsed >= 3.8 or (intro_elapsed > 0.65 and Input.is_action_just_pressed("jump")):
 		_finish_intro()
 
 func _finish_intro() -> void:

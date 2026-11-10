@@ -23,14 +23,15 @@ func _ready() -> void:
 	_add_hint_label()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	print("=== 特效测试场景已就绪 ===")
-	print("WASD 移动 | 空格闪避 | 左键普攻(火圈) | 右键发射(冰锥) | F 模拟受击(护盾闪光) | 走近食材自动拾取 | ESC 退出")
+	print("WASD 移动 | Shift 闪避 · 空格跳跃 | 左键普攻(火圈) | 右键发射(冰锥) | F 模拟受击(护盾闪光) | 走近食材自动拾取 | ESC 退出")
 
 func _setup_input() -> void:
 	_add_key("move_forward", KEY_W)
 	_add_key("move_back", KEY_S)
 	_add_key("move_left", KEY_A)
 	_add_key("move_right", KEY_D)
-	_add_key("dodge", KEY_SPACE)
+	_add_key("dodge", KEY_SHIFT)
+	_add_key("jump", KEY_SPACE)
 	_add_key("pause", KEY_ESCAPE)
 	_add_key("interact", KEY_F)
 	_add_mouse("basic_attack", MOUSE_BUTTON_LEFT)
@@ -96,7 +97,7 @@ func _spawn_ingredients() -> void:
 func _add_hint_label() -> void:
 	var layer := CanvasLayer.new()
 	var label := Label.new()
-	label.text = "WASD 移动 · 空格闪避 · 左键普攻(火圈视觉) · 右键发射(冰锥视觉)\nF 模拟受击(护盾闪光) · 走近食材自动拾取 · ESC 退出"
+	label.text = "WASD 移动 · Shift 闪避 · 空格跳跃 · 左键普攻(火圈视觉) · 右键发射(冰锥视觉)\nF 模拟受击(护盾闪光) · 走近食材自动拾取 · ESC 退出"
 	label.position = Vector2(12, 12)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_font_size_override("font_size", 16)

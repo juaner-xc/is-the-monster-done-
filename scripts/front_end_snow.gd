@@ -165,7 +165,7 @@ func _build_title(column: VBoxContainer) -> void:
 	right_box.add_child(_paragraph("风雪尽头，仍有一处火光。\n第一道料理，从这里开始。", 20, Book.MUTED, 54))
 	right_box.add_child(Book.rule())
 	right_box.add_child(_label("魔法料理   ·   自由构筑   ·   异界远征", 16, COPPER))
-	column.add_child(_label("WASD 移动  ·  鼠标调整视角  ·  左键挥锅  ·  右键料理弹  ·  空格翻滚  ·  Tab 料理图鉴", 14, Book.MUTED))
+	column.add_child(_label("WASD 移动  ·  鼠标调整视角  ·  左键挥锅  ·  右键料理弹  ·  Shift 闪避 · 空格跳跃  ·  Tab 料理图鉴", 14, Book.MUTED))
 
 
 func _build_identity(column: VBoxContainer) -> void:

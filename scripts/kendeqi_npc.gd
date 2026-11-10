@@ -8,6 +8,7 @@ const STOKE_COUNT := 2
 var elapsed := 0.0
 var listening := false
 var stoking := false
+var offering_soup := false
 var _stoke_time := 0.0
 var _stokes_done := 0
 var _firewood: MeshInstance3D
@@ -46,7 +47,8 @@ func _process(delta: float) -> void:
 	head.rotation.z = sin(elapsed * 0.65) * 0.025
 	head.rotation.x = sin(elapsed * (2.2 if listening else 0.8)) * (0.055 if listening else 0.018)
 	arm.rotation.x = sin(_stride) * 0.13 if is_walking() else sin(elapsed * 1.1) * 0.055
-	left_arm.rotation.x = -arm.rotation.x * 0.75
+	var left_target := -0.57 if offering_soup else -arm.rotation.x * 0.75
+	left_arm.rotation.x = lerpf(left_arm.rotation.x, left_target, minf(1.0, delta * 9.0))
 	var player := get_tree().get_first_node_in_group("player") as Node3D
 	if player != null:
 		var local := to_local(player.global_position)
@@ -102,8 +104,7 @@ func set_stoking(value: bool) -> void:
 	stoking = value
 	arm.get_node("LadleHandle").visible = not value
 	arm.get_node("LadleBowl").visible = not value
-	torso.get_node("LeftArm/SoupBowl").visible = not value
-	torso.get_node("LeftArm/SoupSurface").visible = not value
+	set_soup_visible(not value)
 	if not value:
 		torso.rotation.x = 0.0
 		torso.position.y = 0.0
@@ -130,6 +131,10 @@ func set_stoking(value: bool) -> void:
 		_firewood.position = Vector3(0.12,-0.39,0.43)
 		_firewood.rotation = Vector3(1.38,0,0.53)
 	_stoke_pose()
+
+func set_soup_visible(enabled: bool) -> void:
+	left_arm.get_node("SoupBowl").visible = enabled
+	left_arm.get_node("SoupSurface").visible = enabled
 
 func _stoke_pose() -> void:
 	var beat := _stoke_time

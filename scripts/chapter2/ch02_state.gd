@@ -40,6 +40,8 @@ func reset() -> void:
 
 
 func save_progress() -> void:
+	if not RunState.PERSIST_PROGRESS:
+		return
 	var config := ConfigFile.new()
 	for key in flags.keys():
 		config.set_value(SECTION, String(key), flags[key])
@@ -49,6 +51,8 @@ func save_progress() -> void:
 
 
 func load_progress() -> void:
+	if not RunState.PERSIST_PROGRESS:
+		return
 	flags.clear()
 	var config := ConfigFile.new()
 	if config.load(SAVE_PATH) != OK:

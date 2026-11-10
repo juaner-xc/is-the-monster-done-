@@ -9,8 +9,11 @@ func _ready() -> void:
 	_orbit = find_child("OrbitRig", true, false) as Node3D
 	_magic = find_child("Magic", true, false) as Node3D
 	if snap_to_floor:
+		if not is_inside_tree(): return
 		await get_tree().physics_frame
+		if not is_inside_tree(): return
 		await get_tree().physics_frame
+		if not is_inside_tree(): return
 		var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 8.0, global_position + Vector3.DOWN * 12.0, 1)
 		var body := get_node_or_null("BodyCollision") as CollisionObject3D
 		if body != null:

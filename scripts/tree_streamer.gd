@@ -13,6 +13,8 @@ extends Node3D
 @export var trees_per_cell: int = 3          ## 每格最多几棵树
 @export var no_spawn_zones: Array[Vector3] = [] # x, z, radius
 @export var exclusion_radius: float = 26.0   ## 出生点周围留空的半径（放角色/建筑用）
+@export var focus_clearance := 12.0          ## 观察点（相机/玩家）周围留空，防止树刷进镜头形成黑斑
+@export var min_tree_spacing := 7.0          ## 树与树最小间距，防止树冠重叠成"重影"
 @export var max_radius: float = 380.0        ## 地图边界半径，墙外不种树
 @export var random_scale := true
 @export var min_scale: float = 0.8
@@ -22,6 +24,7 @@ extends Node3D
 @export var debug := false
 
 var _cells: Dictionary = {}                   ## Vector2i -> Array[Node]
+var _cell_pos: Dictionary = {}                ## Vector2i -> Array[Vector3] 每格树位置，用于间距检查
 var _last_center := Vector2i(2147483647, 2147483647)
 
 func _ready() -> void:
@@ -71,7 +74,7 @@ func _update_cells() -> void:
 			var c := Vector2i(ix, iz)
 			active[c] = true
 			if not _cells.has(c):
-				_build_cell(c)
+				_build_cell(c, center)
 
 	# 回收走出范围的格子
 	for c in _cells.keys():
@@ -81,10 +84,11 @@ func _update_cells() -> void:
 	if debug:
 		prints("TreeStreamer: 观察格", key, "格子数", _cells.size(), "树总数", get_child_count())
 
-func _build_cell(c: Vector2i) -> void:
+func _build_cell(c: Vector2i, center: Vector3) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _cell_seed(c)
 	var spawned := []
+	var positions := []
 	for i in trees_per_cell:
 		var pos := Vector3(
 			(c.x + rng.randf()) * cell_size,
@@ -93,6 +97,8 @@ func _build_cell(c: Vector2i) -> void:
 		)
 		if pos.distance_to(Vector3.ZERO) < exclusion_radius:
 			continue                              # 出生点留空
+		if pos.distance_to(center) < focus_clearance:
+			continue                              # 相机/玩家周围留空，防止树刷进镜头
 		var reserved := false
 		for zone in no_spawn_zones:
 			if Vector2(pos.x - zone.x, pos.z - zone.y).length() < zone.z:
@@ -102,6 +108,16 @@ func _build_cell(c: Vector2i) -> void:
 			continue
 		if pos.length() > max_radius:
 			continue                              # 边界外不种树
+		var too_close := false
+		for p in _cell_pos.values():
+			for q in p:
+				if pos.distance_to(q) < min_tree_spacing:
+					too_close = true
+					break
+			if too_close:
+				break
+		if too_close:
+			continue                              # 与现有树保持间距，防止树冠重叠成重影
 		var scene: PackedScene = tree_scenes[rng.randi() % tree_scenes.size()]
 		var tree := scene.instantiate()
 		tree.transform = Transform3D().rotated(Vector3.UP, rng.randf() * TAU).scaled(
@@ -110,13 +126,16 @@ func _build_cell(c: Vector2i) -> void:
 		tree.transform.origin = pos
 		add_child(tree)
 		spawned.append(tree)
+		positions.append(pos)
 	_cells[c] = spawned
+	_cell_pos[c] = positions
 
 func _free_cell(c: Vector2i) -> void:
 	for t in _cells[c]:
 		if is_instance_valid(t):
 			t.queue_free()
 	_cells.erase(c)
+	_cell_pos.erase(c)
 
 func _cell_seed(c: Vector2i) -> int:
 	# 用格子坐标算一个稳定的种子：同样的格子永远生成同样的树

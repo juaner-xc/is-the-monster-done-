@@ -32,7 +32,9 @@ func _ready():
 	call_deferred("_ground")
 
 func _ground():
+	if not is_inside_tree(): return
 	await get_tree().physics_frame
+	if not is_inside_tree(): return
 	var q := PhysicsRayQueryParameters3D.create(global_position+Vector3.UP*4,global_position-Vector3.UP*8,1,[get_rid()])
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if not hit.is_empty(): global_position.y = hit.position.y+0.012

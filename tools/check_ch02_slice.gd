@@ -76,12 +76,12 @@ func _run() -> void:
 	var b_center: Vector3 = scene.get("terrace_b").get("center")
 	var c_center: Vector3 = scene.get("terrace_c").get("center")
 	var d_center: Vector3 = scene.get("terrace_d").get("center")
-	_check(b_center.distance_to(Vector3(-61.0, 3.4, -14.0)) < 0.2, "仓库已迁到中间空地左侧")
-	_check(c_center.distance_to(Vector3(-17.0, 3.6, -14.0)) < 0.2, "厨房已迁到中间空地右侧")
-	_check(d_center.distance_to(Vector3(-39.0, 3.6, -14.0)) < 0.2, "陶陶/维修平台已成为中间空地")
-	_check(scene.find_child("Topo_Ramp_Low_Hub", true, false) != null, "低层→中间空地坡道已生成")
-	_check(scene.find_child("Topo_Ramp_Transport_Core", true, false) != null, "运输站→控制区栈道已生成")
-	_check(scene.find_child("Topo_Ramp_Core_Boss", true, false) != null, "控制区→Boss栈道已生成")
+	_check(b_center.distance_to(Vector3(-61.0, 5.23, -14.0)) < 0.2, "仓库已迁到中间空地左侧")
+	_check(c_center.distance_to(Vector3(-17.0, 5.23, -14.0)) < 0.2, "厨房已迁到中间空地右侧")
+	_check(d_center.distance_to(Vector3(-39.0, 5.23, -14.0)) < 0.2, "陶陶/维修平台已成为中间空地")
+	_check(scene.find_child("Topo_Stairs_Low_Hub", true, false) != null, "低层→中间空地楼梯已生成")
+	_check(scene.find_child("Topo_Stairs_Transport_Core", true, false) != null, "运输站→控制区楼梯已生成")
+	_check(scene.find_child("Topo_Seam_Boss", true, false) != null, "控制区→Boss接缝平台已生成")
 
 	var terrace := scene.get_node_or_null("Zone_Mid_Exploration/TerraceD")
 	_check(terrace != null, "台地 D 已挂进中层分组")
@@ -89,13 +89,8 @@ func _run() -> void:
 		var bench := terrace.get_node_or_null("RestBench")
 		_check(bench != null, "长椅实体存在")
 		_check(bench != null and not bench.visible, "未完成支阀时长椅隐藏")
-		_check(absf(float(terrace.get("center").y) - 3.6) < 0.1,
-				"台地 D 已抬到 3.6m 中层")
-	_check(scene.get_node_or_null("Ramp_Low_D") != null, "低层→D 主入口坡道已生成")
-	_check(scene.find_children("MidSupport*", "StaticBody3D", true, false).size() >= 3,
-			"B/C/D 三块中层承重台体已生成")
-	_check(scene.find_children("MidBridge*", "StaticBody3D", true, false).size() >= 4,
-			"B/C/D 与运输站之间的铁栈道已生成")
+		_check(absf(float(terrace.get("center").y) - 5.23) < 0.1,
+				"台地 D 已抬到 5.23m 中层")
 
 	# ---------- 台地 C：备用小厨房的能源分支 ----------
 	var kitchen: Node = scene.get("terrace_c")
@@ -196,25 +191,17 @@ func _run() -> void:
 		_check(terraces.get_node_or_null("LavaLake_North") != null, "北侧熔岩湖已生成")
 		_check(terraces.get_node_or_null("LavaDamage_South") != null, "熔岩伤害区已生成")
 		_check(terraces.get_node_or_null("LavaDamage_North") != null, "北侧熔岩伤害区已生成")
-		for ramp in ["Topo_Ramp_Low_Hub", "Topo_Ramp_Transport_Core", "Topo_Ramp_Core_Boss"]:
-			_check(scene.has_node(ramp), "当前层间坡道 %s 可用" % ramp)
 
-	# 三个功能区已经抬到石台地层上，层间用斜廊连接
-	_check(blocks.get_node_or_null("Ramp_Hub_Transport") != null,
-			"生活区→运输站斜廊已生成")
-	var transport_section = blocks.get("_transport_section")
-	_check(transport_section != null and is_equal_approx(
-			(transport_section as Node3D).position.y, 3.02), "运输站整体抬到第一层石台（3.6m）")
-	_check(blocks.get_node_or_null("Ramp_Transport_Core") != null,
-			"运输站→主炉控制区斜廊已生成")
-	var core_section = blocks.get("_core_section")
-	_check(core_section != null and is_equal_approx(
-			(core_section as Node3D).position.y, 6.82), "主炉控制区抬到第二层石台（7.4m）")
-	_check(blocks.get_node_or_null("Ramp_Core_Boss") != null,
-			"主炉控制区→Boss 场斜廊已生成")
-	var boss_section = blocks.get("_boss_section")
-	_check(boss_section != null and is_equal_approx(
-			(boss_section as Node3D).position.y, 10.62), "千席宴炉抬到第三层石台（11.2m）")
+	# 运输站在中层，控制区和宴炉共用顶层。
+	var transport_section := blocks.get("_transport_section") as Node3D
+	_check(transport_section != null and is_equal_approx(transport_section.position.y, 4.65),
+			"运输站位于中层")
+	var core_section := blocks.get("_core_section") as Node3D
+	var boss_section := blocks.get("_boss_section") as Node3D
+	_check(core_section != null and is_equal_approx(core_section.position.y, 9.30),
+			"控制区位于顶层")
+	_check(boss_section != null and is_equal_approx(boss_section.position.y, 9.30),
+			"千席宴炉与控制区同层")
 	_check(blocks.find_child("Checkpoint_Transport", true, false) != null,
 			"运输站重生点已生成")
 	_check(blocks.find_child("Checkpoint_Core", true, false) != null,
@@ -324,17 +311,19 @@ func _run() -> void:
 	var space2 := get_viewport().get_world_3d().direct_space_state
 	var core_probe := space2.intersect_ray(PhysicsRayQueryParameters3D.create(
 			blocks.get("_core_section").to_global(origin + Vector3(62.0, 30.0, 0.0)), blocks.get("_core_section").to_global(origin + Vector3(62.0, -10.0, 0.0)), 1))
-	_check(not core_probe.is_empty() and float(core_probe.position.y) > 7.0,
-			"控制区地面已经抬到第二层石台上")
+	_check(not core_probe.is_empty() and absf(float(core_probe.position.y) - 9.88) < 0.15,
+			"控制区地面接上顶层石台")
 
+	var boss_gate := blocks.get("_boss_gate") as StaticBody3D
+	var gate_closed_y := boss_gate.position.y if boss_gate != null else 0.0
 	blocks.call("_on_console_used")
 	await get_tree().create_timer(1.8).timeout
 	var boss_probe := space2.intersect_ray(PhysicsRayQueryParameters3D.create(
 			blocks.get("_boss_section").to_global(origin + Vector3(96.0, 40.0, 0.0)), blocks.get("_boss_section").to_global(origin + Vector3(96.0, -10.0, 0.0)), 1))
-	_check(not boss_probe.is_empty() and float(boss_probe.position.y) > 10.8,
-			"Boss 场地已经抬到第三层石台上")
-	_check(blocks.get_node_or_null("Ramp_Core_Boss") != null,
-			"控制台开启后，通往 Boss 场的斜廊是通的")
+	_check(not boss_probe.is_empty() and absf(float(boss_probe.position.y) - 9.88) < 0.15,
+			"Boss 场地接上顶层石台")
+	_check(boss_gate != null and boss_gate.position.y >= gate_closed_y + 4.5,
+			"控制台开启后，通往 Boss 场的闸门升起")
 
 	_check(state != null and bool(state.call("has", "ch02.console")), "控制台写入 ch02.console")
 

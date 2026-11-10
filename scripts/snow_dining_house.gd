@@ -7,7 +7,6 @@ var game: Node
 var inside := false
 var cutaway := false
 var dialogue_open := false
-var wake_skip_button: Button
 var dialogue_name: Label
 var dialogue_index := 0
 var elapsed := 0.0
@@ -15,11 +14,12 @@ var saved_mouse := Input.MOUSE_MODE_CAPTURED
 var saved_camera_lock := false
 var overlay: CanvasLayer
 var hint: Label
+var dialogue_hint: Label
 var dialogue_panel: PanelContainer
 var dialogue_text: Label
 var continue_button: Button
 var lines: Array[String] = []
-var gift_offered := false
+var choice_row: HBoxContainer
 var story_ui: Control
 var proximity_latched := false
 var warmth_blend := 0.0
@@ -59,7 +59,8 @@ func _physics_process(delta: float) -> void:
 		hint.hide()
 		return
 	elapsed += delta
-	gift_display.visible = opening_active() or not RunState.has_gear("snowleaf")
+	var rack_already_taken: bool = opening_active() and opening.stage in [opening.WEAPON_GUIDE, opening.WEAPON_GUIDE_TALK]
+	gift_display.visible = not rack_already_taken and (opening_active() or not RunState.has_gear("snowleaf"))
 	var was_inside := inside
 	inside = contains_point(player.global_position)
 	if inside:
@@ -70,7 +71,7 @@ func _physics_process(delta: float) -> void:
 		game.shelter_active = inside
 	var snow := get_parent().get_node_or_null("snow_fall") as Node3D
 	if snow != null:
-		snow.visible = not inside
+		snow.visible = not inside and (not opening_active() or not opening.snow_lull)
 	if inside and not was_inside and game != null:
 		game.hud.show_notice("肯德齐的食堂 · 进来避避风雪吧。")
 	var p := to_local(player.global_position)
@@ -84,11 +85,13 @@ func _physics_process(delta: float) -> void:
 	$Interior/Hearth/CozyFlame.scale = Vector3.ONE * lerpf(0.25, 1.0, warmth_blend)
 	$Interior/RoomGlow.light_energy = lerpf(0.24, 0.66, warmth_blend)
 	if opening_active():
-		hint.hide()
 		$Kendeqi/Nameplate.hide()
 		opening.tick()
+		hint.text = "" if _busy() or get_tree().paused or game.map_open or game.kitchen.page != "" else opening.objective_hint()
+		hint.visible = not hint.text.is_empty()
 		return
 	var near_elder := can_talk()
+	hint.text = "[F] 与肯德齐交谈"
 	hint.visible = near_elder and not _busy()
 	$Kendeqi/Nameplate.visible = inside and not dialogue_open
 	if not near_elder:
@@ -125,21 +128,35 @@ func can_talk() -> bool:
 	return inside and is_instance_valid(player) and absf(player.global_position.y - elder.global_position.y) < 1.6 and Vector2(player.global_position.x - elder.global_position.x, player.global_position.z - elder.global_position.z).length() < 3.25
 
 func _input(event: InputEvent) -> void:
+	if game != null and is_instance_valid(game.kitchen):
+		if game.kitchen.page != "":
+			return
+		if dialogue_open and event.is_action_pressed("pause"):
+			game.kitchen.show_page("设置")
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.echo:
 		return
 	if dialogue_open:
+		if is_instance_valid(choice_row):
+			if event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
+				var focused := get_viewport().gui_get_focus_owner() as Button
+				if focused == null or focused.get_parent() != choice_row:
+					focused = choice_row.get_child(0) as Button
+				get_viewport().set_input_as_handled()
+				_answer(focused.text)
+			return
 		if event.is_action_pressed("pause"):
 			get_viewport().set_input_as_handled()
-			if _is_wake_dialogue():
-				_skip_wake_dialogue()
-			elif not opening_active():
+			if not opening_active():
 				close_dialogue()
 		elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
 			get_viewport().set_input_as_handled()
 			advance_dialogue()
 	elif opening_active():
-		if not get_tree().paused and event.is_action_pressed("interact"):
-			opening.interact()
+		if not get_tree().paused and not _busy() and not game.map_open and event.is_action_pressed("interact"):
+			if opening.interact():
+				get_viewport().set_input_as_handled()
 	elif not get_tree().paused and event.is_action_pressed("interact") and can_talk() and not _busy():
 		get_viewport().set_input_as_handled()
 		open_dialogue()
@@ -170,9 +187,6 @@ func open_dialogue() -> void:
 		lines = ["柴火还够用一阵。我会继续想办法修炉子。", "路上小心。你锅里的余温，只够强化一发料理弹。"]
 	if game != null and game.aftermath_active:
 		return
-	gift_offered = not RunState.has_gear("snowleaf")
-	if gift_offered:
-		lines.append("把架上的雪叶领、叶芽扣和红果木杖带上。我年轻时用它们翻山送汤。雪盖住路的时候，先拿杖探一步。")
 	_show_dialogue()
 
 func _show_dialogue() -> void:
@@ -191,22 +205,14 @@ func _show_dialogue() -> void:
 	_update_line()
 
 func advance_dialogue() -> void:
+	if is_instance_valid(choice_row): return
 	dialogue_index += 1
 	if dialogue_index >= lines.size():
 		if opening_active():
 			close_dialogue()
 			opening.next_after_dialogue()
 			return
-		var received := gift_offered and RunState.collect_gear("snowleaf")
 		close_dialogue()
-		if received:
-			var direction := elder.global_position - player.global_position
-			player.rotation.y = atan2(-direction.x, -direction.z)
-			player.call("play_hero_action", &"ReceiveGift")
-			if game != null:
-				game.hud.show_notice("肯德齐的赠礼 · 雪叶领与红果木杖已穿戴  ·  V 挥手")
-		elif gift_offered and not RunState.has_gear("snowleaf") and game != null:
-			game.hud.show_notice("赠礼未能写入存档。可以再和肯德齐交谈领取。")
 	else:
 		_update_line()
 
@@ -214,35 +220,66 @@ func _is_wake_dialogue() -> bool:
 	return dialogue_open and opening_active() and opening.stage == opening.WAKE
 
 
-func _skip_wake_dialogue() -> void:
-	if _is_wake_dialogue():
-		dialogue_index = lines.size() - 1
-		advance_dialogue()
-
-
 func _update_line() -> void:
 	dialogue_text.text = lines[dialogue_index]
-	if _is_wake_dialogue():
+	dialogue_hint.text = "[F / Enter] 继续"
+	dialogue_hint.show()
+	if opening_active() and dialogue_index == opening.choice_line:
+		dialogue_hint.text = "[← / →] 选择 · [F / Enter] 确认"
+		choice_row = HBoxContainer.new()
+		dialogue_panel.get_child(0).add_child(choice_row)
 		story_ui.hide()
-		dialogue_name.text = opening.speaker_names[dialogue_index]
-		continue_button.text = "起身 [F / Enter]" if dialogue_index == lines.size() - 1 else "继续 [F / Enter]"
 		dialogue_panel.show()
+		dialogue_name.text="肯德齐"
+		continue_button.hide()
+		for answer in ["隐瞒","说实话"]:
+			var option := Button.new()
+			option.text=answer
+			choice_row.add_child(option)
+			option.pressed.connect(_answer.bind(answer))
+		choice_row.get_child(0).grab_focus()
 		return
 	if opening_active():
-		var speaker: String = opening.speaker_names[dialogue_index]
-		story_ui.say(player if speaker == "奶蛙" else elder, lines[dialogue_index], speaker, false)
+		if dialogue_index == opening.lull_line:
+			opening.snow_lull = true
+		story_ui.hide()
+		dialogue_name.text = opening.speaker_names[dialogue_index]
+		continue_button.show()
+		var action := "继续"
+		if dialogue_index == lines.size() - 1:
+			if _is_wake_dialogue():
+				action = "起身"
+			elif opening.stage == opening.ROUTE:
+				action = "接过热汤"
+			elif opening.stage == opening.AFTER:
+				action = "接过热汤"
+		continue_button.text = action
+		dialogue_hint.text = "[F / Enter] " + action
+		dialogue_panel.show()
 		return
-	story_ui.say(elder, lines[dialogue_index], "肯德齐 · 赠礼  /  F 或 Enter 收下" if gift_offered and dialogue_index == lines.size() - 1 else "肯德齐 · 雪原食堂")
-	continue_button.text = "继续  [F / Enter]"
+	story_ui.say(elder, lines[dialogue_index], "肯德齐 · 雪原食堂")
+	continue_button.text = "继续"
 	if dialogue_index == lines.size() - 1:
-		continue_button.text = "收下赠礼  [F / Enter]" if gift_offered else "告别  [F]"
+		continue_button.text = "告别"
 	# Keep keyboard input on the room so Enter cannot advance twice via button focus.
 	continue_button.release_focus()
+
+func _answer(answer: String) -> void:
+	choice_row.queue_free()
+	choice_row=null
+	continue_button.show()
+	dialogue_panel.hide()
+	lines.insert(dialogue_index+1,"其实我是个魔法厨师，我做饭的时候往锅里加了太多魔力。锅一响，就突然出现了裂隙，我就掉进来了。" if answer=="说实话" else "我也没看清。只记得眼前一亮，再睁眼就躺在这里了。")
+	opening.speaker_names.insert(dialogue_index+1,"奶蛙")
+	opening.choice_line = -1
+	opening.lull_line += 1
+	advance_dialogue()
 
 func close_dialogue() -> void:
 	if not dialogue_open:
 		return
 	dialogue_open = false
+	dialogue_hint.hide()
 	elder.listening = false
 	dialogue_panel.hide()
 	if story_ui != null: story_ui.hide()
@@ -277,16 +314,20 @@ func _build_ui() -> void:
 	hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hint.position = Vector2(-210, -115)
 	hint.size = Vector2(420, 42)
-	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color("fff2d3"))
 	hint.add_theme_color_override("font_outline_color", Color("302b25"))
-	hint.add_theme_constant_override("outline_size", 7)
+	hint.add_theme_constant_override("outline_size", 4)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(hint)
 	hint.hide()
+	dialogue_hint = hint.duplicate() as Label
+	root.add_child(dialogue_hint)
+	dialogue_hint.offset_top = -29
+	dialogue_hint.offset_bottom = -5
 	dialogue_panel = PanelContainer.new()
 	dialogue_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	dialogue_panel.offset_left = 100
+	dialogue_panel.offset_left = 320
 	dialogue_panel.offset_right = -100
 	dialogue_panel.offset_top = -226
 	dialogue_panel.offset_bottom = -30
@@ -317,11 +358,6 @@ func _build_ui() -> void:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_END
 	column.add_child(row)
-	wake_skip_button = Button.new()
-	wake_skip_button.text = "跳过对话并起身 [Esc]"
-	wake_skip_button.focus_mode = Control.FOCUS_NONE
-	wake_skip_button.pressed.connect(_skip_wake_dialogue)
-	row.add_child(wake_skip_button)
 	continue_button = Button.new()
 	continue_button.focus_mode = Control.FOCUS_NONE
 	continue_button.pressed.connect(advance_dialogue)

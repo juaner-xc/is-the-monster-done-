@@ -472,20 +472,8 @@ func _build_chapter_loader() -> void:
 	col.add_child(chapter_loading_bar)
 	chapter_loading_overlay.hide()
 
-func _open_debug_chapter(id: String) -> void:
-	if transitioning or loading_chapter or recipe_book.is_open(): return
-	if not RunState.select_chapter(id):
-		_show_chapter_error("章节资料无法读取。")
-		return
-	# 第一章、第二章先播进入转场影片，播完再落到该章场景；其余章节保持直达
-	if id == "snow":
-		_open_chapter_with_film(String(RunState.get_chapter(id).get("scene", "")), "res://scenes/chapter1_film.tscn")
-		return
-	if id == "second":
-		_open_chapter_with_film(String(RunState.get_chapter(id).get("scene", "")), "res://scenes/chapter2_film.tscn")
-		return
-	if id == "third":
-		_open_chapter_with_film(String(RunState.get_chapter(id).get("scene", "")), "res://scenes/chapter3_film.tscn")
+func _open_debug_chapter(id: String, with_film := false) -> void:
+	if transitioning or loading_chapter or recipe_book.is_open():
 		return
 	var chapter := RunState.get_chapter(id)
 	var path := String(chapter.get("scene", ""))
@@ -495,6 +483,15 @@ func _open_debug_chapter(id: String) -> void:
 	if not RunState.select_chapter(id):
 		_show_chapter_error("章节资料无法读取。")
 		return
+	if with_film:
+		var films := {
+			"snow": "res://scenes/chapter1_film.tscn",
+			"second": "res://scenes/chapter2_film.tscn",
+			"third": "res://scenes/chapter3_film.tscn",
+		}
+		if films.has(id):
+			_open_chapter_with_film(path, films[id])
+			return
 	loading_scene_path = path
 	loading_chapter_title = String(chapter["title"])
 	for b in chapter_buttons: b.disabled = true
@@ -543,9 +540,14 @@ func _poll_chapter_load() -> void:
 			return
 		CinematicFlow.from_film = false
 		CinematicFlow.battle_arrival = false
+		CinematicFlow.clear_hold()
+		if RunState.chapter_id == "second":
+			CinematicFlow.set_meta("skip_minecart_intro", true)
 		CinematicFlow.stop_wind(0.2)
 		get_tree().paused = false
 		if get_tree().change_scene_to_packed(packed) != OK:
+			if CinematicFlow.has_meta("skip_minecart_intro"):
+				CinematicFlow.remove_meta("skip_minecart_intro")
 			_show_chapter_error("章节未能打开，请返回后重试。")
 	elif status in [ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE]:
 		_show_chapter_error("章节加载失败，请检查导入资源后重试。")

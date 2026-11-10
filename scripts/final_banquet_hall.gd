@@ -42,6 +42,8 @@ var prototype_mode := true
 var boss_inspecting := false
 var design_view := false
 
+var travel_menu = preload("res://scripts/travel_kitchen.gd").new()
+
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if CinematicFlow.hold.visible:
@@ -54,9 +56,7 @@ func _ready():
 		boss.position=Vector3(0,0.10,-20)
 		add_child(boss)
 	facility.snow = RunState.snow_dining_restored
-	# Chapter two is not implemented in the existing adventure save yet.
-	for entry in RunState.get_property_list():
-		if entry.name == "volcano_backup_restored": facility.volcano = bool(RunState.get("volcano_backup_restored"))
+	facility.volcano = Ch02State.get_flag("ch02.energy_branch", "") == "stove"
 	contact_ready = RunState.relics.has("旧取餐铃")
 	for node in get_tree().get_nodes_in_group("final_hall_points"):
 		if is_ancestor_of(node): points[node.get_meta("interaction_id")] = node
@@ -67,6 +67,7 @@ func _ready():
 		medal_display.position.y = 0.68
 		medal_display.scale = Vector3.ONE * 8.0
 	_build_lighting()
+	get_node("FinalBoss").defeated_now.connect(_on_final_boss_defeated)
 	player = CharacterBody3D.new()
 	player.name = "HallPlayer"
 	player.set_script(preload("res://scripts/final_hall_player.gd"))
@@ -89,9 +90,12 @@ func _ready():
 	overview.rotation_degrees = Vector3(-90,0,0)
 	_build_ui()
 	_update_facilities()
+	add_child(travel_menu)
+	travel_menu.setup(self,3)
+
 	_update_status()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	show_notice("第三章 · 终宴大厅：沿红毯进入，两侧可探索。V 挥手，F6 查看完整建筑。")
+	show_notice("终宴大厅")
 
 func _process(delta):
 	if get_tree().paused: return
@@ -125,7 +129,7 @@ func _process(delta):
 		current_area = area
 		if area in ["供给回廊","废稿厨房"]: show_notice(area+" · 按 1 → 2 → 3 操作阀门，各可获得一份料理核心。")
 	hint.show()
-	hint.text = "F  "+String(nearest.get_meta("title")) if nearest != null else current_area+"  ·  M 查看大厅布局"
+	hint.text = "F  "+String(nearest.get_meta("title")) if nearest != null else current_area+""
 	for node in points.values():
 		node.get_node("InteractionRing").scale = Vector3.ONE*(1.12+sin(clock*4)*0.04 if node==nearest else 1.0)
 
@@ -140,6 +144,7 @@ func area_at(pos: Vector3) -> String:
 	return "终宴大厅"
 
 func _input(event):
+	if travel_menu.page != "": return
 	if not event is InputEventKey or not event.pressed or event.echo: return
 	var key = event.physical_keycode if event.physical_keycode else event.keycode
 	if key==KEY_F6:
@@ -154,7 +159,8 @@ func _input(event):
 		if panel.visible: close_panel()
 		elif map_open: toggle_map()
 		else:
-			show_panel("旅程暂停","这是独立地图原型。当前补救、料理强化和结局演示只影响本次试玩。收集到的装备会随冒险存档。")
+			var gear_note := "收集到的装备会随冒险存档。" if RunState.PERSIST_PROGRESS else "装备只保留到本次游戏退出。"
+			show_panel("旅程暂停","这是独立地图原型。当前补救、料理强化和结局演示只影响本次试玩。" + gear_note)
 			get_tree().paused = true
 			button("继续探索",close_panel,true)
 			button("重置本次地图演示",func(): get_tree().paused=false; get_tree().reload_current_scene())
@@ -179,10 +185,14 @@ func interact(id: String):
 		if not anchors.has(id):
 			anchors[id]=true
 			_set_point_material(id,Color("4fc4b2"))
-			show_notice("抽取控制装置已解除 %d / 3 · 地图交互演示，正式 Boss 战尚未制作。"%anchors.size())
+			show_notice("抽取控制装置已解除 %d / 3"%anchors.size())
 		if anchors.size()==3:
-			control_released=true
-			show_notice("三个控制装置均已解除。返回准备区确认接应，或在主核心查看处理方案。")
+			var boss = get_node("FinalBoss")
+			if not boss.defeated:
+				boss.start_combat(player)
+				show_notice("抽取中断 · 末席露出破绽")
+			else:
+				show_notice("核心已解锁 · 可返回准备区确认接应")
 		_update_status()
 		return
 	match id:
@@ -198,8 +208,8 @@ func interact(id: String):
 			contact_ready=true
 			show_panel("备用联络站","旧取餐铃可以继续使用。没有铃时，可使用这里的传讯灯与手动分流杆。\n\n备用联络已接通，工具已备齐。接应资格仍由实际设施状态决定。")
 			button("收好联络信息",close_panel,true)
-		"pages": read_clue("pages","残页分发账册","账册上的目的地涵盖雪原与火山工坊。黄金残页并非偶然遗落，而是被持续向外投放。")
-		"feed": read_clue("feed","愿望计量装置","输送管把食材、魔力和追寻者投入的愿望送进核心。有效的残页让承诺显得可信，也让更多资源汇入这里。")
+		"pages": read_clue("pages","残页分发账册","账册里夹着刚裁好的金边校样。保温配方来自旧试菜厨房，背面写着“只试过一口锅”。末席把不同批次都印成“原典节录”，发往雪原和火山。")
+		"feed": read_clue("feed","愿望计量装置","收货账写着，每批试菜和魔力都送进了主核心。旁边一张返工单是末席自己的批次，出菜栏一直空着。核心还连着主门、食堂热管和工坊供给。")
 		"records":
 			var record_text := "记录把现实城市中的废弃料理、旧设备与异界的运输批次对应起来。即使阻止霸主，现实世界持续丢弃的做法仍需改变。"
 			if RunState.collect_gear(Wardrobe.MEDAL):
@@ -248,7 +258,7 @@ func show_preparation():
 
 func confirm_repair(region: String):
 	if rare_cores<1:
-		show_panel("核心不足","完成供给回廊和废稿厨房的阀门试炼，各能取得一份核心。\n若已把核心用于强化，可从暂停菜单重置本次原型，再比较资源分配。")
+		show_panel("核心不足","完成供给回廊和废稿厨房的阀门试炼，各能取得一份核心。\n若已把核心用于强化，可再回来分配资源。")
 		button("返回准备检查",show_preparation,true)
 		return
 	show_panel("确认分配料理核心","消耗 1 份稀有料理核心，恢复%s。\n这份核心将不能再用于料理强化。"%("食堂稳定热源" if region=="snow" else "工坊备用供餐"))
@@ -262,16 +272,22 @@ func show_book():
 	book_seen=true
 	var cover = $Architecture/GoldenBook/CoverHinge
 	create_tween().tween_property(cover,"rotation:z",2.9,0.8)
-	show_panel("黄金食谱","没有配方，没有隐藏文字。\n翻过的每一页，都是空白。\n\n远处的声音：\n“你准备空着手，回去见那些等你的人吗？”")
+	show_panel("黄金食谱","没有配方，没有隐藏文字。\n翻过的每一页，都是空白。\n\n远处的声音：\n“陶陶等着你给她带方子。你的老师也等着看你交卷。你要给他们看这一页？”")
 	button("再翻一页",func(): panel_body.text="下一页仍然空白。\n\n奶蛙停下翻页，手指按在没有字的纸上。")
 	button("靠近灯光查看",func(): panel_body.text="金色灯光照亮纸面。没有隐藏文字。\n玩家可以停留观察，不立即进入战斗。")
 	button("看看自己的料理手记",func(): panel_body.text="桌旁的料理手记写满了配方、删改与备注。\n那些修改过的菜，曾经真的让人吃上一顿饭。")
 	button("离开祭台 · 返回大厅",close_panel,true)
 	_update_status()
 
+func _on_final_boss_defeated():
+	control_released = true
+	show_notice("末席倒下 · 主核心已恢复手动控制")
+	_update_status()
+
+
 func show_core_options():
 	if not control_released:
-		show_panel("主核心仍被控制","先到北端祭台翻开黄金食谱，再解除三处抽取控制装置。\n\n这版地图以交互操作演示战后取得控制权；最终 Boss、战斗阶段与正式结局演出尚未制作。")
+		show_panel("主核心仍被控制","先翻开黄金食谱，解除三处抽取控制装置，再击倒末席。")
 		button("返回探索",close_panel,true)
 		return
 	show_panel("主核心 · 处理方案预览","关闭核心会改变热源、供给和运输网络。大厅与居民不会因此立即消失。\n以下均为本地图原型的局部演示，不写入正式存档。")
@@ -282,16 +298,29 @@ func show_core_options():
 	button("暂不决定",close_panel)
 
 func confirm_ending(ending: String):
+	if not selected_ending.is_empty():
+		show_notice("主核心已经完成处置。")
+		return
 	if ending=="table" and not (facility.snow and facility.volcano):
 		show_panel("接应准备不足","这个方案仍然可见，但需要先补齐：\n%s%s\n可以返回准备区补救；不会因为一次查看而锁定选择。"%["· 雪原食堂的稳定热源\n" if not facility.snow else "","· 火山工坊的备用供餐\n" if not facility.volcano else ""])
 		button("返回准备检查",show_preparation,true)
 		button("返回处理方案",show_core_options)
 		return
-	show_panel("确认演示这一方案","本次会改变核心与支线的灯光，显示处理结果。\n地图结构保留，设施不会凭空消失。\n\n这是原型内的可重置演示，不会完成正式章节。")
-	button("确认演示",func():
+	show_panel("确认核心处置","确认后，主门和供给管线将按这个方案处理。")
+	button("确认处置",func():
 		selected_ending=ending; _update_facilities(); _update_status()
-		show_panel("方案反馈","居民支线的青绿色灯光仍在。接应已回应，准备开始分流与撤离。" if ending=="table" else ("抽取暂时停止，部分供给与交通需要重新安排。恢复过的设施仍然亮着灯。" if ending=="return" else "核心继续运作。接管者也承担起继续维持承诺的代价。"))
-		button("留在大厅观察结果",close_panel,true),true)
+		Ch02State.set_flag("journey.ending", ending)
+		if not RunState.completed_chapters.has("third"):
+			RunState.completed_chapters.append("third")
+			RunState.save_progress()
+		var titles := {"return":"归途","inherit":"金色封面","table":"最后一桌饭"}
+		var epilogues := {
+			"return":"主门靠余能撑了最后一会儿。奶蛙带着已经赶到门口的居民回到旧试菜厨房。灶上已经换了一口新锅。后来老师问起这段时间，他翻开料理手记，说那本原册是空的。",
+			"inherit":"奶蛙接管了炉火和主门。下一位厨师推来试菜，问什么时候能看原册。他把金色封面合上，说，还差最后一点。",
+			"table":"两处炉灶接稳后，大家分头去主门、食堂和工坊。奶蛙等两地报了平安才关上门。他回食堂告诉陶陶最后一页的事，端出一锅汤。有人递来水壶，他兑了半勺水，等对方再尝。"
+		}
+		show_panel(titles.get(ending, "终宴之后"), epilogues.get(ending, epilogues.inherit))
+		button("留在大厅",close_panel,true),true)
 	button("返回，不确认",show_core_options)
 
 func _update_facilities():
@@ -417,7 +446,7 @@ func _toggle_design_view():
 
 
 func _ensure_inputs():
-	for pair in [["move_forward",KEY_W],["move_back",KEY_S],["move_left",KEY_A],["move_right",KEY_D],["dodge",KEY_SPACE],["interact",KEY_F],["pause",KEY_ESCAPE],["side_skill_1",KEY_Q],["side_skill_2",KEY_E]]:
+	for pair in [["move_forward",KEY_W],["move_back",KEY_S],["move_left",KEY_A],["move_right",KEY_D],["dodge",KEY_SHIFT],["jump",KEY_SPACE],["interact",KEY_F],["pause",KEY_ESCAPE],["side_skill_1",KEY_Q],["side_skill_2",KEY_E]]:
 		if not InputMap.has_action(pair[0]):
 			InputMap.add_action(pair[0]); var e=InputEventKey.new(); e.physical_keycode=pair[1]; InputMap.action_add_event(pair[0],e)
 	for pair in [["basic_attack",MOUSE_BUTTON_LEFT],["main_skill",MOUSE_BUTTON_RIGHT]]:

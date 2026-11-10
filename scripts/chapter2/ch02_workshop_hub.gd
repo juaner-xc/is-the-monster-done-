@@ -40,6 +40,10 @@ const DECK_OPEN_ARC := 20.0
 const CREAM := Color("fff2cf")
 const ORANGE := Color("f28b2f")
 
+## 陶陶走路的步速（m/s）。营地到台地 D 约 40 m，这个速度走完约 18 s，
+## 读起来是「慢慢收拾完东西就上去」，不是赶路。
+const TAOTAO_WALK_SPEED := 2.2
+
 ## true 时由 volcano_cave 接管：不建环境光、不建玩家、不建 HUD
 var docked := false
 
@@ -83,6 +87,9 @@ var _stuck_seen := false
 var _stuck_started := false
 var _shake_tween: Tween
 var _taotao_body: Node3D
+## 陶陶去工位的那段路：从餐车边走过去要穿营地、上中央大阶梯、再进台地 D，
+## 全程 40 m 左右，所以用一个 tween 沿折线推，不能直接改 global_position。
+var _taotao_walk_tween: Tween
 var _robot_prop: Node3D
 var _after_stuck := false
 var _after_rest := false
@@ -95,6 +102,8 @@ var _taotao
 var _machine
 var _npcs: Array = []
 var _pending_flag := ""
+## 这段对话是跟谁说的（line_key）。对话结束时用来判断该不该让陶陶动身。
+var _talk_key := ""
 
 
 func _ready() -> void:
@@ -121,6 +130,11 @@ func _ready() -> void:
 	_build_furnace_backdrop()
 	_spawn_player()
 	_build_hud()
+
+	var travel_menu = preload("res://scripts/travel_kitchen.gd").new()
+	add_child(travel_menu)
+	travel_menu.setup(self,2)
+	travel_menu.stove_position = player.global_position
 	_build_dialogue()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_show_chapter_card()
@@ -418,9 +432,9 @@ func _build_deck_props() -> void:
 	_add_mesh_part(self, pot, tripod + Vector3(0, 1.86, 0), _metal)
 	_add_omni(tripod + Vector3(0, 1.2, 0), Color(1.0, 0.55, 0.22), 1.6, 8.0)
 
-	# 晾衣绳：两根杆之间挂几片布，是「住下来」最直接的证据
-	var line_a := Vector3(-13.5, 0, -3.5)
-	var line_b := Vector3(-6.5, 0, -5.0)
+	# 晾衣绳：两顶帐篷之间拉一条，是「住下来」最直接的证据
+	var line_a := Vector3(-9.7, 0, 5.4)
+	var line_b := Vector3(-9.2, 0, -2.8)
 	_solid_box(Vector3(0.12, 2.3, 0.12), line_a + Vector3(0, 1.15, 0), _metal)
 	_solid_box(Vector3(0.12, 2.3, 0.12), line_b + Vector3(0, 1.15, 0), _metal)
 	var rope_yaw := atan2(line_b.x - line_a.x, line_b.z - line_a.z) + PI * 0.5
@@ -433,15 +447,15 @@ func _build_deck_props() -> void:
 				spot + Vector3(0, 1.68, 0), _canvas)
 		cloth.rotation.y = rope_yaw
 
-	# 长凳：并排摆成一排（同一个 z），都朝桌子，不要一前一后
-	for x in [-6.5, -3.0]:
-		_place_model("bench.glb", to_global(Vector3(x, 0.0, 6.6)), 0.9, PI)
+	# 长凳：围着营地南侧的火盆摆成一圈，别再并排堵在通道上
+	for spot in [[Vector3(-8.6, 0.0, 12.4), PI * 0.5], [Vector3(-8.4, 0.0, 9.6), PI * 0.5]]:
+		_place_model("bench.glb", to_global(spot[0]), 0.9, spot[1])
 
 	# 东半边是「干活的地方」：货箱、油桶、工作台，视线被引向闸门
 	_deco_mesh("kitchenware_barrel.tres", Vector3(12.0, 0, -9.5), 1.0, 0.0, null)
 	_deco_mesh("gear_crate_wood.tres", Vector3(13.4, 0, 8.6), 0.8, 0.4, null)
 	_deco_mesh("gear_rope_coil.tres", Vector3(10.5, 0, -11.5), 0.4, 0.0, null)
-	_deco_mesh("kitchenware_crate.tres", Vector3(8.0, 0, 12.0), 0.8, 0.9, null)
+	_deco_mesh("kitchenware_crate.tres", Vector3(15.2, 0, 11.6), 0.8, 0.9, null)
 	# 工作台挪到北侧，不在生活区 → 闸门 → 斜廊的中央通路上
 	_solid_box(Vector3(3.2, 0.16, 1.0), Vector3(12.0, 0.86, -9.0), _wood)
 	for dx in [-1.3, 1.3]:
@@ -573,27 +587,133 @@ func _pipe_drop(top: Vector3, material: Material) -> void:
 
 func _build_living_space() -> void:
 	_build_cooking_station()
-	# 帐篷放大一档：太小的话「住在这里」这件事立不住
-	_deco_mesh("tent_canvas_1.tres", Vector3(-11.0, 0, -10.2), 3.2, 0.25, _canvas)
-	_deco_mesh("tent_pole.tres", Vector3(-11.0, 0, -9.3), 3.4, 0.25, _metal)
-	_deco_mesh("tent_lamp.tres", Vector3(-9.2, 0, -9.4), 1.3, 0.0, _metal)
-	_deco_mesh("tent_canvas_2.tres", Vector3(11.6, 0, -10.0), 3.0, -0.35, _canvas)
-	_deco_mesh("gear_bedroll.tres", Vector3(-12.4, 0, -8.2), 0.4, 0.9, null)
-	_deco_mesh("kitchenware_crate.tres", Vector3(-9.0, 0, -7.6), 0.9, 0.3, null)
+	# 概念图口径：住人的地方是两顶米白帆布脊帐篷，一东一西夹着营地。
+	# 之前那两顶深色三角网格（tent_canvas_*.tres）是整片画面里最违和的剪影：
+	# 纯色 + 只在暗场里出现，远看就是两块黑三角，读不出「帐篷」。
+	_tent(Vector3(-13.0, 0, 6.2), 0.22)
+	_tent(Vector3(-12.4, 0, -3.4), -0.18)
 
-	_deco_mesh("gear_crate_wood.tres", Vector3(9.8, 0, 3.6), 0.8, 0.3, null)
-	_deco_mesh("gear_crate_wood.tres", Vector3(10.5, 0, 4.3), 0.8, -0.4, null)
-	_deco_mesh("kitchenware_barrel.tres", Vector3(9.1, 0, 4.6), 1.0, 0.0, null)
-	_deco_mesh("kitchenware_crate.tres", Vector3(-12.6, 0, 6.2), 0.8, 0.6, null)
-	_deco_mesh("gear_lantern.tres", Vector3(-2.0, 0, 6.8), 0.6, 0.0, _metal)
-	_deco_mesh("gear_bedroll.tres", Vector3(-12.2, 0, -8.0), 0.3, 0.9, null)
+	# 帐篷一带的家当：床铺、箱子、木桶，全部贴边摆，中央通道留空
+	_deco_mesh("gear_bedroll.tres", Vector3(-14.4, 0, 9.0), 0.4, 1.1, null)
+	_deco_mesh("gear_bedroll.tres", Vector3(-15.0, 0, -5.6), 0.4, 0.8, null)
+	_deco_mesh("gear_crate_wood.tres", Vector3(-15.8, 0, 2.2), 0.8, 0.35, null)
+	_deco_mesh("kitchenware_barrel.tres", Vector3(-16.2, 0, 3.6), 1.0, 0.0, null)
+	_deco_mesh("kitchenware_crate.tres", Vector3(-15.6, 0, 0.6), 0.82, 0.5, null)
 
-	_solid_box(Vector3(7.0, 0.1, 3.4), Vector3(-6.0, 0.05, 4.0), _wood)
-	_solid_box(Vector3(4.8, 0.1, 3.0), Vector3(6.0, 0.05, -2.4), _wood)
+	# 东半边：靠石屋的一堆货物，凑成一个「仓角」
+	_deco_mesh("gear_crate_wood.tres", Vector3(16.2, 0, -7.6), 0.8, 0.3, null)
+	_deco_mesh("gear_crate_wood.tres", Vector3(16.8, 0, -6.4), 0.76, -0.4, null)
+	_deco_mesh("kitchenware_barrel.tres", Vector3(17.4, 0, -8.4), 0.95, 0.0, null)
+	_deco_mesh("kitchenware_crate.tres", Vector3(15.4, 0, 1.6), 0.8, 0.6, null)
+	_deco_mesh("gear_lantern.tres", Vector3(-2.0, 0, 12.0), 0.6, 0.0, _metal)
+
+	# 火盆：营地是「有人生火」的地方，暖光池比一堆散灯更能把它拢成一个房间
+	_brazier(Vector3(6.4, 0, -10.6))
+	_brazier(Vector3(-5.2, 0, 12.6))
 
 
-## 生活区住宅排：不再用帐篷/箱子随便堆，改成沿广场南北两排的固定小屋。
-## 玩家从隧道出来先看到完整居住街，再沿中央通道去运输站。
+## 帆布脊帐篷：两片斜帆布 + 脊杆 + 四角立杆 + 拉绳 + 卷起的门帘。
+## 原来的 tent_canvas_*.tres 是带顶点色的深色网格，在暗场里就剩一块黑三角。
+## 不用那个网格：帆布必须是自己能控制颜色的浅色面，才读得出「住人的帐篷」。
+func _tent(base: Vector3, yaw: float) -> void:
+	var root := Node3D.new()
+	root.name = "Tent"
+	root.position = base
+	root.rotation.y = yaw
+	add_child(root)
+	var canvas := StandardMaterial3D.new()
+	canvas.albedo_color = Color(0.80, 0.75, 0.64)
+	canvas.roughness = 1.0
+	canvas.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# 暗场里这是最大的一块浅色面；不自发光就会塌成灰三角
+	canvas.emission_enabled = true
+	canvas.emission = Color(0.19, 0.16, 0.125)
+	canvas.emission_energy_multiplier = 0.40
+
+	var w := 3.0
+	var l := 3.8
+	var h := 2.25
+	var eave := 1.05
+	var half := w * 0.5
+	var slope := sqrt(half * half + pow(h - eave, 2.0))
+	var angle := atan2(h - eave, half)
+	for side in [-1.0, 1.0]:
+		var panel := _add_box_part(root, Vector3(slope, 0.07, l),
+				Vector3(side * half * 0.5, (h + eave) * 0.5, 0), canvas)
+		panel.rotation.z = -side * angle
+	# 后山墙整面封上，前脸只封上半截：下半截就是敞开的门
+	_add_box_part(root, Vector3(w * 0.96, h - 0.1, 0.06),
+			Vector3(0, (h - 0.1) * 0.5, -l * 0.5 + 0.04), canvas)
+	_add_box_part(root, Vector3(w * 0.96, h - eave - 0.35, 0.06),
+			Vector3(0, h - (h - eave - 0.35) * 0.5, l * 0.5 - 0.04), canvas)
+	# 门口卷起的门帘
+	var roll_mesh := CylinderMesh.new()
+	roll_mesh.top_radius = 0.15
+	roll_mesh.bottom_radius = 0.15
+	roll_mesh.height = w * 0.86
+	var roll := _add_mesh_part(root, roll_mesh, Vector3(0, eave + 0.30, l * 0.5 - 0.06), canvas)
+	roll.rotation.z = PI * 0.5
+
+	# 脊杆 + 四角立杆
+	var ridge_mesh := CylinderMesh.new()
+	ridge_mesh.top_radius = 0.055
+	ridge_mesh.bottom_radius = 0.055
+	ridge_mesh.height = l + 0.5
+	var ridge := _add_mesh_part(root, ridge_mesh, Vector3(0, h, 0), _metal)
+	ridge.rotation.x = PI * 0.5
+	var post_mesh := CylinderMesh.new()
+	post_mesh.top_radius = 0.05
+	post_mesh.bottom_radius = 0.06
+	post_mesh.height = eave
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_add_mesh_part(root, post_mesh,
+					Vector3(sx * half * 0.92, eave * 0.5, sz * l * 0.44), _metal)
+	# 拉绳：从檐口斜到地钉，帐篷才不会像一块「浮在地上的布」
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var rope := _add_box_part(root, Vector3(0.035, 0.035, 1.35),
+					Vector3(sx * half * 1.28, 0.62, sz * l * 0.52), _metal)
+			rope.rotation.x = sz * 0.55
+			rope.rotation.y = -sx * 0.45
+	# 门口一盏小灯：帐篷口亮着，营地才有「有人住」
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0, 1.5, l * 0.5 + 0.5)
+	lamp.light_color = Color(1.0, 0.68, 0.38)
+	lamp.light_energy = 1.0
+	lamp.omni_range = 5.0
+	lamp.shadow_enabled = false
+	root.add_child(lamp)
+
+
+## 火盆：石座 + 铁盆 + 一两簇火苗，营地的主暖光源。
+func _brazier(base: Vector3) -> void:
+	var root := Node3D.new()
+	root.name = "Brazier"
+	root.position = base
+	add_child(root)
+	for i in 3:
+		var a := TAU * float(i) / 3.0
+		var leg := _add_box_part(root, Vector3(0.16, 0.9, 0.16),
+				Vector3(cos(a) * 0.34, 0.45, sin(a) * 0.34), _metal)
+		leg.rotation.z = -cos(a) * 0.16
+	var bowl_mesh := CylinderMesh.new()
+	bowl_mesh.top_radius = 0.62
+	bowl_mesh.bottom_radius = 0.42
+	bowl_mesh.height = 0.34
+	_add_mesh_part(root, bowl_mesh, Vector3(0, 1.02, 0), _metal)
+	var ember := _load_mat("res://assets/chapter2/materials/mat_ember.tres")
+	var coal_mesh := CylinderMesh.new()
+	coal_mesh.top_radius = 0.54
+	coal_mesh.bottom_radius = 0.5
+	coal_mesh.height = 0.1
+	_add_mesh_part(root, coal_mesh, Vector3(0, 1.18, 0), ember)
+	_add_omni(base + Vector3(0, 1.5, 0), Color(1.0, 0.55, 0.22), 2.4, 12.0)
+
+
+
+## 原来五栋 4.2×3.4 的灰盒子南北各一排，还都摆在椭圆台地的边界外，
+## 一半浮在空中——既读不出是「屋子」，又把营地围成一圈挡视线的墙。
 func _build_cottages() -> void:
 	var window := StandardMaterial3D.new()
 	window.albedo_color = Color(0.95, 0.55, 0.22)
@@ -601,57 +721,72 @@ func _build_cottages() -> void:
 	window.emission = Color(1.0, 0.45, 0.12)
 	window.emission_energy_multiplier = 1.6
 
-	# 南排：门朝北，面对广场
-	for x in [-24.0, -16.0, -8.0]:
-		_cottage(Vector3(x, 0.0, 16.0), PI, window)
-	# 北排：门朝南
-	for x in [-24.0, -16.0]:
-		_cottage(Vector3(x, 0.0, -15.0), 0.0, window)
+	# 东侧一栋，门朝西（正对广场）：
+	_cottage(Vector3(14.4, 0.0, -4.0), -PI * 0.5, window)
 
 
+## 红瓦：营地东侧那栋石屋的顶。概念图里唯一的饱和色块，暗场里要能一眼认出来。
+func _tile_mat() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.40, 0.155, 0.105)
+	m.roughness = 0.88
+	m.emission_enabled = true
+	m.emission = Color(0.16, 0.05, 0.03)
+	m.emission_energy_multiplier = 0.35
+	return m
+
+
+## 石屋：砌体墙 + 双坡红瓦 + 阶梯山墙。原来它是「两片压扁的黑盒子当屋顶」，
+## 在暗场里就是一坨方块；改成陡坡 + 挑檐之后才有「房子」的剪影。
 func _cottage(base: Vector3, yaw: float, window_mat: Material) -> void:
 	var root := Node3D.new()
 	root.position = base
 	root.rotation.y = yaw
 	add_child(root)
-	var w := 4.2
-	var d := 3.4
-	var h := 2.5
+	var w := 5.0
+	var d := 4.2
+	var h := 2.9
+	var floor_y := 0.22
+	var tile := _tile_mat()
 	# 地基/墙体全部挂在 root 下，随门朝向一起旋转。
-	_house_box(root, Vector3(w + 0.7, 0.18, d + 0.7), Vector3(0, 0.09, 0), _marble)
-	_house_box(root, Vector3(w, h, 0.24), Vector3(0, h * 0.5 + 0.18, -d * 0.5), _wood)
+	_house_box(root, Vector3(w + 0.8, 0.22, d + 0.8), Vector3(0, 0.11, 0), _marble)
+	_house_box(root, Vector3(w, h, 0.30), Vector3(0, h * 0.5 + floor_y, -d * 0.5), _stone)
 	for side in [-1.0, 1.0]:
-		_house_box(root, Vector3(0.24, h, d), Vector3(side * w * 0.5, h * 0.5 + 0.18, 0), _wood)
+		_house_box(root, Vector3(0.30, h, d), Vector3(side * w * 0.5, h * 0.5 + floor_y, 0), _stone)
+	# 正面：门洞两侧留 1.5 m 宽的门，其余是墙
 	for side in [-1.0, 1.0]:
-		_house_box(root, Vector3(w * 0.5 - 0.55, h, 0.24),
-				Vector3(side * (w * 0.25 + 0.275), h * 0.5 + 0.18, d * 0.5), _wood)
-	_house_box(root, Vector3(1.1, 1.85, 0.10), Vector3(0, 1.02, d * 0.5 + 0.02), _charcoal)
-	_add_box_part(root, Vector3(0.62, 0.52, 0.06),
-			Vector3(-w * 0.25, 1.45, d * 0.5 + 0.14), window_mat)
-	_add_box_part(root, Vector3(0.62, 0.52, 0.06),
-			Vector3(w * 0.25, 1.45, d * 0.5 + 0.14), window_mat)
+		_house_box(root, Vector3(w * 0.5 - 0.75, h, 0.30),
+				Vector3(side * (w * 0.25 + 0.375), h * 0.5 + floor_y, d * 0.5), _stone)
+	_house_box(root, Vector3(1.5, 0.6, 0.30), Vector3(0, h + floor_y - 0.3, d * 0.5), _stone)
+	# 门洞内衬 + 木门框
+	_add_box_part(root, Vector3(1.44, 2.05, 0.10), Vector3(0, 1.25, d * 0.5 - 0.16), _charcoal)
 	for side in [-1.0, 1.0]:
-		var roof := _add_box_part(root, Vector3(w * 0.56, 0.12, d + 0.28),
-				Vector3(side * w * 0.21, h + 0.38, 0), _charcoal)
-		roof.rotation.z = -side * 0.30
-	# 门框、门口台阶和门楣，让正面从“盒子”读成住屋。
+		_add_box_part(root, Vector3(0.14, 2.1, 0.16),
+				Vector3(side * 0.79, 1.27, d * 0.5 + 0.10), _wood)
+	_add_box_part(root, Vector3(1.86, 0.18, 0.4), Vector3(0, 2.42, d * 0.5 + 0.10), _wood)
+	# 正面两扇亮窗：营地唯一的暖色小方块
 	for side in [-1.0, 1.0]:
-		_add_box_part(root, Vector3(0.14, 2.1, 0.14),
-				Vector3(side * 0.66, 1.05, d * 0.5 + 0.10), _wood)
-	_add_box_part(root, Vector3(1.6, 0.16, 0.55),
-			Vector3(0, 0.26, d * 0.5 + 0.38), _marble)
-	_add_box_part(root, Vector3(1.7, 0.16, 0.22),
-			Vector3(0, h + 0.02, d * 0.5 + 0.15), _wood)
-	_add_box_part(root, Vector3(0.42, 1.0, 0.42),
-			Vector3(w * 0.25, h + 0.62, -d * 0.2), _charcoal)
+		_add_box_part(root, Vector3(0.72, 0.6, 0.08),
+				Vector3(side * (w * 0.30), 1.72, d * 0.5 + 0.17), window_mat)
+	# 双坡红瓦顶 + 阶梯山墙
+	for side in [-1.0, 1.0]:
+		var roof := _add_box_part(root, Vector3(w * 0.64, 0.16, d + 0.8),
+				Vector3(side * w * 0.245, h + 0.66, 0), tile)
+		roof.rotation.z = -side * 0.62
+	for i in 3:
+		var gw := w * (1.0 - 0.30 * float(i))
+		_add_box_part(root, Vector3(gw, 0.42, 0.36),
+				Vector3(0, h + 0.30 + 0.44 * float(i), d * 0.5 + 0.02), _stone)
+	# 门口台阶
+	_add_box_part(root, Vector3(1.9, 0.18, 0.6), Vector3(0, 0.30, d * 0.5 + 0.42), _marble)
 	var door_lamp := _add_box_part(root, Vector3(0.16, 0.28, 0.16),
-			Vector3(0.0, 1.95, d * 0.5 + 0.22), _metal)
+			Vector3(0.0, 2.62, d * 0.5 + 0.26), _metal)
 	door_lamp.rotation.z = 0.0
 	var light := OmniLight3D.new()
-	light.position = Vector3(0, 1.9, d * 0.5 + 0.3)
+	light.position = Vector3(0, 2.4, d * 0.5 + 0.45)
 	light.light_color = Color(1.0, 0.62, 0.30)
-	light.light_energy = 0.8
-	light.omni_range = 4.5
+	light.light_energy = 1.1
+	light.omni_range = 6.0
 	light.shadow_enabled = false
 	root.add_child(light)
 
@@ -660,18 +795,18 @@ func _cottage(base: Vector3, yaw: float, window_mat: Material) -> void:
 		return
 	_cottage_props_done = true
 
-	_solid_box(Vector3(5.0, 0.14, 1.3), Vector3(-6.0, 0.82, 4.2), _metal)
-	for x in [-7.8, -4.2]:
-		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 3.5), _metal)
-		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 4.9), _metal)
-	_deco_mesh("kitchenware_pot.tres", Vector3(-6.8, 0.9, 4.2), 0.5, 0.0, null)
-	_deco_mesh("kitchenware_pan.tres", Vector3(-5.0, 0.9, 4.1), 0.32, 0.8, null)
-	_add_omni(Vector3(-6.0, 2.6, 4.2), Color(1.0, 0.74, 0.46), 3.0, 14.0)
+	_solid_box(Vector3(5.0, 0.14, 1.3), Vector3(-8.4, 0.82, 2.4), _metal)
+	for x in [-10.2, -6.6]:
+		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 1.7), _metal)
+		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 3.1), _metal)
+	_deco_mesh("kitchenware_pot.tres", Vector3(-9.2, 0.9, 2.4), 0.5, 0.0, null)
+	_deco_mesh("kitchenware_pan.tres", Vector3(-7.4, 0.9, 2.3), 0.32, 0.8, null)
+	_add_omni(Vector3(-8.4, 2.6, 2.4), Color(1.0, 0.74, 0.46), 2.6, 13.0)
 
 	# 盆栽：金属和岩石里唯一的活物，压一压「全是机器」的观感
-	_place_model("plant.glb", to_global(Vector3(-14.6, 0.0, 6.2)), 1.1, 0.0)
-	_place_model("plant.glb", to_global(Vector3(9.4, 0.0, 5.6)), 0.9, 1.2)
-	_place_model("plant.glb", to_global(Vector3(-11.2, 0.0, -6.4)), 1.3, 2.4)
+	_place_model("plant.glb", to_global(Vector3(-16.8, 0.0, 8.8)), 1.1, 0.0)
+	_place_model("plant.glb", to_global(Vector3(16.6, 0.0, 0.6)), 0.9, 1.2)
+	_place_model("plant.glb", to_global(Vector3(-10.8, 0.0, -8.6)), 1.3, 2.4)
 
 	for spot in [[Vector3(-2.0, 5.6, 0.0), 1.5], [Vector3(7.0, 5.6, 2.5), 1.2], [Vector3(-9.0, 5.6, -2.0), 1.0]]:
 		var pos: Vector3 = spot[0]
@@ -688,27 +823,31 @@ func _cottage(base: Vector3, yaw: float, window_mat: Material) -> void:
 
 
 func _build_residents() -> void:
-	var pair_a: Variant = _make_npc("resident_pair_a", "居民", Vector3(-4.6, 0, 3.2),
+	# 居民全部贴着「有人生活的那几处」站：火盆边、帐篷口、石屋门口、梯口。
+	var pair_a: Variant = _make_npc("resident_pair_a", "居民", Vector3(-6.0, 0, 10.6),
 			Color("8a9a7c"), Color("b8613f"), 0.2)
-	var pair_b: Variant = _make_npc("resident_pair_b", "居民", Vector3(-3.3, 0, 3.8),
+	var pair_b: Variant = _make_npc("resident_pair_b", "居民", Vector3(-4.4, 0, 11.2),
 			Color("9a8f7a"), Color("6a7f9a"), -0.4)
 	if pair_a != null and pair_b != null:
 		pair_a.face_target = pair_b
 		pair_b.face_target = pair_a
 
 	_make_npc("resident_pipe", "居民", Vector3(-1.4, 0, -6.9), Color("7c7a86"), Color("9a5b3f"), PI)
-	_make_npc("resident_queue", "居民", Vector3(3.4, 0, -0.2), Color("87907a"), Color("c9764a"), -1.1)
-	_make_npc("resident_tent", "居民", Vector3(-9.4, 0, -7.6), Color("8f8271"), Color("7a5b8f"), 1.4)
+	_make_npc("resident_queue", "居民", Vector3(11.0, 0, -2.4), Color("87907a"), Color("c9764a"), -1.1)
+	_make_npc("resident_tent", "居民", Vector3(-9.8, 0, -6.6), Color("8f8271"), Color("7a5b8f"), 1.4)
 
 
 func _build_taotao() -> void:
-	_taotao = _make_npc("taotao", "陶陶", Vector3(4.4, 0, -2.6),
-			Color("eae2d0"), Color("e08a3c"), 0.0, "taotao")
+	# 陶陶 + 餐车摆在中轴偏南：玩家从隧道下来往北走，第一眼就看见她。
+	# 她面朝南（yaw=PI），是迎着进场方向站的 —— 原来正面朝北，看见的是后脑勺。
+	_taotao = _make_npc("taotao", "陶陶", Vector3(2.4, 0, 8.6),
+			Color("eae2d0"), Color("e08a3c"), PI, "taotao")
 	if _taotao != null:
 		_taotao.interact_range = 3.2
 
 	var cart := Node3D.new()
-	cart.position = Vector3(6.6, 0, -2.6)
+	cart.position = Vector3(5.0, 0, 7.4)
+	cart.rotation.y = -0.55
 	add_child(cart)
 	_add_box_part(cart, Vector3(1.5, 0.75, 0.9), Vector3(0, 0.85, 0), _metal)
 	_add_box_part(cart, Vector3(1.7, 0.1, 1.02), Vector3(0, 1.27, 0), _wood)
@@ -737,12 +876,15 @@ func _build_taotao() -> void:
 		bowl.height = 0.1
 		_add_mesh_part(cart, bowl, Vector3(0.28 + i * 0.28, 1.37, 0.18 - i * 0.2), _wood)
 	_add_box_part(cart, Vector3(0.08, 0.08, 0.8), Vector3(-0.86, 1.1, 0), _metal)
-	_add_omni(Vector3(6.4, 2.4, -2.6), Color(1.0, 0.7, 0.4), 2.6, 12.0)
+	_add_omni(Vector3(4.9, 2.4, 7.2), Color(1.0, 0.7, 0.4), 2.6, 12.0)
 
 
 func _build_machine() -> void:
-	_machine = _make_npc("machine", "退休料理机械", Vector3(2.0, 0, 1.9),
-			Color("6b6862"), Color("6b6862"), -2.4, "machine")
+	# 机器人原来站在轴线正中（2, 1.9），把营地唯一的一条通道堵住了。
+	# 挪到菜畦南边，面朝西 —— 它是「在自家门口晒太阳的旧家电」。
+	var seat := Vector3(9.0, 0.0, 2.6)
+	_machine = _make_npc("machine", "退休料理机械", seat,
+			Color("6b6862"), Color("6b6862"), -1.7, "machine")
 	if _machine == null:
 		return
 	_machine.bob_amp = 0.0
@@ -751,7 +893,7 @@ func _build_machine() -> void:
 	var procedural_body: Node = _machine.get_node_or_null("Body")
 	if procedural_body != null:
 		procedural_body.visible = false
-	_robot_prop = _place_model("robot.glb", to_global(Vector3(2.0, 0.0, 1.9)), 2.15, PI * 0.5)
+	_robot_prop = _place_model("robot.glb", to_global(seat), 2.15, PI * 0.5)
 
 	var stool := CylinderMesh.new()
 	stool.top_radius = 0.26
@@ -759,13 +901,13 @@ func _build_machine() -> void:
 	stool.height = 0.46
 	var stool_node := MeshInstance3D.new()
 	stool_node.mesh = stool
-	stool_node.position = Vector3(1.35, 0.23, 1.9)
+	stool_node.position = seat + Vector3(-0.65, 0.23, 0.0)
 	if _stone != null:
 		stool_node.material_override = _stone
 	add_child(stool_node)
 
-	_add_box_part(self, Vector3(0.28, 0.2, 0.16), Vector3(2.7, 0.86, 1.9), _metal)
-	_add_omni(Vector3(2.0, 1.4, 0.6), Color(1.0, 0.72, 0.46), 1.8, 7.0)
+	_add_box_part(self, Vector3(0.28, 0.2, 0.16), seat + Vector3(0.7, 0.86, 0.0), _metal)
+	_add_omni(seat + Vector3(0.0, 1.4, -1.3), Color(1.0, 0.72, 0.46), 1.8, 7.0)
 
 
 func _build_furnace_backdrop() -> void:
@@ -842,26 +984,32 @@ func _on_npc_talk(npc: Node) -> void:
 		return
 	var key := String(npc.get("line_key"))
 	if key == "taotao" and bool(Ch02State.get_flag("ch02.valve_shift", false)):
-		_start_dialogue(LinesScript.taotao_after_rest(), "")
+		_start_dialogue(LinesScript.taotao_after_rest(), "", key)
 		return
 	if key == "taotao" and bool(Ch02State.get_flag("met_taotao", false)):
-		_start_dialogue(LinesScript.taotao_briefing(), "")
+		_start_dialogue(LinesScript.taotao_briefing(), "", key)
 		return
 	match key:
 		"taotao":
-			_start_dialogue(LinesScript.taotao_first(), "met_taotao")
+			_start_dialogue(LinesScript.taotao_first(), "met_taotao", key)
 		"machine":
-			_start_dialogue(LinesScript.machine(), "")
+			_start_dialogue(LinesScript.machine(), "", key)
 		_:
-			_start_dialogue(LinesScript.resident(key), "")
+			_start_dialogue(LinesScript.resident(key), "", key)
 
 
-func _start_dialogue(lines: Array, flag: String) -> void:
+## talk_key 记下这段对话是跟谁说的：只有跟陶陶说完，她才起身去工位。
+## 和居民、旧机械说完话把她支走，读起来像 bug。
+func _start_dialogue(lines: Array, flag: String, talk_key := "") -> void:
 	_pending_flag = flag
+	_talk_key = talk_key
 	dialogue.play(lines)
 
 
 func _on_dialogue_started() -> void:
+	# 玩家追上她说话时人得站住：一边说话一边滑走很出戏。
+	# 对话结束后 _on_dialogue_finished 会从她当下的位置重新接着走。
+	_pause_taotao_walk()
 	if player != null:
 		player.movement_locked = true
 	if game_camera != null:
@@ -887,11 +1035,18 @@ func _on_dialogue_finished() -> void:
 	if _pending_flag != "":
 		Ch02State.set_flag(_pending_flag, true)
 		_pending_flag = ""
+	# 只认「刚才是跟陶陶说完话」这一种情况：和居民、旧机械说完话不该让她动身。
+	var talked_to := _talk_key
+	_talk_key = ""
 	# 开门看的是「认识陶陶了没有」，不是「这是第几次对话」。
 	# 之前只在初遇那次开门，老存档或重进时会永远卡在生活区。
-	# 初遇结束：陶陶从餐车搬到中层维修平台 D 常驻
-	if terrace_d != null and bool(Ch02State.get_flag("met_taotao", false)):
-		_move_taotao_to_junction()
+	# 初遇结束：陶陶**从餐车边走上去**，不是当场瞬移到台地 D。
+	# 她路上被再次搭话打断后，这里会把没走完的路接上；已经在工位上就是空操作。
+	# 已经坐到长椅上（支阀支线做完）就不再赶她起来。
+	if talked_to == "taotao" and terrace_d != null \
+			and bool(Ch02State.get_flag("met_taotao", false)) \
+			and not bool(Ch02State.get_flag("ch02.valve_shift", false)):
+		_walk_taotao_to_workshop()
 	if not _gate_opened and bool(Ch02State.get_flag("met_taotao", false)):
 		_gate_opened = true
 		_open_gate()
@@ -1003,7 +1158,7 @@ func _build_hud() -> void:
 	_notice_panel.add_child(_notice_label)
 
 	var help := Label.new()
-	help.text = "WASD 移动    空格 翻滚    左键 挥锅    F 交互    Esc 返回标题"
+	help.hide()
 	help.anchor_top = 1.0
 	help.anchor_bottom = 1.0
 	help.offset_left = 28.0
@@ -1380,7 +1535,9 @@ func _model_aabb(root: Node3D) -> AABB:
 ## 种植园：白色矮栅栏围一个长方形，里面整齐排几盆植物。
 ## 生活区不能只有机器和箱子，得有一块「他们在种东西」的地方。
 func _build_garden() -> void:
-	var center := Vector3(1.0, 0.0, 9.4)
+	# 菜畦原来正压在关卡轴线上；入洞隧道改成从南侧沿轴线进来之后，
+	# 把它整体挪到营地东半边，别挡住矿车滑行和下车落点。
+	var center := Vector3(9.5, 0.0, 10.0)
 	var half := Vector2(3.4, 2.0)
 	var rail := StandardMaterial3D.new()
 	rail.albedo_color = Color(0.88, 0.87, 0.82)
@@ -1473,21 +1630,127 @@ func _poll_stuck_scene() -> void:
 		_try_start_stuck()
 
 
+## 读档还原用：直接把她放回工位。剧情里她走上去的那段走的是
+## _walk_taotao_to_workshop()，这里保留瞬移，因为重进章节不该再演一遍路程。
 func _move_taotao_to_junction() -> void:
 	if _taotao == null or terrace_d == null:
 		return
+	_pause_taotao_walk()
 	# 不再回头看玩家：她现在只盯着那个接口
 	_taotao.face_target = null
 	_taotao.global_position = terrace_d.call("get", "taotao_spot")
 	_taotao.rotation.y = 0.0
-	_taotao_body = _taotao.get_node_or_null("Body") as Node3D
+	_start_taotao_junction_pose()
+
+
+## 陶陶从餐车边走去台地 D 的工位（她说的「工具间」）。
+## 路径：营地 → 轴线上的中央大阶梯 → L1 落台 → 台地 D，每个点都用射线贴地，
+## 所以上下阶梯时脚是踩在踏面上的，不会浮空也不会陷进石梯。
+## 已经在工位上、或已经有一条路在走时直接返回（可重复调用）。
+func _walk_taotao_to_workshop() -> void:
+	if _taotao == null or terrace_d == null:
+		return
+	var target: Vector3 = terrace_d.call("get", "taotao_spot")
+	if _taotao.global_position.distance_to(target) < 0.9:
+		return
+	if _taotao_walk_tween != null and _taotao_walk_tween.is_valid():
+		return
+	# 走路时不能保持「低头跟接口较劲」那个前倾 + 抖动
+	_stop_taotao_shake()
+	_taotao.face_target = null
 	if _taotao_body != null:
-		_taotao_body.rotation.x = -0.2
-		if _shake_tween != null and _shake_tween.is_valid():
-			_shake_tween.kill()
-		_shake_tween = create_tween().set_loops()
-		_shake_tween.tween_property(_taotao_body, "rotation:z", 0.06, 0.16)
-		_shake_tween.tween_property(_taotao_body, "rotation:z", -0.06, 0.16)
+		_taotao_body.rotation = Vector3.ZERO
+	var path := _taotao_route_to_workshop(_taotao.global_position, target)
+	if path.size() < 2:
+		return
+	_taotao_walk_tween = create_tween()
+	_taotao_walk_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	for i in range(1, path.size()):
+		var from: Vector3 = path[i - 1]
+		var to: Vector3 = path[i]
+		var dist := from.distance_to(to)
+		if dist < 0.05:
+			continue
+		var dur := dist / TAOTAO_WALK_SPEED
+		# 模型正面是 -Z，朝向要用 atan2(-dx, -dz)，和 ch02_npc 里转向的算法一致
+		var yaw := atan2(-(to.x - from.x), -(to.z - from.z))
+		_taotao_walk_tween.tween_property(_taotao, "global_position", to, dur)
+		_taotao_walk_tween.parallel().tween_property(_taotao, "rotation:y", yaw,
+				minf(dur, 0.45))
+	_taotao_walk_tween.tween_callback(_on_taotao_reached_workshop)
+
+
+## 折线路径：手写的几个拐点（避开餐车、对准梯口、落在落台中央），
+## y 交给射线去贴地，改动地形时不用回来重算高度。
+func _taotao_route_to_workshop(from: Vector3, target: Vector3) -> PackedVector3Array:
+	var raw: Array[Vector3] = [
+		Vector3(from.x, 0.0, from.z),
+		Vector3(-37.2, 0.0, 12.0),
+		Vector3(-38.7, 0.0, 6.4),
+		Vector3(-39.0, 0.0, 3.6),
+		# 梯口必须有一拐：大阶梯的碰撞是一整块斜楔（z=1.0 → -5.12 升 4.65 m），
+		# 直接从平地斜着连到梯顶会让她在梯口悬空一米多。
+		Vector3(-39.0, 0.0, 1.0),
+		Vector3(-39.0, 0.0, -5.0),
+		Vector3(-38.8, 0.0, -8.6),
+		Vector3(-37.2, 0.0, -12.4),
+		Vector3(target.x, 0.0, target.z),
+	]
+	var path := PackedVector3Array()
+	for p in raw:
+		path.append(_ground_point(p))
+	return path
+
+
+## 从上方 6 m 往下打一条射线取脚下的地面高度；打空就退回原高度。
+## 起点只取 6 m 是因为台地 D 头顶 8.7 m 处有吊梁，再高会先打到梁上。
+func _ground_point(flat: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return flat + Vector3(0, 0.02, 0)
+	var q := PhysicsRayQueryParameters3D.create(
+			Vector3(flat.x, flat.y + 6.0, flat.z),
+			Vector3(flat.x, flat.y - 1.2, flat.z), 1)
+	var hit := space.intersect_ray(q)
+	if hit.is_empty():
+		return flat + Vector3(0, 0.02, 0)
+	return Vector3(flat.x, float(hit.position.y) + 0.02, flat.z)
+
+
+func _on_taotao_reached_workshop() -> void:
+	_taotao_walk_tween = null
+	if _taotao == null or terrace_d == null:
+		return
+	_taotao.global_position = terrace_d.call("get", "taotao_spot")
+	_taotao.rotation.y = 0.0
+	_start_taotao_junction_pose()
+
+
+## 站在工位上的姿势：低头、小幅抖动，读成「在跟漏压的接口较劲」
+func _start_taotao_junction_pose() -> void:
+	_stop_taotao_shake()
+	if _taotao_body == null:
+		return
+	_taotao_body.rotation.x = -0.2
+	_shake_tween = create_tween().set_loops()
+	_shake_tween.tween_property(_taotao_body, "rotation:z", 0.06, 0.16)
+	_shake_tween.tween_property(_taotao_body, "rotation:z", -0.06, 0.16)
+
+
+func _stop_taotao_shake() -> void:
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
+	if _taotao != null:
+		_taotao_body = _taotao.get_node_or_null("Body") as Node3D
+	if _taotao_body != null:
+		_taotao_body.rotation.z = 0.0
+
+
+## 打断走路（对话开始、或读档把她直接放回工位时）
+func _pause_taotao_walk() -> void:
+	if _taotao_walk_tween != null and _taotao_walk_tween.is_valid():
+		_taotao_walk_tween.kill()
+	_taotao_walk_tween = null
 
 
 func _try_start_stuck() -> void:
@@ -1534,6 +1797,10 @@ func _finish_valve_beat() -> void:
 	if terrace_d != null:
 		terrace_d.call("nod_helper")
 func _restore_stuck_state() -> void:
+	# 台地 D 由 volcano_cave 在 bind_host 之后才注入，早退出去等它建好再调一次；
+	# 否则这里会把 _stuck_seen 标记成已看，支阀就永远不出现了。
+	if terrace_d == null:
+		return
 	if not bool(Ch02State.get_flag("ch02.valve_seen", false)):
 		return
 	if bool(Ch02State.get_flag("ch02.valve_shift", false)):
@@ -1544,6 +1811,29 @@ func _restore_stuck_state() -> void:
 	_spawn_stuck_valve()
 
 
+## 读档还原陶陶站哪儿。
+## 只有「玩家已经离开生活区、上到中层」时，才把她放到台地 D —— 那时候她确实
+## 已经自己走上去过。章节刚开始（玩家还在营地里）必须让她站在餐车边，
+## 否则读档一进关她就人间蒸发，营地像被清空了一半。
+func _restore_taotao_position() -> void:
+	if _taotao == null or terrace_d == null:
+		return
+	if not bool(Ch02State.get_flag("met_taotao", false)):
+		return
+	if not bool(Ch02State.get_flag("ch02.area_transport", false)):
+		return
+	if bool(Ch02State.get_flag("ch02.valve_shift", false)):
+		_pause_taotao_walk()
+		_taotao.face_target = null
+		_taotao.global_position = terrace_d.call("get", "bench_spot")
+		_taotao.rotation.y = PI
+		_stop_taotao_shake()
+		if _taotao_body != null:
+			_taotao_body.rotation.x = -0.08
+		return
+	_move_taotao_to_junction()
+
+
 func _finish_after_card() -> void:
 	# 不在这里换场景：章节的出口是 Boss 场的升降平台，
 	# 玩家自己走过去乘它，才是规范里「升降台通往第三章」的流程。
@@ -1552,13 +1842,6 @@ func _finish_after_card() -> void:
 	if card != null:
 		card.queue_free()
 	_announce("升降台已经解锁。回千席宴炉，乘它上去。")
-
-
-## 把「第二章通关」写回第一章那套存档，首页的章节页据此显示进度。
-## 单独拆出来是为了能被自检直接调用，不需要真的等 3.6 秒再换场景。
-	if not "second" in RunState.completed_chapters:
-		RunState.completed_chapters.append("second")
-	RunState.save_progress()
 
 
 ## 把「第二章通关」写回第一章那套存档，首页的章节页据此显示进度。

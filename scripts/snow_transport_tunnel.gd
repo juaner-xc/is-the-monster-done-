@@ -37,7 +37,7 @@ func _ready():
 		for side in [-1, 1]: _box(Vector3(side * 3.0, 2.5, z), Vector3(0.18, 4.9, 0.22), iron)
 		_box(Vector3(0, 4.9, z), Vector3(6, 0.18, 0.22), iron)
 	var stamp = Label3D.new()
-	stamp.text = "✧\n魔法料理之城\n市政运输 · 第 07 线\n城市 → 山口 → 火山工坊"
+	stamp.text = "✧\n魔法料理之城\n旧试菜厨房 · 考核后清退\n第 07 线 → 火山工坊"
 	stamp.font_size = 40
 	stamp.pixel_size = 0.006
 	stamp.modulate = Color("ddd3a4")
@@ -84,6 +84,3 @@ func _box(pos: Vector3, dimensions: Vector3, material: Material, solid := false)
 		shape.size = dimensions
 		collision.shape = shape
 		body.add_child(collision)
-
-
-

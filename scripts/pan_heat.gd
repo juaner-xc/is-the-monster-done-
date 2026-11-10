@@ -47,16 +47,27 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_display.add_child(panel)
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	panel.offset_left = -116.0
-	panel.offset_right = 116.0
-	panel.offset_top = -118.0
-	panel.offset_bottom = -71.0
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	panel.offset_left = 26.0
+	panel.offset_right = 204.0
+	panel.offset_top = 94.0
+	panel.offset_bottom = 146.0
+	var card := StyleBoxFlat.new()
+	card.bg_color = Color("263c3df5")
+	card.border_color = Color("9a8b68")
+	card.set_border_width_all(1)
+	card.set_corner_radius_all(7)
+	card.content_margin_left = 12.0
+	card.content_margin_right = 12.0
+	card.content_margin_top = 7.0
+	card.content_margin_bottom = 7.0
+	panel.add_theme_stylebox_override("panel", card)
 	var column := VBoxContainer.new()
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(column)
 	_label = Label.new()
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_label.add_theme_font_size_override("font_size", 16)
+	_label.add_theme_color_override("font_color", Color("fff2d3"))
 	column.add_child(_label)
 	_bar = ProgressBar.new()
 	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE

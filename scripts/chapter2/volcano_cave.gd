@@ -20,6 +20,19 @@ const ORANGE := Color("f28b2f")
 const L0_Y := 0.58
 const L1_Y := 5.23
 const L2_Y := 9.88
+const L3_Y := 14.53
+## 2F 中央广场：中央、左仓库、右厨房，短桥连接。
+const MID_Z := -14.0
+const KITCHEN_CENTER := Vector3(-17.0, L1_Y, MID_Z)
+const WAREHOUSE_CENTER := Vector3(-61.0, L1_Y, MID_Z)
+const HUB_MID_CENTER := Vector3(-39.0, L1_Y, MID_Z)
+## 2F → 3F 梯在广场北沿正中；3F → 4F 梯在运输站北沿。
+const STAIR_HUB_X := -39.0
+const STAIR_HUB_Z := -18.0
+const STAIR_CORE_X := -39.0
+const STAIR_CORE_Z := -56.0
+## 本次预览临时打开「运输站 → 主炉控制区」的门，确认后改回 false。
+const REVIEW_OPEN_CORE_GATE := true
 ## 主炉轴线：整关沿 X=-39 向 -Z 叠层，炉口在 -Z 尽头
 const AXIS_X := -39.0
 ## 三层石厅的庭院半宽：从轴线到拱廊内脚
@@ -90,7 +103,6 @@ func _ready() -> void:
 	_push_lava_to_edge()
 	_build_scatter()
 	_build_atmosphere()
-	_build_route_signs()
 	_apply_three_layer_topology()
 	_build_topology_zones()
 	_bind_merged_characters()
@@ -153,9 +165,9 @@ func _build_volcano_terraces() -> void:
 func _clear_props_in_built_areas() -> void:
 	var zones := [
 		Rect2(-54.0, 2.0, 42.0, 36.0),    # 生活区地台
-		Rect2(-10.0, 0.0, 42.0, 40.0),    # 运输站
-		Rect2(44.0, 0.0, 36.0, 30.0),     # 主炉控制区
-		Rect2(56.0, -2.0, 44.0, 44.0),    # 千席宴炉
+		Rect2(-76.0, -24.0, 74.0, 20.0),  # 2F 中央广场 + 仓库/厨房
+		Rect2(-59.0, -63.0, 40.0, 38.0),  # 3F 运输站
+		Rect2(-61.0, -119.0, 42.0, 58.0), # 4F 控制区 + 宴炉 + 主炉
 		Rect2(-38.0, 38.0, 110.0, 58.0),  # 南侧四层台地与熔岩湖
 		Rect2(-38.0, -52.0, 110.0, 44.0), # 北侧四层台地与熔岩湖
 		Rect2(18.0, -10.0, 60.0, 12.0),   # 北湖东段的岸边
@@ -247,45 +259,56 @@ func _apply_three_layer_topology() -> void:
 	stone.emission_energy_multiplier = 0.18
 	stone.roughness = 0.96
 
-	# 中层（L1）：D=中枢空地，B=仓库，C=厨房
-	_topo_move_terrace(terrace_d, Vector3(AXIS_X, L1_Y, -14.0))
-	_topo_move_terrace(terrace_b, Vector3(-61.0, L1_Y, -14.0))
-	_topo_move_terrace(terrace_c, Vector3(-17.0, L1_Y, -14.0))
-	# 台面视觉补层：原平台材质在暖光下发黑，补一层浅色石面让站位可见。
-	_topo_deck_overlay(Vector3(AXIS_X, L1_Y, -14.0), Vector2(12.0, 12.0))
-	_topo_deck_overlay(Vector3(-61.0, L1_Y, -14.0), Vector2(16.0, 14.0))
-	_topo_deck_overlay(Vector3(-17.0, L1_Y, -14.0), Vector2(14.0, 12.0))
-	_mid_support(Vector3(AXIS_X, L1_Y, -14.0), Vector2(12.0, 12.0), stone, "Topo_Support_Hub")
-	_mid_support(Vector3(-61.0, L1_Y, -14.0), Vector2(16.0, 14.0), stone, "Topo_Support_Warehouse")
-	_mid_support(Vector3(-17.0, L1_Y, -14.0), Vector2(14.0, 12.0), stone, "Topo_Support_Kitchen")
-	_mid_bridge(Vector3(-49.0, L1_Y - 0.06, -14.0), Vector3(8.0, 0.4, 4.0), stone, "Topo_Bridge_Left")
-	_mid_bridge(Vector3(-28.5, L1_Y - 0.06, -14.0), Vector3(9.0, 0.4, 4.0), stone, "Topo_Bridge_Right")
-	# 桥与台面接缝补薄石台，消除台阶感
-	_mid_bridge(Vector3(-53.0, L1_Y - 0.06, -14.0), Vector3(3.0, 0.4, 4.0), stone, "Topo_Seam_Left")
-	_mid_bridge(Vector3(-24.0, L1_Y - 0.06, -14.0), Vector3(3.0, 0.4, 4.0), stone, "Topo_Seam_Right")
+	# 2F（L1）：中央广场居中，左仓库、右厨房，台面直接搭接。
+	_topo_move_terrace(terrace_d, HUB_MID_CENTER)
+	_topo_move_terrace(terrace_b, WAREHOUSE_CENTER)
+	_topo_move_terrace(terrace_c, KITCHEN_CENTER)
+	_topo_deck_overlay(HUB_MID_CENTER, Vector2(20.0, 16.0))
+	_topo_deck_overlay(WAREHOUSE_CENTER, Vector2(26.0, 16.0))
+	_topo_deck_overlay(KITCHEN_CENTER, Vector2(28.0, 20.0))
+	_mid_support(HUB_MID_CENTER, Vector2(20.0, 16.0), stone, "Topo_Support_Hub", false)
+	_mid_support(WAREHOUSE_CENTER, Vector2(26.0, 16.0), stone, "Topo_Support_Warehouse", false)
+	_mid_support(KITCHEN_CENTER, Vector2(28.0, 20.0), stone, "Topo_Support_Kitchen", false)
 
-	# L0 → L1：中央大阶梯（18 级 × 0.26 m，6 m 宽），正对主炉轴线
-	_topo_stairs(Vector3(AXIS_X, L0_Y, 1.0), L1_Y - L0_Y, 6.0, stone, "Topo_Stairs_Low_Hub")
-	_mid_bridge(Vector3(AXIS_X, L1_Y - 0.06, -7.6), Vector3(6.4, 0.4, 5.6), stone, "Topo_Landing_L1")
+	# L0 → L1：中央大阶梯。梯顶比 2F 地面高 0.4m，直接落回台面。
+	_topo_stairs(Vector3(AXIS_X, L0_Y, 1.0), L1_Y - L0_Y + 0.4, 6.0, stone, "Topo_Stairs_Low_Hub")
+	_mid_bridge(Vector3(AXIS_X, L1_Y, -9.0), Vector3(6.4, 0.4, 4.8), stone, "Topo_Landing_L1")
 
-	# 运输站/控制区/宴炉：整段沿 -Z 挪到轴线上
-	_topo_move_section(blocks.get("_transport_section"), Vector3(-53.5, 0.0, -58.0))
-	_topo_move_section(blocks.get("_core_section"), Vector3(-87.5, 0.0, -87.0))
-	_topo_move_section(blocks.get("_boss_section"), Vector3(-121.5, 0.0, -115.0))
+	# 运输站/控制区/宴炉：整段北移并上移，x 对齐主炉轴线
+	_topo_move_section(blocks.get("_transport_section"), Vector3(-55.5, 0.0, -64.0))
+	_topo_move_section(blocks.get("_core_section"), Vector3(-89.5, 0.0, -94.0))
+	_topo_move_section(blocks.get("_boss_section"), Vector3(-123.5, 0.0, -122.0))
 
-	# L1 → L2：第二道大阶梯，落在控制区门口
-	_topo_stairs(Vector3(AXIS_X, L1_Y, -50.0), L2_Y - L1_Y, 6.0, stone, "Topo_Stairs_Transport_Core")
-	_mid_bridge(Vector3(AXIS_X, L2_Y - 0.06, -55.6), Vector3(6.4, 0.4, 3.6), stone, "Topo_Landing_L2")
-	# L2 内部：控制区 ↔ 千席宴炉 同层，只补平台接缝
-	_mid_bridge(Vector3(-37.0, L2_Y - 0.06, -79.0), Vector3(12.0, 0.4, 4.2), stone, "Topo_Seam_Boss")
+	# 2F → 3F：广场北沿正中上运输站
+	_topo_stairs(Vector3(STAIR_HUB_X, L1_Y, STAIR_HUB_Z), L2_Y - L1_Y + 0.4, 6.0, stone, "Topo_Stairs_Hub_Transport")
+	_mid_bridge(Vector3(STAIR_HUB_X, L2_Y, -26.0), Vector3(6.4, 0.4, 1.6), stone, "Topo_Landing_L2")
+	# 3F → 4F：运输站北沿上控制区
+	_topo_stairs(Vector3(STAIR_CORE_X, L2_Y, STAIR_CORE_Z), L3_Y - L2_Y + 0.4, 6.0, stone, "Topo_Stairs_Transport_Core")
+	_mid_bridge(Vector3(STAIR_CORE_X, L3_Y, -65.0), Vector3(6.4, 0.4, 2.8), stone, "Topo_Landing_L3")
+	_mid_bridge(Vector3(AXIS_X, L3_Y - 0.01, -85.6), Vector3(12.0, 0.4, 3.2), stone, "Topo_Seam_Boss")
 	_build_topo_stairs_gate()
+	_build_mid_architecture(stone)
+
+
+## 2F 的支撑、房间围合、屋顶、桥拱、柱列与栏杆。
+func _build_mid_architecture(mat: Material) -> void:
+	var script: Script = load("res://scripts/chapter2/ch02_mid_architecture.gd") as Script
+	if script == null:
+		return
+	var node: Node3D = script.new()
+	node.name = "MidArchitecture"
+	add_child(node)
+	node.call("setup", self, mat)
 
 
 ## 运输站→控制区抬高栈道的前置门：仓库能源、运输站阀门、厨房分流全部完成后才打开。
 func _build_topo_stairs_gate() -> void:
+	if REVIEW_OPEN_CORE_GATE:
+		_topo_stairs_gate = null
+		return
 	var body := StaticBody3D.new()
 	body.name = "Topo_StairsGate"
-	body.position = Vector3(AXIS_X, L1_Y + 1.6, -49.0)
+	body.position = Vector3(AXIS_X, L2_Y + 1.6, -55.0)
 	add_child(body)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
@@ -528,8 +551,8 @@ func _build_topology_zones() -> void:
 		return
 	var low: Vector3 = workshop_hub.global_position
 	_add_topology_zone("Zone_Lower_CircleBase", Vector3(low.x, 0.6, low.z), Vector2(52.0, 42.0))
-	_add_topology_zone("Zone_Mid_HubArea", Vector3(AXIS_X, L1_Y, -14.0), Vector2(18.0, 18.0))
-	_add_topology_zone("Zone_High_MainFurnace", Vector3(AXIS_X, L2_Y, -95.0), Vector2(28.0, 28.0))
+	_add_topology_zone("Zone_Mid_HubArea", Vector3(AXIS_X, L1_Y, MID_Z), Vector2(70.0, 24.0))
+	_add_topology_zone("Zone_High_MainFurnace", Vector3(AXIS_X, L3_Y, -102.0), Vector2(44.0, 64.0))
 
 
 func _add_topology_zone(zone_name: String, center: Vector3, size: Vector2) -> void:
@@ -1421,12 +1444,15 @@ func _clear_route_blockers() -> void:
 
 
 
-func _mid_support(center: Vector3, size: Vector2, mat: Material, label: String) -> void:
-	# 不再用一整面实心墙当承重：四角石柱 + 顶部圈梁，台地下方保持通透。
+func _mid_support(center: Vector3, size: Vector2, mat: Material, label: String,
+		with_ring := true) -> void:
+	# 四角石柱；with_ring=false 时整组不生成（仓库/厨房/广场不需要顶部圈梁）。
 	var root := Node3D.new()
 	root.name = label
 	root.position = center
 	add_child(root)
+	if not with_ring:
+		return
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var px: float = sx * (size.x * 0.5 - 0.85)
@@ -1792,13 +1818,13 @@ func _build_main_furnace() -> void:
 	var trim := _shell_mat(Color(0.31, 0.27, 0.22), 0.9)
 	var iron := _shell_mat(Color(0.12, 0.11, 0.10), 0.6)
 	var banner := _shell_mat(Color(0.26, 0.045, 0.025), 0.95)
-	var z := -110.0
-	var base_y := L2_Y
+	var z := -117.0
+	var base_y := L3_Y
 	# 炉口抬到 base+9.5（19.38 m，压在 20.5 的旧洞顶之下是不行的——
 	# 配套的 _raise_shell_over_furnace 会把炉体正上方穹顶局部抬到 28 m 左右）
-	var mouth_y := base_y + 9.5
+	var mouth_y := base_y + 11.5
 	var r := 5.2
-	var wall_h := 9.5 + r + 2.0
+	var wall_h := 11.5 + r + 2.0
 
 	# 炉体主墙：中间留 13 宽的方洞，洞里看到的其实是圆口——
 	# 洞后垫一块 r7.6 的深色圆盘，透过方洞只能看到圆形内衬
@@ -2126,7 +2152,7 @@ func _raise_shell_over_furnace() -> void:
 	var mesh := shell.mesh as ArrayMesh
 	if mesh == null:
 		return
-	var center := Vector2(AXIS_X, -108.0)
+	var center := Vector2(AXIS_X, -117.0)
 	var rebuilt := false
 	var prim_types: Array[int] = []
 	var surf_arrays: Array = []
@@ -2143,7 +2169,7 @@ func _raise_shell_over_furnace() -> void:
 				continue
 			var t := clampf(1.0 - d / 24.0, 0.0, 1.0)
 			t = t * t * (3.0 - 2.0 * t)
-			v.y += 8.5 * t
+			v.y += 15.0 * t
 			verts[i] = v
 			changed = true
 		if changed:
@@ -2181,24 +2207,25 @@ func _build_hall_shell() -> void:
 	var stone := _shell_mat(Color(0.145, 0.155, 0.18), 0.94)
 	var recess := _shell_mat(Color(0.032, 0.035, 0.045), 0.98)
 	var width := HALL_HALF * 2.0
-	# 三层整层石台：L0 营地 / L1 运输站 / L2 主炉广场
+	# 四层石台：L0 生活区 / L2 运输站 / L3 主炉广场（2F 只留建筑台面）
 	_shell_deck(AXIS_X, L0_Y, 14.0, 26.0, width, stone)
-	_shell_deck(AXIS_X, L1_Y, -29.0, 42.0, width, stone, false)
-	_shell_deck(AXIS_X, L2_Y, -84.0, 56.0, width, stone, false)
-	# 前缘券廊：券洞开到行走面，洞里衬暗墙 + 道具 + 暖光
+	_shell_deck(AXIS_X, L2_Y, -44.0, 36.0, width, stone, false)
+	_shell_deck(AXIS_X, L3_Y, -91.0, 54.0, width, stone, false)
+	# 前缘券廊
 	_shell_arcade_band(-8.0, L1_Y, L1_Y - L0_Y, L0_Y, width, recess)
-	_shell_arcade_band(-56.0, L2_Y, L2_Y - L1_Y, L1_Y, width, recess)
-	# 压暗环境后，室内必须自带光源，否则关门就是一块黑
+	_shell_arcade_band(-26.0, L2_Y, L2_Y - L1_Y, L1_Y, width, recess)
 	for spot in [
 		[Vector3(AXIS_X, L1_Y + 4.4, -14.0), 2.6, 26.0],
-		[Vector3(AXIS_X, L1_Y + 4.4, -38.0), 2.8, 30.0],
-		[Vector3(-37.0, L2_Y + 3.2, -67.0), 2.2, 20.0],
-		[Vector3(-37.0, L2_Y + 4.0, -95.0), 2.6, 32.0],
-		# 拱廊洗墙灯：从正前方打亮两层券廊，拱环和券洞才读得出来
+		[Vector3(AXIS_X, L1_Y + 4.4, -34.0), 2.4, 26.0],
+		[Vector3(AXIS_X, L2_Y + 4.4, -44.0), 2.8, 30.0],
+		[Vector3(AXIS_X, L3_Y + 3.2, -74.0), 2.2, 20.0],
+		[Vector3(AXIS_X, L3_Y + 4.0, -102.0), 2.6, 32.0],
 		[Vector3(AXIS_X - 12.0, L0_Y + 2.8, -4.5), 1.8, 18.0],
 		[Vector3(AXIS_X + 12.0, L0_Y + 2.8, -4.5), 1.8, 18.0],
-		[Vector3(AXIS_X - 13.0, L1_Y + 3.0, -52.0), 1.8, 18.0],
-		[Vector3(AXIS_X + 13.0, L1_Y + 3.0, -52.0), 1.8, 18.0],
+		[Vector3(AXIS_X - 13.0, L1_Y + 3.0, -32.0), 1.8, 18.0],
+		[Vector3(AXIS_X + 13.0, L1_Y + 3.0, -32.0), 1.8, 18.0],
+		[Vector3(AXIS_X - 13.0, L2_Y + 3.0, -68.0), 1.8, 18.0],
+		[Vector3(AXIS_X + 13.0, L2_Y + 3.0, -68.0), 1.8, 18.0],
 	]:
 		var lamp := OmniLight3D.new()
 		lamp.position = spot[0]

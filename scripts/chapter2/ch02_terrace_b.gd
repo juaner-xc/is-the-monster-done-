@@ -40,11 +40,8 @@ func _build() -> void:
 
 # ------------------------------------------------------------------ 地面与掩体
 func _build_floor() -> void:
-	_slab(Vector3(16.0, 0.4, 14.0), center + Vector3(0, -0.2, 0), _stone())
-	# 北侧留矮岩壁；南侧朝 C 厨房，必须完全打开做四台地互通口。
-	_slab(Vector3(16.0, 1.4, 0.6), center + Vector3(0, 0.5, -7.2), _stone())
-	# 东侧接中间空地左桥，必须完全打开；只保留西侧矮岩壁。
-	_slab(Vector3(0.6, 1.4, 14.0), center + Vector3(-8.2, 0.5, 0), _stone())
+	# 不做桥拱了：仓库放大到 26×16，东侧与中央广场直接搭接。
+	_slab(Vector3(26.0, 0.4, 16.0), center + Vector3(0, -0.21, 0), _stone())
 
 
 ## 货架 = 掩体：能挡住视线和弹道，让战斗有走位空间
@@ -120,7 +117,7 @@ func _spawn_guards() -> void:
 		Vector3(2.6, 0.2, -1.4),
 		Vector3(0.6, 0.2, 3.0),
 	]
-	var rect := Rect2(center.x - 6.4, center.z - 5.4, 12.8, 10.8)
+	var rect := Rect2(center.x - 11.4, center.z - 7.4, 22.8, 14.8)
 	for spot in spots:
 		var enemy: Node3D = ENEMY_SCRIPT.new()
 		enemy.position = center + spot

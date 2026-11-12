@@ -24,6 +24,7 @@ var pan_heat := PanHeat.new()
 
 signal interact_focus_changed(target: Node)
 signal interacted(target: Node)
+signal attack_dish_missing(id: String)
 
 const INTERACT_GROUP := "interactable"
 const DEFAULT_RANGE := 2.5
@@ -116,7 +117,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	pan_heat.tick(delta)
+	pan_heat.tick(delta, not staff_mode)
 	if travel_combat and health > 0 and health_regeneration > 0 and health < max_health: heal(health_regeneration*delta)
 	if health <= 0.0:
 		return
@@ -220,6 +221,8 @@ func _physics_process(delta: float) -> void:
 		if travel_combat and staff_mode:
 			if spend_dish("ice_shot"):
 				_fire_projectile()
+			elif Input.is_action_just_pressed("basic_attack"):
+				attack_dish_missing.emit("ice_shot")
 		else:
 			_basic_attack()
 	if health > 0.0 and dodge_time <= 0.0 and pan_heat.wash_left <= 0.0 and Input.is_action_pressed("main_skill") and skill_cooldown <= 0.0:
@@ -235,6 +238,8 @@ func _physics_process(delta: float) -> void:
 			for enemy in get_tree().get_nodes_in_group("enemies"):
 				if enemy.global_position.distance_to(global_position) <= 4.25:
 					enemy.take_damage(basic_damage * power, Vector3.ZERO)
+		elif not staff_mode and Input.is_action_just_pressed("main_skill"):
+			attack_dish_missing.emit("fire_ring")
 
 
 func _process(_delta: float) -> void:

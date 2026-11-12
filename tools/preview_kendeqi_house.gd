@@ -54,9 +54,13 @@ func start() -> void:
 		camera.fov = 32
 	elif mode in ["map","gameplay_inside","talk"]:
 		stage.queue_free()
+		if mode == "talk":
+			root.get_node("RunState").select_chapter("snow")
 		stage = load("res://scenes/main.tscn").instantiate()
 		root.add_child(stage)
 		current_scene = stage
+		if mode == "talk":
+			return
 		stage.spawn_timer.stop()
 		stage.player.set_physics_process(false)
 		stage.player.position = Vector3(8,0.1,8)
@@ -95,8 +99,6 @@ func start() -> void:
 
 func _process(_delta: float) -> bool:
 	frame += 1
-	if frame == 25 and mode == "talk":
-		stage.get_node("SnowWorld/House").open_dialogue()
 	if frame == 35:
 		await RenderingServer.frame_post_draw
 		var path := OUTPUT + "肯德齐_" + mode + ".png"

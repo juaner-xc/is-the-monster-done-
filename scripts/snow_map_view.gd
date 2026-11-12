@@ -21,7 +21,8 @@ const LANDMARKS: Array = [
 	[Vector2(-55, -20), Vector2(13, 9), "berm"], # 雪障·绳梯
 	[Vector2(-55, -50), Vector2(13, 13), "cave"],# 冰洞
 	[Vector2(88, -34), Vector2(9, 9), "tower"],  # 灯塔
-	[Vector2(24, 6), Vector2(6, 6), "rock"],     # 巨石
+	[Vector2(24, 6), Vector2(6, 6), "rock"],
+	[Vector2(38, -120), Vector2(13, 9), "town"],     # 巨石
 ]
 # 连接主要地点的小径
 const ROUTES: Array = [
@@ -269,6 +270,11 @@ func _draw() -> void:
 				draw_circle(c, dim.x * 0.5, C_STALL)
 			"berm":
 				draw_arc(c, dim.x * 0.5, PI, TAU, 16, C_BERM, 4)
+			"town":
+				draw_circle(c, 5.0, Color("d6a85a"))
+				draw_arc(c, 7.0, 0.0, TAU, 20, C_CAVE, 1.5, true)
+				if accepts_input and font != null:
+					draw_string(font, c + Vector2(10, 4), "圣诞小镇", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, C_CAVE)
 			"cave":
 				draw_arc(c, dim.x * 0.5, PI, TAU, 18, C_CAVE, 5)
 			"tower":

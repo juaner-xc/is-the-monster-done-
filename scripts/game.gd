@@ -22,6 +22,7 @@ const MAX_ENEMIES := 24
 const TERRAIN_SIZE := 220.0
 const TERRAIN_RESOLUTION := 110
 
+var snow_town := preload("res://scripts/snow_town_link.gd").new()
 var kitchen = preload("res://scripts/travel_kitchen.gd").new()
 var recipe_arrival_active := false
 var recipe_book: CanvasLayer
@@ -80,6 +81,7 @@ func _ready() -> void:
 	furnace_encounter.name = "SnowPassEncounter"
 	furnace_encounter.configure(self)
 	add_child(furnace_encounter)
+	add_child(snow_town)
 	_apply_debug_arguments()
 	if cinematic_entry:
 		_finish_cinematic_entry.call_deferred()
@@ -114,6 +116,8 @@ func _process(delta: float) -> void:
 				var heading := atan2(-local_dir.x, -local_dir.z)
 				player.rotation.y = lerp_angle(player.rotation.y, heading, 1.0 - exp(-14.0 * delta))
 	_update_camera(delta)
+	if snow_town.in_town or snow_town.transitioning:
+		return
 	if cinematic_entry or get_tree().paused or finished or aftermath_active or shelter_active or player.has_meta("opening_combat"):
 		return
 	if debug_report_position and (Engine.get_process_frames() < 10 or Engine.get_process_frames() % 30 == 0) and player != null:
@@ -142,7 +146,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if cinematic_entry or recipe_arrival_active:
 		return
-	if kitchen.page != "": return
+	if kitchen.page != "" or snow_town.in_town or snow_town.transitioning: return
 	# M 键：开/收雪原布局图（关闭在暂停态由地图自身处理）
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event.keycode == KEY_M or event.physical_keycode == KEY_M) \
@@ -217,7 +221,7 @@ func _close_recipe_book() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if shelter_dialogue_active:
+	if snow_town.transitioning or shelter_dialogue_active:
 		return
 	if is_instance_valid(aftermath_ui) and aftermath_ui.is_open():
 		return
@@ -454,7 +458,7 @@ func _update_wave() -> void:
 
 
 func _on_spawn_timer() -> void:
-	if shelter_active:
+	if shelter_active or snow_town.in_town or snow_town.transitioning:
 		return
 	if is_instance_valid(furnace_encounter) and (furnace_encounter.observed or furnace_encounter.started):
 		return

@@ -20,6 +20,8 @@ const DISCOVER_CONDENSATE := 19
 const CONDENSATE_TALK := 20
 const WEAPON_GUIDE := 21
 const WEAPON_GUIDE_TALK := 22
+const SUPPLY_CHEST := 23
+const STARTER_SUPPLIES := {"fire_ring": 100, "ice_shot": 100}
 const TOAST_MAGIC := 10
 const LOADER_MAGIC := 22
 const HOT_SOUP := "snow_tutorial_hot_soup"
@@ -44,6 +46,7 @@ var waiting_at_window := false
 var downstairs_hint := false
 var choice_line := -1
 var lull_line := -1
+var wok_preview_line := -1
 var snow_lull := false
 var remaining_magic := 0
 var tutorial_experience := 0
@@ -110,14 +113,27 @@ func _say(entries: Array) -> void:
 	house.lines.clear()
 	choice_line = -1
 	lull_line = -1
+	wok_preview_line = -1
 	for entry in entries:
 		if entry.size() > 2 and entry[2] == "arrival_choice":
 			choice_line = house.lines.size()
 		elif entry.size() > 2 and entry[2] == "weather_lull":
 			lull_line = house.lines.size()
+		elif entry.size() > 2 and entry[2] == "wok_preview":
+			wok_preview_line = house.lines.size()
 		speaker_names.append(entry[0])
 		house.lines.append(entry[1])
 	house._show_dialogue()
+
+func set_wok_lesson_preview(enabled: bool) -> void:
+	if player.hero_motion != null:
+		var wardrobe = player.hero_motion.wardrobe
+		var combat_mode: String = wardrobe.combat_mode
+		if enabled:
+			wardrobe.combat_mode = "pan"
+		wardrobe.update(player.hero_motion.current, false)
+		wardrobe.combat_mode = combat_mode
+	player.pan_heat.set_wok_preview(enabled)
 
 func next_after_dialogue() -> void:
 	match stage:
@@ -138,7 +154,8 @@ func next_after_dialogue() -> void:
 			_mark(house.elder.global_position, "回去找肯德齐")
 			player.gain_experience(tutorial_experience)
 		WEAPON_GUIDE_TALK:
-			_finish_weapon_guide()
+			stage = SUPPLY_CHEST
+			_mark(house.supply_chest.global_position, "肯德齐的补给箱")
 
 
 func _get_up() -> void:
@@ -261,29 +278,13 @@ func equip_soup() -> bool:
 
 
 func _claim_rack() -> void:
-	var previously_owned: bool = RunState.gear.has("snowleaf")
-	var inv = RunState.cooking_inventory
-	var previous_ingredients: Dictionary = inv.ingredients.duplicate()
-	var previous_dishes: Dictionary = inv.dishes.duplicate()
-	var previous_journal: Array[String] = RunState.cooking_journal.duplicate()
+	var previous_gear: Array[String] = RunState.gear.duplicate()
 	var rack_was_claimed: bool = RunState.snowleaf_rack_claimed
-	if not previously_owned:
+	if not RunState.gear.has("snowleaf"):
 		RunState.gear.append("snowleaf")
-		inv.add_ingredient("fruit")
-		inv.add_ingredient("ice")
-	inv.add_dish("ice_shot", maxi(0, 6 - inv.dish_count("ice_shot")))
-	if not RunState.cooking_journal.has("ice_shot"):
-		RunState.cooking_journal.append("ice_shot")
-	inv.add_ingredient("chili")
-	inv.add_ingredient("oil")
 	RunState.snowleaf_rack_claimed = true
 	if RunState.save_progress() != OK:
-		if not previously_owned:
-			RunState.gear.erase("snowleaf")
-		inv.ingredients = previous_ingredients
-		inv.dishes = previous_dishes
-		inv.changed.emit()
-		RunState.cooking_journal.assign(previous_journal)
+		RunState.gear.assign(previous_gear)
 		RunState.snowleaf_rack_claimed = rack_was_claimed
 		game.hud.show_notice("装备还在架上 · 再按 F 试一次")
 		return
@@ -297,16 +298,35 @@ func _claim_rack() -> void:
 	game.hud.show_notice("拿到了红果木杖 · 下楼找肯德齐学用法")
 
 
-func _finish_weapon_guide() -> void:
+func _claim_supplies() -> void:
+	var inv: FoodInventory = RunState.cooking_inventory
+	var previous_dishes := inv.dishes.duplicate()
+	var previous_journal := RunState.cooking_journal.duplicate()
+	var opening_was_seen: bool = RunState.snow_opening_seen
+	for id: String in STARTER_SUPPLIES:
+		inv.add_dish(id, STARTER_SUPPLIES[id])
+		if not RunState.cooking_journal.has(id):
+			RunState.cooking_journal.append(id)
 	RunState.snow_opening_seen = true
-	RunState.save_progress()
+	if RunState.save_progress() != OK:
+		inv.dishes = previous_dishes
+		RunState.cooking_journal.assign(previous_journal)
+		RunState.snow_opening_seen = opening_was_seen
+		inv.changed.emit()
+		game.hud.show_notice("补给还在箱里 · 再按 F 试一次")
+		return
+	var lid: Node3D = house.supply_chest.get_node("Lid")
+	create_tween().tween_property(lid, "rotation_degrees:x", -105.0, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	stage = 0
 	player.remove_meta("opening_combat")
 	player.input_latch = true
-	house.proximity_latched = true
 	marker.hide()
-	game.hud.show_notice("滚轮上切法杖 · 滚轮下切锅")
+	game.hud.show_notice("补给已入背包 · 爆炒火圈 ×%d / 冰沙弹 ×%d" % [STARTER_SUPPLIES["fire_ring"], STARTER_SUPPLIES["ice_shot"]])
 	game.spawn_timer.start()
+
+func _near_supply_chest() -> bool:
+	var offset: Vector3 = player.global_position - house.supply_chest.global_position
+	return house.inside and absf(offset.y) < 1.4 and Vector2(offset.x, offset.z).length() < 2.0
 
 func _near_window() -> bool:
 	var offset := player.global_position - house.to_global(ELDER_WINDOW)
@@ -353,6 +373,8 @@ func objective_hint() -> String:
 			return "[F] 从架上取装备" if _near_rack() else "上二楼，到窗边装备架自取"
 		WEAPON_GUIDE:
 			return "[F] 请肯德齐教你用法杖" if house.can_talk() else "下楼找肯德齐，学用红果木杖"
+		SUPPLY_CHEST:
+			return "[F] 打开补给箱" if _near_supply_chest() else "去一楼门边，领取肯德齐的补给"
 	return ""
 
 
@@ -363,6 +385,9 @@ func interact() -> bool:
 	if stage == RACK and _near_rack():
 		_claim_rack()
 		return true
+	if stage == SUPPLY_CHEST and _near_supply_chest():
+		_claim_supplies()
+		return true
 	if stage == WEAPON_GUIDE and house.can_talk():
 		stage = WEAPON_GUIDE_TALK
 		marker.hide()
@@ -370,7 +395,10 @@ func interact() -> bool:
 			["肯德齐", "杖拿到了？靠近了用锅，够不着就用杖。滚轮往上切法杖，往下切回锅。"],
 			["肯德齐", "拿锅时，左键挥锅，打近处的敌人，也给锅升温。备好了爆炒火圈，右键就能放出去。"],
 			["肯德齐", "换成法杖，按住右键会出现准星。瞄准了按左键，每发消耗背包里一份冰沙弹。"],
-			["肯德齐", "对了，拿锅拿杖都一样，按 Shift 闪避。冰沙弹用完了，就用食材再做几份。"],
+			["肯德齐", "杖会用了？再看看你的锅。连挥几下，锅沿就会冒火，这叫锅气。趁这时候下料，做得快，还能多做一份。", "wok_preview"],
+			["肯德齐", "火苗蹿高变红，锅就不会自己凉了。赶紧按 Shift 闪一下，94 就能降到 64，刚好回到旺火。要查火候就按 F1。"],
+			["肯德齐", "拿锅拿杖都一样，按 Shift 就能闪开。门边的木箱里有 %d 份爆炒火圈、%d 发冰沙弹，带上吧。" % [STARTER_SUPPLIES["fire_ring"], STARTER_SUPPLIES["ice_shot"]]],
+			["肯德齐", "用完了就留意雪地上的食材，带回来自己做。路上小心啊。"],
 		])
 		return true
 	if stage == DISCOVER_CONDENSATE and _near_condensate():

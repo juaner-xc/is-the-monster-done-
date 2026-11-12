@@ -10,7 +10,8 @@ var sprout: Node3D
 var helmet: Node3D
 var hide_adventure_gear := false
 var combat_mode := ""
-var pan_received := not RunState.chapter_mode or RunState.snow_opening_seen
+# The snow opening hides the pan until the player takes it from the table.
+var pan_received := true
 var staff_hand: Node3D
 var staff_back: Node3D
 var lantern: Node3D
@@ -88,7 +89,9 @@ func update(clip: StringName, moving: bool) -> void:
 	staff_back.visible = has_leaf and not in_hand
 	lantern.visible = not hide_adventure_gear and RunState.has_gear(LANTERN)
 	medal.visible = not hide_adventure_gear and RunState.has_gear(MEDAL)
-	pan.visible = pan_received and (combat_mode == "pan" or clip in [&"PanSwing", &"PanReturn"] or bool(pan.get_meta("overheated", false)))
+	pan.visible = pan_received and combat_mode != "staff" and (
+		combat_mode == "pan" or clip in [&"PanSwing", &"PanReturn"] or bool(pan.get_meta("overheated", false))
+	)
 
 func _socket(bone_name: String, socket_name: String, origin: Vector3) -> Node3D:
 	var index := skeleton.find_bone(bone_name)

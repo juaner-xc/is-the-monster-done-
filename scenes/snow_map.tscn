@@ -742,4 +742,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 135, 1.0, -55)
 transform = Transform3D(0.969, 0, -0.247, 0, 1, 0, 0.247, 0, 0.969, 139, 0, -12.5)
 
 [node name="Tunnel" parent="." instance=ExtResource("34_tunnel")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.02, -120)
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 38, 0.02, -120)
+
+[node name="ChristmasTownGate" type="Marker3D" parent="."]
+position = Vector3(38, 0.15, -120)
+
+[node name="Arrival" type="Marker3D" parent="ChristmasTownGate"]
+position = Vector3(0, 0.08, 5)

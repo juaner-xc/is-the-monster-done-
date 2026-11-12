@@ -12,6 +12,7 @@
 
 [ext_resource type="PackedScene" path="res://scenes/kendeqi_ground_floor_rooms.tscn" id="7_rooms"]
 [ext_resource type="PackedScene" path="res://scenes/kendeqi_lodge_profile.tscn" id="8_profile"]
+[ext_resource type="PackedScene" path="res://scenes/kendeqi_supply_chest.tscn" id="9_supply_chest"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k1wcs"]
 resource_name = "Plaster"
@@ -1989,6 +1990,10 @@ material_override = SubResource("StandardMaterial3D_pyvnm")
 mesh = SubResource("BoxMesh_kxato")
 
 [node name="Interior" type="Node3D" parent="." unique_id=1882850476]
+
+[node name="SupplyChest" parent="Interior" instance=ExtResource("9_supply_chest")]
+position = Vector3(-3.5, 0, 4.15)
+rotation = Vector3(0, 3.1415927, 0)
 
 [node name="FloorCollision" type="MeshInstance3D" parent="Interior" unique_id=757351915]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.09, 0)

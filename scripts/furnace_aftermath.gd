@@ -30,12 +30,14 @@ var ending_camera: Camera3D
 var old_camera: Camera3D
 var old_player_mode := 0
 var journal: PanelContainer
+var snow_town: Node
 
 func configure(actor, remains):
 	player = actor
 	wreck = remains
 
 func _ready():
+	snow_town = get_parent().get("snow_town") as Node
 	layer = 29
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	house = get_tree().get_first_node_in_group("snow_dining_house")
@@ -111,7 +113,7 @@ func _process(delta):
 	if is_instance_valid(core_visual):
 		core_visual.visible = ready_to_inspect and not RunState.snow_core_found
 		core_visual.rotation.y += delta * 0.7
-	if panel.visible or talking or get_tree().paused:
+	if panel.visible or talking or get_tree().paused or (is_instance_valid(snow_town) and (snow_town.in_town or snow_town.transitioning)):
 		prompt_text.hide()
 		return
 	prompt_text.show()

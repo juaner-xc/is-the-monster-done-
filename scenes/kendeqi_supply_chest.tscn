@@ -1,0 +1,132 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="Wood"]
+albedo_color = Color(0.42, 0.22, 0.115, 1)
+roughness = 0.86
+
+[sub_resource type="StandardMaterial3D" id="DarkWood"]
+albedo_color = Color(0.24, 0.115, 0.06, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Iron"]
+albedo_color = Color(0.16, 0.13, 0.105, 1)
+metallic = 0.5
+roughness = 0.58
+
+[sub_resource type="StandardMaterial3D" id="Brass"]
+albedo_color = Color(0.74, 0.49, 0.21, 1)
+metallic = 0.55
+roughness = 0.42
+
+[sub_resource type="BoxMesh" id="Base"]
+material = SubResource("DarkWood")
+size = Vector3(1.32, 0.12, 0.84)
+
+[sub_resource type="BoxMesh" id="LongWall"]
+material = SubResource("Wood")
+size = Vector3(1.26, 0.46, 0.095)
+
+[sub_resource type="BoxMesh" id="EndWall"]
+material = SubResource("Wood")
+size = Vector3(0.10, 0.46, 0.62)
+
+[sub_resource type="BoxMesh" id="Seam"]
+material = SubResource("DarkWood")
+size = Vector3(1.23, 0.023, 0.018)
+
+[sub_resource type="BoxMesh" id="Cover"]
+material = SubResource("Wood")
+size = Vector3(1.38, 0.13, 0.86)
+
+[sub_resource type="BoxMesh" id="Crown"]
+material = SubResource("DarkWood")
+size = Vector3(1.24, 0.075, 0.70)
+
+[sub_resource type="BoxMesh" id="Band"]
+material = SubResource("Iron")
+size = Vector3(0.105, 0.21, 0.87)
+
+[sub_resource type="BoxMesh" id="FrontBand"]
+material = SubResource("Iron")
+size = Vector3(0.10, 0.47, 0.042)
+
+[sub_resource type="BoxMesh" id="Clasp"]
+material = SubResource("Brass")
+size = Vector3(0.23, 0.23, 0.047)
+
+[sub_resource type="BoxMesh" id="Keyhole"]
+material = SubResource("Iron")
+size = Vector3(0.039, 0.084, 0.01)
+
+[sub_resource type="BoxShape3D" id="Footprint"]
+size = Vector3(1.32, 0.58, 0.82)
+
+[node name="KendeqiSupplyChest" type="StaticBody3D"]
+collision_mask = 0
+
+[node name="Footprint" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.29, 0)
+shape = SubResource("Footprint")
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.06, 0)
+mesh = SubResource("Base")
+
+[node name="Front" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.35, 0.36)
+mesh = SubResource("LongWall")
+
+[node name="Back" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.35, -0.36)
+mesh = SubResource("LongWall")
+
+[node name="Left" type="MeshInstance3D" parent="."]
+position = Vector3(-0.58, 0.35, 0)
+mesh = SubResource("EndWall")
+
+[node name="Right" type="MeshInstance3D" parent="."]
+position = Vector3(0.58, 0.35, 0)
+mesh = SubResource("EndWall")
+
+[node name="LowerPlankSeam" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.25, 0.405)
+mesh = SubResource("Seam")
+
+[node name="UpperPlankSeam" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.42, 0.405)
+mesh = SubResource("Seam")
+
+[node name="LeftFrontBand" type="MeshInstance3D" parent="."]
+position = Vector3(-0.47, 0.35, 0.414)
+mesh = SubResource("FrontBand")
+
+[node name="RightFrontBand" type="MeshInstance3D" parent="."]
+position = Vector3(0.47, 0.35, 0.414)
+mesh = SubResource("FrontBand")
+
+[node name="Lid" type="Node3D" parent="."]
+position = Vector3(0, 0.58, -0.42)
+
+[node name="Cover" type="MeshInstance3D" parent="Lid"]
+position = Vector3(0, 0.065, 0.42)
+mesh = SubResource("Cover")
+
+[node name="Crown" type="MeshInstance3D" parent="Lid"]
+position = Vector3(0, 0.16, 0.42)
+mesh = SubResource("Crown")
+
+[node name="LeftBand" type="MeshInstance3D" parent="Lid"]
+position = Vector3(-0.47, 0.103, 0.42)
+mesh = SubResource("Band")
+
+[node name="RightBand" type="MeshInstance3D" parent="Lid"]
+position = Vector3(0.47, 0.103, 0.42)
+mesh = SubResource("Band")
+
+[node name="Clasp" type="MeshInstance3D" parent="Lid"]
+position = Vector3(0, -0.025, 0.855)
+mesh = SubResource("Clasp")
+
+[node name="Keyhole" type="MeshInstance3D" parent="Lid"]
+position = Vector3(0, -0.05, 0.88)
+mesh = SubResource("Keyhole")

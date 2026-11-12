@@ -13,6 +13,7 @@ signal experience_changed(current: int, needed: int, level: int)
 signal level_up_requested
 signal died
 signal camera_shake_requested(strength: float, duration: float)
+signal attack_dish_missing(id: String)
 
 const PROJECTILE_SCENE: PackedScene = preload("res://scenes/projectile.tscn")
 ## 奶蛙的冒险模型沿用原骨架，动作与装备由 HeroMotion 共用。
@@ -106,7 +107,7 @@ func _ready() -> void:
 	water_zone = get_tree().get_first_node_in_group("water_zone")
 
 func _physics_process(delta: float) -> void:
-	pan_heat.tick(delta)
+	pan_heat.tick(delta, not staff_mode)
 	if health <= 0.0:
 		return
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
@@ -252,6 +253,8 @@ func _physics_process(delta: float) -> void:
 		if travel_combat and staff_mode:
 			if spend_dish("ice_shot"):
 				_fire_projectile()
+			elif Input.is_action_just_pressed("basic_attack"):
+				attack_dish_missing.emit("ice_shot")
 		else:
 			_basic_attack()
 	if health > 0.0 and dodge_time <= 0.0 and pan_heat.wash_left <= 0.0 and Input.is_action_pressed("main_skill") and skill_cooldown <= 0.0:
@@ -267,6 +270,8 @@ func _physics_process(delta: float) -> void:
 			for enemy in get_tree().get_nodes_in_group("enemies"):
 				if enemy.global_position.distance_to(global_position) <= 4.25:
 					enemy.take_damage(basic_damage * power, Vector3.ZERO)
+		elif not staff_mode and Input.is_action_just_pressed("main_skill"):
+			attack_dish_missing.emit("fire_ring")
 
 
 func configure_build(modifiers: Dictionary, recipes: Array[String]) -> void:

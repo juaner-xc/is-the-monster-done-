@@ -2,13 +2,16 @@ extends CanvasLayer
 
 const Book = preload("res://scripts/book_ui.gd")
 const Recipes = preload("res://scripts/recipe_system.gd")
+const PanHeat = preload("res://scripts/pan_heat.gd")
 const DARK := {"black_salt":["dark_dish","黑盐焦糊锅"],"chili":["spicy","焦辣爆酱"],"caramel":["bitter","苦甜焦糖块"],"ice":["cold","冰渣冷羹"],"flour":["crust","焦皮脆饼"]}
+const GUIDE_PAGE := "锅气与快捷键"
 const GUARDS := ["cream_guard","pastry_shield","baked_sweet_potato","dark_dish"]
 var host
 var hero
 var page := ""
 var shell := ColorRect.new()
 var body := VBoxContainer.new()
+var scroll := ScrollContainer.new()
 var first := ""
 var job: Array = []
 var remaining := 0.0
@@ -27,6 +30,7 @@ func setup(game, chapter_number := 1) -> void:
 	host = game
 	hero = host.player
 	hero.travel_combat = true
+	hero.attack_dish_missing.connect(_show_missing_attack_dish)
 	layer = 85
 	process_mode = PROCESS_MODE_ALWAYS
 	add_child(aim_reticle)
@@ -44,7 +48,6 @@ func setup(game, chapter_number := 1) -> void:
 	var center := CenterContainer.new()
 	shell.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var scroll := ScrollContainer.new()
 	center.add_child(scroll)
 	scroll.custom_minimum_size = Vector2(600, 440)
 	scroll.add_child(body)
@@ -68,6 +71,14 @@ func handle(event: InputEvent) -> bool:
 	if chapter == 1 and (host.finished or host.map_open or host.hud.is_upgrade_open() or host.recipe_book.is_open()):
 		return false
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F1 or event.physical_keycode == KEY_F1:
+			if page == GUIDE_PAGE:
+				close()
+				return true
+			if page == "" and not get_tree().paused and not (chapter == 1 and is_instance_valid(host.aftermath_ui) and host.aftermath_ui.is_open()):
+				show_page(GUIDE_PAGE)
+				return true
+			return false
 		if event.keycode == KEY_R or event.physical_keycode == KEY_R:
 			if page == "备餐":
 				close()
@@ -100,6 +111,7 @@ func handle(event: InputEvent) -> bool:
 	return false
 
 func show_page(which: String) -> void:
+	var from_settings := page == "设置"
 	if page == "":
 		was_mouse = Input.mouse_mode
 		paused_before = get_tree().paused
@@ -110,24 +122,22 @@ func show_page(which: String) -> void:
 		body.remove_child(child)
 		child.queue_free()
 	body.add_child(Book.label(which,32))
+	scroll.custom_minimum_size = Vector2(900, 510) if page == GUIDE_PAGE else Vector2(600, 440)
+	scroll.set_deferred("scroll_vertical", 0)
 	shell.show()
 	match page:
 		"设置":
 			slider("总音量","audio","volume",0,1,0.05,0.8)
 			slider("镜头灵敏度","view","sensitivity",0.001,0.006,0.00025,0.0025)
-			button("键位说明",func(): show_page("键位说明"))
+			button("锅气与快捷键",func(): show_page(GUIDE_PAGE))
 			button("返回主界面",func(): show_page("结束本场？"))
 		"结束本场？":
 			line("离开后从已保存的进度继续。" if RunState.PERSIST_PROGRESS else "返回首页？本次进度会在退出游戏时清除。")
 			button("确认返回主界面",leave_game)
-		"键位说明":
-			line("WASD 移动　 鼠标转镜头　 Shift 闪避　 空格跳跃")
-			line("F 交互／继续对白　 M 雪原地图　 Enter 乘坐　 V 挥手")
-			line("R 备餐　 Tab 背包　 B 装备　 Esc 设置／关闭界面")
-			line("开场送汤　左键翻炒两次，面包靠近时右键泼汤")
-			line("锅　左键挥击升温，右键消耗一份爆炒火圈")
-			line("获得木杖后　滚轮向上切木杖，向下切锅；右键瞄准，左键发射冰沙弹")
-			button("返回设置",func(): show_page("设置"))
+		GUIDE_PAGE:
+			build_guide()
+			if from_settings:
+				button("返回设置", func(): show_page("设置"))
 		"背包":
 			var stock := PackedStringArray()
 			for id in inv.ingredient_ids(): stock.append("%s ×%d" % [FoodData.ingredient_name(id),inv.ingredient_count(id)])
@@ -156,7 +166,7 @@ func show_page(which: String) -> void:
 			for data in recipes():
 				if data[0] in RunState.cooking_journal:
 					var b := button("%s　%s + %s" % [dish_name(data[1]),FoodData.ingredient_name(data[2]),FoodData.ingredient_name(data[3])],start.bind(data))
-					b.disabled = not inv.has_ingredient(data[2]) or not inv.has_ingredient(data[3]) or hero.pan_heat.value > 85
+					b.disabled = not inv.has_ingredient(data[2]) or not inv.has_ingredient(data[3]) or hero.pan_heat.value > PanHeat.OVERHEAT_LIMIT or hero.pan_heat.wash_left > 0.0
 			if RunState.cooking_journal.is_empty(): line("先到食堂灶台试做一道料理。")
 		"试做":
 			line("选两种食材" if first == "" else "已选　"+FoodData.ingredient_name(first))
@@ -169,6 +179,56 @@ func show_page(which: String) -> void:
 				elif inv.dish_count(id)>0: button("装备　"+dish_name(id),equip.bind(id)).disabled = RunState.guards.size() >= 2
 			line("防护料理　%d / 2" % RunState.guards.size())
 	button("返回游戏",close)
+
+func build_guide() -> void:
+	body.add_child(Book.label("每次操作的火候变化", 23, Book.GOLD))
+	line("左键挥锅 +%d　每命中一个敌人再 +%d　单次最多 +%d" % [PanHeat.SWING_HEAT, PanHeat.HEAT_PER_HIT, PanHeat.MAX_SWING_HEAT])
+	line("Shift 闪避 −30　成功释放攻击料理通常 −18　受伤 +6")
+	body.add_child(Book.rule())
+
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 28)
+	body.add_child(columns)
+
+	var stages := VBoxContainer.new()
+	stages.custom_minimum_size.x = 460.0
+	stages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stages.add_theme_constant_override("separation", 6)
+	columns.add_child(stages)
+	stages.add_child(Book.label("五档火候", 23, Book.GOLD))
+	for row in [
+		"冷锅  0–24　挥锅伤害 ×0.6，随身备餐 4 秒",
+		"温锅  25–59　挥锅伤害 ×1.0，随身备餐 3 秒",
+		"旺火  60–85　挥锅伤害 ×1.25，随身备餐 2 秒。爆炒火圈和冰沙弹每批多做 1 份",
+		"过热  86–99　停止自然散热。%.1f 秒内闪避或出餐，降到 85 或以下。期间无法开始随身备餐" % PanHeat.OVERHEAT_SECONDS,
+		"糊锅  到 100 或过热倒计时归零。扣 15% 最大生命，火候回到 20。洗锅 4 秒，期间无法攻击和备餐",
+	]:
+		stages.add_child(Book.paragraph(row, 19, Book.CREAM))
+
+	var controls := VBoxContainer.new()
+	controls.custom_minimum_size.x = 340.0
+	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	controls.add_theme_constant_override("separation", 6)
+	columns.add_child(controls)
+	controls.add_child(Book.label("快捷键", 23, Book.GOLD))
+	var shortcuts := [
+		"WASD 移动　鼠标转镜头　空格跳跃",
+		"F 交互／继续对白　V 挥手",
+		"R 备餐　Tab 背包　B 装备",
+		"F1 手册　Esc 设置／关闭",
+		"锅　左键挥锅　右键放爆炒火圈",
+		"法杖　按住右键瞄准　左键发射冰沙弹",
+		"获得法杖后　滚轮上切法杖，下切锅",
+	]
+	if chapter == 1:
+		shortcuts.append("M 雪原地图　Enter 乘坐／下摩天轮")
+		if hero.has_meta("opening_combat"):
+			shortcuts.append("送汤教学　左键翻炒两次，靠近面包时右键泼汤")
+	elif chapter == 3:
+		shortcuts.append("M 终宴地图")
+	for row in shortcuts:
+		controls.add_child(Book.paragraph(row, 19, Book.CREAM))
+
 
 func close() -> void:
 	page=""
@@ -222,7 +282,8 @@ func start(data: Array) -> void:
 	if hero.has_meta("opening_combat") or (hero.hero_motion != null and not hero.hero_motion.wardrobe.pan_received): return
 	if not job.is_empty() or not inv.has_ingredient(data[2]) or not inv.has_ingredient(data[3]): return
 	var station := at_station()
-	if not station and hero.pan_heat.value > 85: return
+	if hero.pan_heat.wash_left > 0.0 or (not station and hero.pan_heat.value > PanHeat.OVERHEAT_LIMIT):
+		return
 	job=data
 	full_time=2.0 if station or hero.pan_heat.has_wok_breath() else (4.0 if hero.pan_heat.is_cold() else 3.0)
 	remaining=full_time
@@ -303,10 +364,17 @@ func at_station() -> bool:
 
 var stove_position := Vector3.ZERO
 
+func _show_missing_attack_dish(id: String) -> void:
+	if id == "ice_shot":
+		notice("冰沙弹已用完 · 滚轮向下切锅，或按 Tab 备餐")
+	else:
+		notice("没有爆炒火圈 · 左键仍可挥锅，按 Tab 可备餐")
+
 func notice(message: String) -> void:
 	if chapter == 1: host.hud.show_notice(message)
 	elif host.has_method("show_notice"): host.show_notice(message)
 	elif host.has_method("_show_notice"): host._show_notice(message)
+	elif host.has_method("_notice"): host._notice(message)
 
 func leave_game() -> void:
 	get_tree().paused=false
@@ -315,6 +383,7 @@ func leave_game() -> void:
 
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(hero): return
+	if chapter == 1 and host.snow_town.transitioning: return
 	if chapter == 3 and page=="" and (host.panel.visible or host.map_open or host.design_view): return
 	if chapter == 1 and page=="" and (host.cinematic_entry or host.recipe_arrival_active): return
 	if chapter == 1 and page == "" and host.shelter_dialogue_active and not event.is_action_pressed("pause"):

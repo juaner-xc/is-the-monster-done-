@@ -20,13 +20,12 @@ var dialogue_text: Label
 var continue_button: Button
 var lines: Array[String] = []
 var choice_row: HBoxContainer
-var story_ui: Control
-var proximity_latched := false
 var warmth_blend := 0.0
 var opening: Node
 @onready var upper: Node3D = $UpperFloors
 @onready var gift_display: Node3D = $UpperFloors/SecondFloor/KnightRoomFurnishings/SnowleafEquipmentRack/GiftPieces
 @onready var elder: Node3D = $Kendeqi
+@onready var supply_chest: Node3D = $Interior/SupplyChest
 @onready var loft_rafters := (
 	$InnCraft/DispatchLoft.find_children("ExposedPrincipalRafter*", "MeshInstance3D", false, false)
 	+ $InnCraft/DispatchLoft.find_children("KingPost*", "MeshInstance3D", false, false)
@@ -44,6 +43,8 @@ func _ready() -> void:
 	_build_ui()
 	# Keep the character at its authored size inside the wider house.
 	elder.global_basis = Basis.IDENTITY
+	if RunState.snow_opening_seen:
+		supply_chest.get_node("Lid").rotation_degrees.x = -105.0
 
 func contains_point(point: Vector3) -> bool:
 	var p := to_local(point)
@@ -59,7 +60,7 @@ func _physics_process(delta: float) -> void:
 		hint.hide()
 		return
 	elapsed += delta
-	var rack_already_taken: bool = opening_active() and opening.stage in [opening.WEAPON_GUIDE, opening.WEAPON_GUIDE_TALK]
+	var rack_already_taken: bool = opening_active() and opening.stage in [opening.WEAPON_GUIDE, opening.WEAPON_GUIDE_TALK, opening.SUPPLY_CHEST]
 	gift_display.visible = not rack_already_taken and (opening_active() or not RunState.has_gear("snowleaf"))
 	var was_inside := inside
 	inside = contains_point(player.global_position)
@@ -90,15 +91,8 @@ func _physics_process(delta: float) -> void:
 		hint.text = "" if _busy() or get_tree().paused or game.map_open or game.kitchen.page != "" else opening.objective_hint()
 		hint.visible = not hint.text.is_empty()
 		return
-	var near_elder := can_talk()
-	hint.text = "[F] 与肯德齐交谈"
-	hint.visible = near_elder and not _busy()
-	$Kendeqi/Nameplate.visible = inside and not dialogue_open
-	if not near_elder:
-		proximity_latched = false
-	if near_elder and not _busy() and not proximity_latched:
-		proximity_latched = true
-		open_dialogue()
+	hint.hide()
+	$Kendeqi/Nameplate.visible = inside
 
 func update_cutaway(enabled: bool) -> void:
 	$CutawayWalls.visible = not enabled
@@ -146,20 +140,13 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				_answer(focused.text)
 			return
-		if event.is_action_pressed("pause"):
-			get_viewport().set_input_as_handled()
-			if not opening_active():
-				close_dialogue()
-		elif event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
+		if event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
 			get_viewport().set_input_as_handled()
 			advance_dialogue()
 	elif opening_active():
 		if not get_tree().paused and not _busy() and not game.map_open and event.is_action_pressed("interact"):
 			if opening.interact():
 				get_viewport().set_input_as_handled()
-	elif not get_tree().paused and event.is_action_pressed("interact") and can_talk() and not _busy():
-		get_viewport().set_input_as_handled()
-		open_dialogue()
 
 func begin_opening(host: Node) -> void:
 	opening = preload("res://scripts/snow_opening.gd").new()
@@ -170,26 +157,9 @@ func begin_opening(host: Node) -> void:
 func opening_active() -> bool:
 	return is_instance_valid(opening) and opening.stage != 0
 
-func open_dialogue() -> void:
-	if dialogue_open or not can_talk() or _busy():
-		return
-	lines = [
-		"进来吧，雪还没停。锅边暖和，先坐一会儿。",
-		"叫我肯德齐就好。我这儿没什么稀罕菜，热汤倒是一直备着。",
-		"汤要是太咸，就直接告诉我。我生过一场病，尝不出味道了，得请来吃饭的人帮忙。",
-		"起初我也不敢再做。后来有人说：‘这次行了，给我盛满一点。’我就又煮了一锅。",
-		"要去山口的话，留心那台旧面包炉。它总把取餐铃摇得很响，像是还在等客人。",
-		"准备好了再出发。回来时若还亮着灯，就进来歇歇。",
-	]
-	if RunState.snow_dining_restored:
-		lines = ["炉火稳稳地烧着。多亏了你，这里能让更多人暖和地歇一歇。", "旧取餐铃收好。运输线上的老送货员认得它的声音。"]
-	elif RunState.snow_core_use == "pot":
-		lines = ["柴火还够用一阵。我会继续想办法修炉子。", "路上小心。你锅里的余温，只够强化一发料理弹。"]
-	if game != null and game.aftermath_active:
-		return
-	_show_dialogue()
-
 func _show_dialogue() -> void:
+	if not opening_active():
+		return
 	dialogue_index = 0
 	dialogue_open = true
 	elder.listening = true
@@ -201,18 +171,14 @@ func _show_dialogue() -> void:
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	hint.hide()
-	story_ui.show()
 	_update_line()
 
 func advance_dialogue() -> void:
 	if is_instance_valid(choice_row): return
 	dialogue_index += 1
 	if dialogue_index >= lines.size():
-		if opening_active():
-			close_dialogue()
-			opening.next_after_dialogue()
-			return
 		close_dialogue()
+		opening.next_after_dialogue()
 	else:
 		_update_line()
 
@@ -224,11 +190,10 @@ func _update_line() -> void:
 	dialogue_text.text = lines[dialogue_index]
 	dialogue_hint.text = "[F / Enter] 继续"
 	dialogue_hint.show()
-	if opening_active() and dialogue_index == opening.choice_line:
+	if dialogue_index == opening.choice_line:
 		dialogue_hint.text = "[← / →] 选择 · [F / Enter] 确认"
 		choice_row = HBoxContainer.new()
 		dialogue_panel.get_child(0).add_child(choice_row)
-		story_ui.hide()
 		dialogue_panel.show()
 		dialogue_name.text="肯德齐"
 		continue_button.hide()
@@ -239,30 +204,21 @@ func _update_line() -> void:
 			option.pressed.connect(_answer.bind(answer))
 		choice_row.get_child(0).grab_focus()
 		return
-	if opening_active():
-		if dialogue_index == opening.lull_line:
-			opening.snow_lull = true
-		story_ui.hide()
-		dialogue_name.text = opening.speaker_names[dialogue_index]
-		continue_button.show()
-		var action := "继续"
-		if dialogue_index == lines.size() - 1:
-			if _is_wake_dialogue():
-				action = "起身"
-			elif opening.stage == opening.ROUTE:
-				action = "接过热汤"
-			elif opening.stage == opening.AFTER:
-				action = "接过热汤"
-		continue_button.text = action
-		dialogue_hint.text = "[F / Enter] " + action
-		dialogue_panel.show()
-		return
-	story_ui.say(elder, lines[dialogue_index], "肯德齐 · 雪原食堂")
-	continue_button.text = "继续"
+	if dialogue_index == opening.lull_line:
+		opening.snow_lull = true
+	if opening.wok_preview_line >= 0:
+		opening.set_wok_lesson_preview(dialogue_index == opening.wok_preview_line)
+	dialogue_name.text = opening.speaker_names[dialogue_index]
+	continue_button.show()
+	var action := "继续"
 	if dialogue_index == lines.size() - 1:
-		continue_button.text = "告别"
-	# Keep keyboard input on the room so Enter cannot advance twice via button focus.
-	continue_button.release_focus()
+		if _is_wake_dialogue():
+			action = "起身"
+		elif opening.stage in [opening.ROUTE, opening.AFTER]:
+			action = "接过热汤"
+	continue_button.text = action
+	dialogue_hint.text = "[F / Enter] " + action
+	dialogue_panel.show()
 
 func _answer(answer: String) -> void:
 	choice_row.queue_free()
@@ -278,11 +234,12 @@ func _answer(answer: String) -> void:
 func close_dialogue() -> void:
 	if not dialogue_open:
 		return
+	if opening.wok_preview_line >= 0:
+		opening.set_wok_lesson_preview(false)
 	dialogue_open = false
 	dialogue_hint.hide()
 	elder.listening = false
 	dialogue_panel.hide()
-	if story_ui != null: story_ui.hide()
 	if game != null:
 		game.shelter_dialogue_active = false
 		game.game_camera.cinematic_locked = saved_camera_lock
@@ -304,12 +261,13 @@ func _build_ui() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(root)
-	story_ui = preload("res://scripts/arcane_story_ui.gd").new()
-	root.add_child(story_ui)
-	root.theme = story_ui.theme
-	story_ui.hide()
+	var font := SystemFont.new()
+	font.font_names = PackedStringArray(["Microsoft YaHei", "Noto Sans CJK SC"])
+	var skin := Theme.new()
+	skin.default_font = font
+	skin.default_font_size = 18
+	root.theme = skin
 	hint = Label.new()
-	hint.text = "F  与肯德齐交谈"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hint.position = Vector2(-210, -115)
@@ -346,7 +304,6 @@ func _build_ui() -> void:
 	column.add_theme_constant_override("separation", 10)
 	dialogue_panel.add_child(column)
 	dialogue_name = Label.new()
-	dialogue_name.text = "肯德齐  ·  雪原食堂"
 	dialogue_name.add_theme_font_size_override("font_size", 24)
 	dialogue_name.add_theme_color_override("font_color", Color("efd9a8"))
 	column.add_child(dialogue_name)
@@ -363,4 +320,3 @@ func _build_ui() -> void:
 	continue_button.pressed.connect(advance_dialogue)
 	row.add_child(continue_button)
 	dialogue_panel.hide()
-	if story_ui != null: story_ui.hide()

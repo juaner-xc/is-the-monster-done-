@@ -53,7 +53,7 @@ func _reserve_arena() -> void:
 			if Vector2(p.x - PASS.x, p.z - PASS.z).length() < 28.0: tree.queue_free()
 
 func _process(delta: float) -> void:
-	if get_tree().paused or game.cinematic_entry or game.recipe_arrival_active or game.finished:
+	if get_tree().paused or game.cinematic_entry or game.recipe_arrival_active or game.finished or game.snow_town.in_town or game.snow_town.transitioning:
 		overlay.hide()
 		if intro_running and get_tree().paused:
 			game.hud.show()

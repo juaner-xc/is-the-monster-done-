@@ -58,30 +58,14 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	check(house.can_talk(),"cook is reachable from the customer side of the counter")
+	check(not house.dialogue_open and not paused and not house.hint.visible,"approaching the cook outside the opening does not prompt or start dialogue")
 	var event := InputEventKey.new()
 	event.keycode = KEY_F
 	event.physical_keycode = KEY_F
 	event.pressed = true
 	root.push_input(event,true)
 	await process_frame
-	check(house.dialogue_open and paused and game.shelter_dialogue_active,"F opens the actual paused conversation")
-	check(house.dialogue_text.text.contains("雪"),"conversation displays readable story text")
-	var tab := InputEventKey.new()
-	tab.keycode = KEY_TAB
-	tab.pressed = true
-	game._input(tab)
-	check(not game.recipe_book.is_open(),"recipe book cannot open over cook dialogue")
-	var index_before: int = house.dialogue_index
-	house.advance_dialogue()
-	check(house.dialogue_index == index_before+1,"conversation advances one line at a time")
-	var esc := InputEventKey.new()
-	esc.keycode = KEY_ESCAPE
-	esc.physical_keycode = KEY_ESCAPE
-	esc.pressed = true
-	root.push_input(esc,true)
-	await process_frame
-	check(not house.dialogue_open and not paused and not game.shelter_dialogue_active,"Esc closes dialogue and restores normal play")
-	check(not game.game_camera.cinematic_locked,"dialogue releases camera control")
+	check(not house.dialogue_open and not paused and not game.shelter_dialogue_active,"F does not reopen retired dialogue")
 	# A real side wall stops movement, while the front door allows departure.
 	game.player.position = house.position + Vector3(5.0,0.05,0)
 	await walk(Vector3.RIGHT,30)

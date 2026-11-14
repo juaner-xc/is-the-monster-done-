@@ -35,15 +35,14 @@ func _build() -> void:
 	add_to_group("zone_mid_exploration")
 	_build_floor()
 	_build_parapet()
-	_build_hanging_beam()
 	_build_workstation()
 	_build_crates()
 	_build_bench()
 	_build_lighting()
-	junction_pos = center + Vector3(3.0, 0.0, -2.8)
-	taotao_spot = center + Vector3(3.7, 0.0, -1.9)
-	valve_anchor = center + Vector3(1.8, 0.0, -3.6)
-	bench_spot = center + Vector3(2.6, -0.28, 2.4)
+	junction_pos = center + Vector3(4.8, 0.0, -2.2)
+	taotao_spot = center + Vector3(5.4, 0.0, -1.2)
+	valve_anchor = center + Vector3(4.6, 0.0, -3.6)
+	bench_spot = center + Vector3(5.0, -0.28, 2.4)
 	taotao_anchor = taotao_spot
 	_build_junction()
 	_build_helper()
@@ -66,7 +65,7 @@ func _build_floor() -> void:
 			stone.uv1_world_triplanar = true
 			stone.uv1_scale = Vector3(0.30, 0.30, 0.30)
 
-	_slab(Vector3(12.0, 0.4, 12.0), center + Vector3(0, -0.2, 0), stone)
+	_slab(Vector3(20.0, 0.4, 16.0), center + Vector3(0, -0.21, 0), stone)
 	# 往北接走廊的过道：一直补到走廊南沿（z = 23.5），中间不留缝
 	_slab(Vector3(3.6, 0.4, 4.6), center + Vector3(0, -0.2, -7.2), stone)
 
@@ -108,38 +107,43 @@ func _build_workstation() -> void:
 	wood.albedo_color = Color(0.26, 0.19, 0.14)
 	wood.roughness = 0.9
 
-	var table := center + Vector3(0, 0, -1.0)
-	_slab(Vector3(3.0, 0.12, 1.2), table + Vector3(0, 0.9, 0), wood)
+	# 工位整体靠到广场东侧，中央 x=-42…-36 的南北通道留空。
+	var root := Node3D.new()
+	root.name = "Workstation"
+	root.position = center + Vector3(4.8, 0.0, -5.0)
+	add_child(root)
+
+	_slab(Vector3(3.0, 0.12, 1.2), Vector3(0, 0.9, 0), wood, root)
 	for dx in [-1.3, 1.3]:
-		_slab(Vector3(0.14, 0.9, 0.14), table + Vector3(dx, 0.45, -0.45), wood)
-		_slab(Vector3(0.14, 0.9, 0.14), table + Vector3(dx, 0.45, 0.45), wood)
+		_slab(Vector3(0.14, 0.9, 0.14), Vector3(dx, 0.45, -0.45), wood, root)
+		_slab(Vector3(0.14, 0.9, 0.14), Vector3(dx, 0.45, 0.45), wood, root)
 
 	# 摊开的图纸：两块浅色薄板
 	var paper := StandardMaterial3D.new()
 	paper.albedo_color = Color(0.78, 0.75, 0.66)
 	paper.roughness = 0.95
-	_slab(Vector3(0.7, 0.02, 0.5), table + Vector3(-0.5, 0.97, 0.05), paper)
-	_slab(Vector3(0.6, 0.02, 0.45), table + Vector3(0.45, 0.97, -0.1), paper)
+	_slab(Vector3(0.7, 0.02, 0.5), Vector3(-0.5, 0.97, 0.05), paper, root)
+	_slab(Vector3(0.6, 0.02, 0.45), Vector3(0.45, 0.97, -0.1), paper, root)
 
 	# 散落的工具
 	var metal := StandardMaterial3D.new()
 	metal.albedo_color = Color(0.38, 0.36, 0.34)
 	metal.metallic = 0.6
 	metal.roughness = 0.4
-	_slab(Vector3(0.42, 0.05, 0.08), center + Vector3(1.6, 0.06, -1.6), metal)
-	_slab(Vector3(0.12, 0.05, 0.2), center + Vector3(1.8, 0.06, -1.6), metal)
-	_slab(Vector3(0.34, 0.06, 0.1), center + Vector3(-1.8, 0.08, -3.4), metal)
+	_slab(Vector3(0.42, 0.05, 0.08), Vector3(1.6, 0.06, -0.6), metal, root)
+	_slab(Vector3(0.12, 0.05, 0.2), Vector3(1.8, 0.06, -0.6), metal, root)
+	_slab(Vector3(0.34, 0.06, 0.1), Vector3(-1.2, 0.08, 1.4), metal, root)
 
-	_model("shelving.glb", center + Vector3(2.5, 0.0, -2.2), 0.25, PI * 0.5)
-	_model("pot_01.glb", center + Vector3(-3.8, 0.0, 2.4), 0.5, 0.0)
-	_model("stool_01.glb", center + Vector3(1.5, 0.0, -0.2), 0.5, 0.6)
+	_model("shelving.glb", Vector3(1.8, 0.0, -1.0), 0.25, PI * 0.5, root)
+	_model("pot_01.glb", Vector3(2.2, 0.0, 3.4), 0.5, 0.0, root)
+	_model("stool_01.glb", Vector3(0.8, 0.0, -0.6), 0.5, 0.6, root)
 
 
 # ------------------------------------------------------------------ 长椅（状态物）
 func _build_bench() -> void:
 	_bench = Node3D.new()
 	_bench.name = "RestBench"
-	_bench.position = center + Vector3(2.6, 0.0, 2.4)
+	_bench.position = center + Vector3(5.0, 0.0, 2.4)
 	_bench.rotation.y = PI
 	add_child(_bench)
 
@@ -320,7 +324,7 @@ func _build_junction() -> void:
 func _build_helper() -> void:
 	_helper = Node3D.new()
 	_helper.name = "HelperMachine"
-	_helper.position = center + Vector3(0.0, 0.0, 2.2)
+	_helper.position = center + Vector3(-6.2, 0.0, -4.0)
 	_helper.rotation.y = -0.6
 	add_child(_helper)
 
@@ -405,9 +409,9 @@ func _build_crates() -> void:
 	wood.albedo_color = Color(0.34, 0.25, 0.18)
 	wood.roughness = 0.92
 	var spots := [
-		Vector3(-2.6, 0.28, 3.4),
-		Vector3(-4.4, 0.24, 1.0),
-		Vector3(4.3, 0.3, 0.8),
+		Vector3(-6.0, 0.28, 3.8),
+		Vector3(-6.6, 0.24, 1.8),
+		Vector3(5.6, 0.3, 3.0),
 	]
 	var index := 0
 	for spot in spots:

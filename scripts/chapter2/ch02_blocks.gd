@@ -22,12 +22,13 @@ const EMBER_MAT := "res://assets/chapter2/materials/mat_ember.tres"
 
 # 三个功能区抬到与石台地层相同的高度（3.6 / 7.4 / 11.2 米），
 # 中间用斜廊连接。数值是相对生活区地面（0.58 米）的抬升量。
-## 三层拓扑（概念图口径）：L0 营地 0.58 → L1 运输站 5.23 → L2 主炉广场 9.88
-## 层高 4.65 m（18 级 × 0.26），总高差 9.30 m。
+## 四层拓扑（概念图口径）：L0 营地 0.58 → L1 仓库/厨房 5.23
+## → L2 运输站 9.88 → L3 主炉控制区 14.53。
+## 层高 4.65 m（18 级 × 0.26）。
 ## 千席宴炉与控制区同层，用平台接缝连通，不再单独抬高一层。
-const TRANSPORT_OFFSET := 4.65
-const CORE_OFFSET := 9.30
-const BOSS_OFFSET := 9.30
+const TRANSPORT_OFFSET := 9.26
+const CORE_OFFSET := 13.91
+const BOSS_OFFSET := 13.93
 
 var origin := Vector3.ZERO
 var player: Node3D
@@ -218,16 +219,22 @@ func _build_transport() -> void:
 
 	# 运输线：轨道转 90°，沿南北向贯通整个运输站（与全场轴线同向）。
 	# 轨距收到 1.9 m 对上矿车轮距，双轨 + 枕木 + 两端缓冲器。
+	# 轨道只做视觉：主路上要允许玩家直接跨过去，不再用 0.5m 高的枕木挡路。
 	for side in [-1.0, 1.0]:
-		_box(Vector3(0.16, 0.12, 34.0), hall + Vector3(0.95 * side, 0.26, 0.0), _metal)
+		var rail := _box(Vector3(0.16, 0.12, 34.0), hall + Vector3(0.95 * side, 0.26, 0.0), _metal)
+		rail.collision_layer = 0
 	for i in 9:
 		var zt := -15.0 + 3.75 * float(i)
-		_box(Vector3(3.2, 0.5, 0.5), hall + Vector3(0.0, 0.25, zt), _charcoal)
+		var sleeper := _box(Vector3(3.2, 0.5, 0.5), hall + Vector3(0.0, 0.25, zt), _charcoal)
+		sleeper.collision_layer = 0
 	# 两端缓冲器：铸铁块 + 横梁，轨道「贯通」到站口读得出来
 	for end_z in [-17.2, 17.2]:
-		_box(Vector3(2.6, 0.7, 0.5), hall + Vector3(0.0, 0.6, end_z), _metal)
-		_box(Vector3(0.4, 1.4, 0.4), hall + Vector3(-1.4, 0.7, end_z), _charcoal)
-		_box(Vector3(0.4, 1.4, 0.4), hall + Vector3(1.4, 0.7, end_z), _charcoal)
+		var stop := _box(Vector3(2.6, 0.7, 0.5), hall + Vector3(0.0, 0.6, end_z), _metal)
+		stop.collision_layer = 0
+		var post_a := _box(Vector3(0.4, 1.4, 0.4), hall + Vector3(-1.4, 0.7, end_z), _charcoal)
+		post_a.collision_layer = 0
+		var post_b := _box(Vector3(0.4, 1.4, 0.4), hall + Vector3(1.4, 0.7, end_z), _charcoal)
+		post_b.collision_layer = 0
 
 	# 三个喷口 + 三个阀门：关掉喷口才能安全穿过轨道区。
 	# 喷口沿轨道两侧交替布置，不占轨道本体。
@@ -326,6 +333,7 @@ func _build_steam_machinery(hall: Vector3) -> void:
 		pump.name = "SteamPump_%d" % k
 		pump.position = hall + Vector3(12.5, 0.0, -4.0 + 11.0 * float(k))
 		_container.add_child(pump)
+		_make_non_blocking(pump)
 		var base := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(2.6, 0.7, 1.8)
@@ -715,6 +723,13 @@ func _floor(center: Vector3, size: Vector3, surface: Material = null) -> void:
 	_box(Vector3(size.x - 0.4, 0.6, size.z - 0.4), center + Vector3(0, -0.6, 0), _charcoal)
 
 
+func _make_non_blocking(node: Node) -> void:
+	if node is CollisionObject3D:
+		(node as CollisionObject3D).collision_layer = 0
+	for c in node.find_children("*", "CollisionObject3D", true, false):
+		(c as CollisionObject3D).collision_layer = 0
+
+
 func _box(size: Vector3, center: Vector3, material: Material) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.position = center
@@ -841,6 +856,7 @@ func _start_minecart() -> void:
 	_minecart.name = "Minecart"
 	_minecart.position = hall + Vector3(0.0, 0.62, -16.0)
 	_transport_section.add_child(_minecart)
+	_make_non_blocking(_minecart)
 
 	var body_mat := StandardMaterial3D.new()
 	body_mat.albedo_color = Color(0.30, 0.22, 0.16)

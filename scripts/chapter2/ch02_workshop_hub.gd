@@ -75,7 +75,6 @@ var _card: PanelContainer
 
 var _gate: StaticBody3D
 var _gate_opened := false
-var _cottage_props_done := false
 var _ending := false
 ## 台地 D（维修平台），由 volcano_cave 在构建后注入
 var terrace_d
@@ -130,11 +129,6 @@ func _ready() -> void:
 	_build_furnace_backdrop()
 	_spawn_player()
 	_build_hud()
-
-	var travel_menu = preload("res://scripts/travel_kitchen.gd").new()
-	add_child(travel_menu)
-	travel_menu.setup(self,2)
-	travel_menu.stove_position = player.global_position
 	_build_dialogue()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_show_chapter_card()
@@ -330,60 +324,17 @@ func _build_room() -> void:
 # ------------------------------------------------------------------ 洞窟内的地台
 ## 停靠模式：不建墙、不建顶，只在洞窟地面之上抬起一块地台，三面栅栏 + 东侧闸门
 func _build_deck() -> void:
-	# 视觉：48 边形的圆柱压扁成椭圆
-	var slab := CylinderMesh.new()
-	slab.top_radius = 1.0
-	slab.bottom_radius = 1.0
-	slab.height = 0.4
-	slab.radial_segments = 48
-	var deck_mesh := MeshInstance3D.new()
-	deck_mesh.mesh = slab
-	deck_mesh.scale = Vector3(DECK_RADIUS_X, 1.0, DECK_RADIUS_Z)
-	deck_mesh.position = DECK_CENTER + Vector3(0, -0.14, 0)
-	deck_mesh.material_override = _deck_stone
-	add_child(deck_mesh)
+	# 地台本体（椭圆台面、台基、13 条碰撞切片、东侧两面石墙）已预制体化，
+	# 见 scenes/chapter2/deck/hub_deck.tscn；尺寸口径仍由 DECK_* 常量负责。
+	var deck: Node3D = preload("res://scenes/chapter2/deck/hub_deck.tscn").instantiate()
+	add_child(deck)
 
-	var base := CylinderMesh.new()
-	base.top_radius = 1.0
-	base.bottom_radius = 1.0
-	base.height = 5.4
-	base.radial_segments = 48
-	var base_mesh := MeshInstance3D.new()
-	base_mesh.mesh = base
-	base_mesh.scale = Vector3(DECK_RADIUS_X - 0.2, 1.0, DECK_RADIUS_Z - 0.2)
-	base_mesh.position = DECK_CENTER + Vector3(0, -3.0, 0)
-	base_mesh.material_override = _charcoal
-	add_child(base_mesh)
-
-	# 碰撞：沿 X 切成 13 条，每条按椭圆收窄
-	var slabs := 13
-	for i in slabs:
-		var u := (float(i) + 0.5) / float(slabs) * 2.0 - 1.0
-		var half_z := DECK_RADIUS_Z * sqrt(maxf(0.0, 1.0 - u * u)) * 0.97
-		var slice_width := DECK_RADIUS_X * 2.0 / float(slabs) * 1.02
-		_solid_box(Vector3(slice_width, 0.4, half_z * 2.0),
-				DECK_CENTER + Vector3(u * DECK_RADIUS_X, -0.16, 0), _deck_stone)
-
-	# 低层圆盘外沿不再加一圈矮石沿：北侧要给新三层拓扑的轨道台阶让路，
-	# 其余方向已经有熔岩沟壑作为自然边界。
-	pass
-
-	# 东侧隔断：灰色大理石，厚度加到 0.9，不再像一块薄板
+	# 东侧隔断的定位量仍在这里算：下游放台地 B/C/D 要用 _corridor_x
 	var gate_x := DECK_CENTER.x + DECK_RADIUS_X * cos(deg_to_rad(DECK_OPEN_ARC))
-	var gate_half := DECK_RADIUS_Z * sin(deg_to_rad(DECK_OPEN_ARC))
 	_gate_x = gate_x
 	_corridor_x = DECK_CENTER.x + DECK_RADIUS_X - 0.5
-	var door_half := 2.7
-	var wall_len := maxf(0.6, gate_half - door_half - 0.3)
-	_solid_box(Vector3(0.9, 4.6, wall_len),
-			Vector3(gate_x, 2.3, -(door_half + 0.3 + wall_len * 0.5)), _marble)
-	_solid_box(Vector3(0.9, 4.6, wall_len),
-			Vector3(gate_x, 2.3, door_half + 0.3 + wall_len * 0.5), _marble)
-	# 门洞上方不再压门楣：第三人称相机常驻 4.2 米左右，
-	# 任何 3.8~5.5 米之间的横梁都会在过门时穿进镜头。
-	# 只保留两侧石墙，闸门本身落下/抬起。
 
-	# 主通道不再放整块闸门：门洞两侧石墙保留，中央完全打开。
+	# 主通道不放整块闸门：门洞两侧石墙在预制体里，中央完全打开。
 	# 生活区 → 运输站是固定主路，闸门只会在镜头里形成一堵多余白墙。
 	_gate = null
 
@@ -395,8 +346,44 @@ func _build_deck() -> void:
 	_add_omni(Vector3(gate_x - 5.0, 3.2, 0.0), Color(1.0, 0.72, 0.5), 1.4, 18.0)
 	_add_omni(DECK_CENTER + Vector3(8.0, 3.0, -12.0), Color(1.0, 0.7, 0.46), 1.0, 16.0)
 	_add_omni(DECK_CENTER + Vector3(8.0, 3.0, 12.0), Color(1.0, 0.7, 0.46), 1.0, 16.0)
+	_build_deck_fence()
 
-	_build_deck_props()
+
+## 生活区边缘栏杆：可见栅栏 + 实体墙，防止掉下去后跳不回来。
+## 南侧隧道口、北侧大阶梯口、东侧主通道留缺口。
+func _build_deck_fence() -> void:
+	var packed: PackedScene = load("res://assets/chapter2/models/spooky_fence.glb")
+	if packed == null:
+		return
+	var segments := 72
+	for i in range(segments):
+		var a := TAU * float(i) / float(segments)
+		# 南侧隧道、北侧楼梯、东侧通道留口
+		if absf(wrapf(a - PI * 0.5, -PI, PI)) < deg_to_rad(13.0):
+			continue
+		if absf(wrapf(a + PI * 0.5, -PI, PI)) < deg_to_rad(13.0):
+			continue
+		if absf(wrapf(a, -PI, PI)) < deg_to_rad(10.0):
+			continue
+		var pos := DECK_CENTER + Vector3(cos(a) * 25.3, 0.58, sin(a) * 20.3)
+		var tangent := Vector3(-sin(a) * 25.3, 0.0, cos(a) * 20.3).normalized()
+		var yaw := atan2(tangent.x, tangent.z) - PI * 0.5
+		var node: Node3D = packed.instantiate()
+		node.name = "DeckFence_%d" % i
+		node.position = pos
+		node.rotation.y = yaw
+		node.scale = Vector3.ONE * 1.3
+		add_child(node)
+		var body := StaticBody3D.new()
+		body.name = "DeckFenceBody_%d" % i
+		body.position = pos + Vector3(0, 0.6, 0)
+		body.rotation.y = yaw
+		var cs := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(2.1, 1.2, 0.28)
+		cs.shape = shape
+		body.add_child(cs)
+		add_child(body)
 
 
 ## 地台边缘的矮石沿：一段段短墙拼出椭圆，挡住玩家又不挡视线
@@ -418,81 +405,8 @@ func _curb_arc(from_deg: float, to_deg: float, segments: int) -> void:
 		curb.rotation.y = yaw
 
 
-func _build_deck_props() -> void:
-	var tripod := Vector3(-9.0, 0, 7.0)
-	for i in 3:
-		var angle := TAU * float(i) / 3.0
-		_add_box_part(self, Vector3(0.1, 2.4, 0.1),
-				tripod + Vector3(cos(angle) * 0.72, 1.2, sin(angle) * 0.72), _metal)
-	_add_box_part(self, Vector3(1.6, 0.06, 0.06), tripod + Vector3(0, 2.24, 0), _metal)
-	var pot := CylinderMesh.new()
-	pot.top_radius = 0.34
-	pot.bottom_radius = 0.27
-	pot.height = 0.4
-	_add_mesh_part(self, pot, tripod + Vector3(0, 1.86, 0), _metal)
-	_add_omni(tripod + Vector3(0, 1.2, 0), Color(1.0, 0.55, 0.22), 1.6, 8.0)
-
-	# 晾衣绳：两顶帐篷之间拉一条，是「住下来」最直接的证据
-	var line_a := Vector3(-9.7, 0, 5.4)
-	var line_b := Vector3(-9.2, 0, -2.8)
-	_solid_box(Vector3(0.12, 2.3, 0.12), line_a + Vector3(0, 1.15, 0), _metal)
-	_solid_box(Vector3(0.12, 2.3, 0.12), line_b + Vector3(0, 1.15, 0), _metal)
-	var rope_yaw := atan2(line_b.x - line_a.x, line_b.z - line_a.z) + PI * 0.5
-	var rope := _add_box_part(self, Vector3(line_a.distance_to(line_b), 0.04, 0.04),
-			(line_a + line_b) * 0.5 + Vector3(0, 2.1, 0), _metal)
-	rope.rotation.y = rope_yaw
-	for i in 4:
-		var spot := line_a.lerp(line_b, 0.18 + 0.2 * float(i))
-		var cloth := _add_box_part(self, Vector3(0.52, 0.72, 0.03),
-				spot + Vector3(0, 1.68, 0), _canvas)
-		cloth.rotation.y = rope_yaw
-
-	# 长凳：围着营地南侧的火盆摆成一圈，别再并排堵在通道上
-	for spot in [[Vector3(-8.6, 0.0, 12.4), PI * 0.5], [Vector3(-8.4, 0.0, 9.6), PI * 0.5]]:
-		_place_model("bench.glb", to_global(spot[0]), 0.9, spot[1])
-
-	# 东半边是「干活的地方」：货箱、油桶、工作台，视线被引向闸门
-	_deco_mesh("kitchenware_barrel.tres", Vector3(12.0, 0, -9.5), 1.0, 0.0, null)
-	_deco_mesh("gear_crate_wood.tres", Vector3(13.4, 0, 8.6), 0.8, 0.4, null)
-	_deco_mesh("gear_rope_coil.tres", Vector3(10.5, 0, -11.5), 0.4, 0.0, null)
-	_deco_mesh("kitchenware_crate.tres", Vector3(15.2, 0, 11.6), 0.8, 0.9, null)
-	# 工作台挪到北侧，不在生活区 → 闸门 → 斜廊的中央通路上
-	_solid_box(Vector3(3.2, 0.16, 1.0), Vector3(12.0, 0.86, -9.0), _wood)
-	for dx in [-1.3, 1.3]:
-		_add_box_part(self, Vector3(0.16, 0.8, 0.16), Vector3(12.0 + dx, 0.4, -9.3), _metal)
-		_add_box_part(self, Vector3(0.16, 0.8, 0.16), Vector3(12.0 + dx, 0.4, -8.7), _metal)
-
-	# 漏气管：解释这里为什么暖，也给画面加一道纵向的白汽
-	if _deco_mesh("ceiling_vent.tres", Vector3(-16.5, 0, 9.0), 1.3, 0.4, _metal) != null:
-		_add_steam(Vector3(-16.5, 0.7, 9.0))
 
 
-func _add_steam(pos: Vector3) -> void:
-	var steam := CPUParticles3D.new()
-	steam.position = pos
-	steam.amount = 28
-	steam.lifetime = 3.4
-	steam.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	steam.emission_sphere_radius = 0.22
-	steam.direction = Vector3(0, 1, 0)
-	steam.spread = 16.0
-	steam.initial_velocity_min = 0.5
-	steam.initial_velocity_max = 1.3
-	steam.gravity = Vector3(0.18, 0.22, 0.08)
-	steam.scale_amount_min = 0.35
-	steam.scale_amount_max = 1.0
-	steam.color = Color(0.86, 0.84, 0.82, 0.22)
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.55, 0.55)
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	material.vertex_color_use_as_albedo = true
-	material.albedo_color = Color(0.86, 0.84, 0.82, 0.24)
-	quad.material = material
-	steam.mesh = quad
-	add_child(steam)
 
 
 func _open_gate() -> void:
@@ -587,214 +501,30 @@ func _pipe_drop(top: Vector3, material: Material) -> void:
 
 func _build_living_space() -> void:
 	_build_cooking_station()
-	# 概念图口径：住人的地方是两顶米白帆布脊帐篷，一东一西夹着营地。
-	# 之前那两顶深色三角网格（tent_canvas_*.tres）是整片画面里最违和的剪影：
-	# 纯色 + 只在暗场里出现，远看就是两块黑三角，读不出「帐篷」。
-	_tent(Vector3(-13.0, 0, 6.2), 0.22)
-	_tent(Vector3(-12.4, 0, -3.4), -0.18)
-
-	# 帐篷一带的家当：床铺、箱子、木桶，全部贴边摆，中央通道留空
-	_deco_mesh("gear_bedroll.tres", Vector3(-14.4, 0, 9.0), 0.4, 1.1, null)
-	_deco_mesh("gear_bedroll.tres", Vector3(-15.0, 0, -5.6), 0.4, 0.8, null)
-	_deco_mesh("gear_crate_wood.tres", Vector3(-15.8, 0, 2.2), 0.8, 0.35, null)
-	_deco_mesh("kitchenware_barrel.tres", Vector3(-16.2, 0, 3.6), 1.0, 0.0, null)
-	_deco_mesh("kitchenware_crate.tres", Vector3(-15.6, 0, 0.6), 0.82, 0.5, null)
-
-	# 东半边：靠石屋的一堆货物，凑成一个「仓角」
-	_deco_mesh("gear_crate_wood.tres", Vector3(16.2, 0, -7.6), 0.8, 0.3, null)
-	_deco_mesh("gear_crate_wood.tres", Vector3(16.8, 0, -6.4), 0.76, -0.4, null)
-	_deco_mesh("kitchenware_barrel.tres", Vector3(17.4, 0, -8.4), 0.95, 0.0, null)
-	_deco_mesh("kitchenware_crate.tres", Vector3(15.4, 0, 1.6), 0.8, 0.6, null)
-	_deco_mesh("gear_lantern.tres", Vector3(-2.0, 0, 12.0), 0.6, 0.0, _metal)
-
-	# 火盆：营地是「有人生火」的地方，暖光池比一堆散灯更能把它拢成一个房间
-	_brazier(Vector3(6.4, 0, -10.6))
-	_brazier(Vector3(-5.2, 0, 12.6))
+	# 营地本体（帐篷 / 火盆 / 家当）已预制体化，见 scenes/chapter2/living/camp.tscn
+	add_child(preload("res://scenes/chapter2/living/camp.tscn").instantiate())
 
 
-## 帆布脊帐篷：两片斜帆布 + 脊杆 + 四角立杆 + 拉绳 + 卷起的门帘。
-## 原来的 tent_canvas_*.tres 是带顶点色的深色网格，在暗场里就剩一块黑三角。
-## 不用那个网格：帆布必须是自己能控制颜色的浅色面，才读得出「住人的帐篷」。
-func _tent(base: Vector3, yaw: float) -> void:
-	var root := Node3D.new()
-	root.name = "Tent"
-	root.position = base
-	root.rotation.y = yaw
-	add_child(root)
-	var canvas := StandardMaterial3D.new()
-	canvas.albedo_color = Color(0.80, 0.75, 0.64)
-	canvas.roughness = 1.0
-	canvas.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# 暗场里这是最大的一块浅色面；不自发光就会塌成灰三角
-	canvas.emission_enabled = true
-	canvas.emission = Color(0.19, 0.16, 0.125)
-	canvas.emission_energy_multiplier = 0.40
-
-	var w := 3.0
-	var l := 3.8
-	var h := 2.25
-	var eave := 1.05
-	var half := w * 0.5
-	var slope := sqrt(half * half + pow(h - eave, 2.0))
-	var angle := atan2(h - eave, half)
-	for side in [-1.0, 1.0]:
-		var panel := _add_box_part(root, Vector3(slope, 0.07, l),
-				Vector3(side * half * 0.5, (h + eave) * 0.5, 0), canvas)
-		panel.rotation.z = -side * angle
-	# 后山墙整面封上，前脸只封上半截：下半截就是敞开的门
-	_add_box_part(root, Vector3(w * 0.96, h - 0.1, 0.06),
-			Vector3(0, (h - 0.1) * 0.5, -l * 0.5 + 0.04), canvas)
-	_add_box_part(root, Vector3(w * 0.96, h - eave - 0.35, 0.06),
-			Vector3(0, h - (h - eave - 0.35) * 0.5, l * 0.5 - 0.04), canvas)
-	# 门口卷起的门帘
-	var roll_mesh := CylinderMesh.new()
-	roll_mesh.top_radius = 0.15
-	roll_mesh.bottom_radius = 0.15
-	roll_mesh.height = w * 0.86
-	var roll := _add_mesh_part(root, roll_mesh, Vector3(0, eave + 0.30, l * 0.5 - 0.06), canvas)
-	roll.rotation.z = PI * 0.5
-
-	# 脊杆 + 四角立杆
-	var ridge_mesh := CylinderMesh.new()
-	ridge_mesh.top_radius = 0.055
-	ridge_mesh.bottom_radius = 0.055
-	ridge_mesh.height = l + 0.5
-	var ridge := _add_mesh_part(root, ridge_mesh, Vector3(0, h, 0), _metal)
-	ridge.rotation.x = PI * 0.5
-	var post_mesh := CylinderMesh.new()
-	post_mesh.top_radius = 0.05
-	post_mesh.bottom_radius = 0.06
-	post_mesh.height = eave
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			_add_mesh_part(root, post_mesh,
-					Vector3(sx * half * 0.92, eave * 0.5, sz * l * 0.44), _metal)
-	# 拉绳：从檐口斜到地钉，帐篷才不会像一块「浮在地上的布」
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			var rope := _add_box_part(root, Vector3(0.035, 0.035, 1.35),
-					Vector3(sx * half * 1.28, 0.62, sz * l * 0.52), _metal)
-			rope.rotation.x = sz * 0.55
-			rope.rotation.y = -sx * 0.45
-	# 门口一盏小灯：帐篷口亮着，营地才有「有人住」
-	var lamp := OmniLight3D.new()
-	lamp.position = Vector3(0, 1.5, l * 0.5 + 0.5)
-	lamp.light_color = Color(1.0, 0.68, 0.38)
-	lamp.light_energy = 1.0
-	lamp.omni_range = 5.0
-	lamp.shadow_enabled = false
-	root.add_child(lamp)
 
 
-## 火盆：石座 + 铁盆 + 一两簇火苗，营地的主暖光源。
-func _brazier(base: Vector3) -> void:
-	var root := Node3D.new()
-	root.name = "Brazier"
-	root.position = base
-	add_child(root)
-	for i in 3:
-		var a := TAU * float(i) / 3.0
-		var leg := _add_box_part(root, Vector3(0.16, 0.9, 0.16),
-				Vector3(cos(a) * 0.34, 0.45, sin(a) * 0.34), _metal)
-		leg.rotation.z = -cos(a) * 0.16
-	var bowl_mesh := CylinderMesh.new()
-	bowl_mesh.top_radius = 0.62
-	bowl_mesh.bottom_radius = 0.42
-	bowl_mesh.height = 0.34
-	_add_mesh_part(root, bowl_mesh, Vector3(0, 1.02, 0), _metal)
-	var ember := _load_mat("res://assets/chapter2/materials/mat_ember.tres")
-	var coal_mesh := CylinderMesh.new()
-	coal_mesh.top_radius = 0.54
-	coal_mesh.bottom_radius = 0.5
-	coal_mesh.height = 0.1
-	_add_mesh_part(root, coal_mesh, Vector3(0, 1.18, 0), ember)
-	_add_omni(base + Vector3(0, 1.5, 0), Color(1.0, 0.55, 0.22), 2.4, 12.0)
 
 
 
 ## 原来五栋 4.2×3.4 的灰盒子南北各一排，还都摆在椭圆台地的边界外，
 ## 一半浮在空中——既读不出是「屋子」，又把营地围成一圈挡视线的墙。
 func _build_cottages() -> void:
-	var window := StandardMaterial3D.new()
-	window.albedo_color = Color(0.95, 0.55, 0.22)
-	window.emission_enabled = true
-	window.emission = Color(1.0, 0.45, 0.12)
-	window.emission_energy_multiplier = 1.6
-
-	# 东侧一栋，门朝西（正对广场）：
-	_cottage(Vector3(14.4, 0.0, -4.0), -PI * 0.5, window)
+	# 石屋已预制体化，见 scenes/chapter2/living/cottage.tscn（位置与朝向烘在根节点上）
+	add_child(preload("res://scenes/chapter2/living/cottage.tscn").instantiate())
+	_build_cottage_props()
 
 
-## 红瓦：营地东侧那栋石屋的顶。概念图里唯一的饱和色块，暗场里要能一眼认出来。
-func _tile_mat() -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.40, 0.155, 0.105)
-	m.roughness = 0.88
-	m.emission_enabled = true
-	m.emission = Color(0.16, 0.05, 0.03)
-	m.emission_energy_multiplier = 0.35
-	return m
 
 
-## 石屋：砌体墙 + 双坡红瓦 + 阶梯山墙。原来它是「两片压扁的黑盒子当屋顶」，
-## 在暗场里就是一坨方块；改成陡坡 + 挑檐之后才有「房子」的剪影。
-func _cottage(base: Vector3, yaw: float, window_mat: Material) -> void:
-	var root := Node3D.new()
-	root.position = base
-	root.rotation.y = yaw
-	add_child(root)
-	var w := 5.0
-	var d := 4.2
-	var h := 2.9
-	var floor_y := 0.22
-	var tile := _tile_mat()
-	# 地基/墙体全部挂在 root 下，随门朝向一起旋转。
-	_house_box(root, Vector3(w + 0.8, 0.22, d + 0.8), Vector3(0, 0.11, 0), _marble)
-	_house_box(root, Vector3(w, h, 0.30), Vector3(0, h * 0.5 + floor_y, -d * 0.5), _stone)
-	for side in [-1.0, 1.0]:
-		_house_box(root, Vector3(0.30, h, d), Vector3(side * w * 0.5, h * 0.5 + floor_y, 0), _stone)
-	# 正面：门洞两侧留 1.5 m 宽的门，其余是墙
-	for side in [-1.0, 1.0]:
-		_house_box(root, Vector3(w * 0.5 - 0.75, h, 0.30),
-				Vector3(side * (w * 0.25 + 0.375), h * 0.5 + floor_y, d * 0.5), _stone)
-	_house_box(root, Vector3(1.5, 0.6, 0.30), Vector3(0, h + floor_y - 0.3, d * 0.5), _stone)
-	# 门洞内衬 + 木门框
-	_add_box_part(root, Vector3(1.44, 2.05, 0.10), Vector3(0, 1.25, d * 0.5 - 0.16), _charcoal)
-	for side in [-1.0, 1.0]:
-		_add_box_part(root, Vector3(0.14, 2.1, 0.16),
-				Vector3(side * 0.79, 1.27, d * 0.5 + 0.10), _wood)
-	_add_box_part(root, Vector3(1.86, 0.18, 0.4), Vector3(0, 2.42, d * 0.5 + 0.10), _wood)
-	# 正面两扇亮窗：营地唯一的暖色小方块
-	for side in [-1.0, 1.0]:
-		_add_box_part(root, Vector3(0.72, 0.6, 0.08),
-				Vector3(side * (w * 0.30), 1.72, d * 0.5 + 0.17), window_mat)
-	# 双坡红瓦顶 + 阶梯山墙
-	for side in [-1.0, 1.0]:
-		var roof := _add_box_part(root, Vector3(w * 0.64, 0.16, d + 0.8),
-				Vector3(side * w * 0.245, h + 0.66, 0), tile)
-		roof.rotation.z = -side * 0.62
-	for i in 3:
-		var gw := w * (1.0 - 0.30 * float(i))
-		_add_box_part(root, Vector3(gw, 0.42, 0.36),
-				Vector3(0, h + 0.30 + 0.44 * float(i), d * 0.5 + 0.02), _stone)
-	# 门口台阶
-	_add_box_part(root, Vector3(1.9, 0.18, 0.6), Vector3(0, 0.30, d * 0.5 + 0.42), _marble)
-	var door_lamp := _add_box_part(root, Vector3(0.16, 0.28, 0.16),
-			Vector3(0.0, 2.62, d * 0.5 + 0.26), _metal)
-	door_lamp.rotation.z = 0.0
-	var light := OmniLight3D.new()
-	light.position = Vector3(0, 2.4, d * 0.5 + 0.45)
-	light.light_color = Color(1.0, 0.62, 0.30)
-	light.light_energy = 1.1
-	light.omni_range = 6.0
-	light.shadow_enabled = false
-	root.add_child(light)
 
-	# 原生活区灶台/盆栽只补一次，不随每栋房子重复。
-	if _cottage_props_done:
-		return
-	_cottage_props_done = true
 
+## 生活区的公用道具：灶台、三盆盆栽、三盏吊灯。原来靠 _cottage_props_done
+## 保证「只补一次」，拆开后由 _build_cottages 在房子之后单独调用一次。
+func _build_cottage_props() -> void:
 	_solid_box(Vector3(5.0, 0.14, 1.3), Vector3(-8.4, 0.82, 2.4), _metal)
 	for x in [-10.2, -6.6]:
 		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 1.7), _metal)
@@ -805,36 +535,31 @@ func _cottage(base: Vector3, yaw: float, window_mat: Material) -> void:
 
 	# 盆栽：金属和岩石里唯一的活物，压一压「全是机器」的观感
 	_place_model("plant.glb", to_global(Vector3(-16.8, 0.0, 8.8)), 1.1, 0.0)
+	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-16.8, 0.7, 8.8))
 	_place_model("plant.glb", to_global(Vector3(16.6, 0.0, 0.6)), 0.9, 1.2)
+	_add_cylinder_collider(self, 0.3, 1.4, Vector3(16.6, 0.7, 0.6))
 	_place_model("plant.glb", to_global(Vector3(-10.8, 0.0, -8.6)), 1.3, 2.4)
-
-	for spot in [[Vector3(-2.0, 5.6, 0.0), 1.5], [Vector3(7.0, 5.6, 2.5), 1.2], [Vector3(-9.0, 5.6, -2.0), 1.0]]:
-		var pos: Vector3 = spot[0]
-		var lamp := CylinderMesh.new()
-		lamp.top_radius = 0.26
-		lamp.bottom_radius = 0.34
-		lamp.height = 0.3
-		var lamp_node := MeshInstance3D.new()
-		lamp_node.mesh = lamp
-		lamp_node.position = pos
-		if _metal != null:
-			lamp_node.material_override = _metal
-		add_child(lamp_node)
+	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-10.8, 0.7, -8.6))
 
 
 func _build_residents() -> void:
 	# 居民全部贴着「有人生活的那几处」站：火盆边、帐篷口、石屋门口、梯口。
 	var pair_a: Variant = _make_npc("resident_pair_a", "居民", Vector3(-6.0, 0, 10.6),
 			Color("8a9a7c"), Color("b8613f"), 0.2)
+	_add_capsule_collider(pair_a, 0.35, 1.75, Vector3(0, 0.875, 0))
 	var pair_b: Variant = _make_npc("resident_pair_b", "居民", Vector3(-4.4, 0, 11.2),
 			Color("9a8f7a"), Color("6a7f9a"), -0.4)
+	_add_capsule_collider(pair_b, 0.35, 1.75, Vector3(0, 0.875, 0))
 	if pair_a != null and pair_b != null:
 		pair_a.face_target = pair_b
 		pair_b.face_target = pair_a
 
-	_make_npc("resident_pipe", "居民", Vector3(-1.4, 0, -6.9), Color("7c7a86"), Color("9a5b3f"), PI)
-	_make_npc("resident_queue", "居民", Vector3(11.0, 0, -2.4), Color("87907a"), Color("c9764a"), -1.1)
-	_make_npc("resident_tent", "居民", Vector3(-9.8, 0, -6.6), Color("8f8271"), Color("7a5b8f"), 1.4)
+	_add_capsule_collider(_make_npc("resident_pipe", "居民", Vector3(-1.4, 0, -6.9), Color("7c7a86"), Color("9a5b3f"), PI),
+			0.35, 1.75, Vector3(0, 0.875, 0))
+	_add_capsule_collider(_make_npc("resident_queue", "居民", Vector3(11.0, 0, -2.4), Color("87907a"), Color("c9764a"), -1.1),
+			0.35, 1.75, Vector3(0, 0.875, 0))
+	_add_capsule_collider(_make_npc("resident_tent", "居民", Vector3(-9.8, 0, -6.6), Color("8f8271"), Color("7a5b8f"), 1.4),
+			0.35, 1.75, Vector3(0, 0.875, 0))
 
 
 func _build_taotao() -> void:
@@ -849,8 +574,8 @@ func _build_taotao() -> void:
 	cart.position = Vector3(5.0, 0, 7.4)
 	cart.rotation.y = -0.55
 	add_child(cart)
+	_add_box_collider(cart, Vector3(1.7, 1.05, 0.95), Vector3(0, 0.7, 0))
 	_add_box_part(cart, Vector3(1.5, 0.75, 0.9), Vector3(0, 0.85, 0), _metal)
-	_add_box_part(cart, Vector3(1.7, 0.1, 1.02), Vector3(0, 1.27, 0), _wood)
 	for sx in [-0.56, 0.56]:
 		for sz in [-0.32, 0.32]:
 			var wheel := CylinderMesh.new()
@@ -864,17 +589,6 @@ func _build_taotao() -> void:
 			if _metal != null:
 				wheel_node.material_override = _metal
 			cart.add_child(wheel_node)
-	var pot := CylinderMesh.new()
-	pot.top_radius = 0.32
-	pot.bottom_radius = 0.26
-	pot.height = 0.38
-	_add_mesh_part(cart, pot, Vector3(-0.34, 1.5, 0), _metal)
-	for i in 2:
-		var bowl := CylinderMesh.new()
-		bowl.top_radius = 0.13
-		bowl.bottom_radius = 0.1
-		bowl.height = 0.1
-		_add_mesh_part(cart, bowl, Vector3(0.28 + i * 0.28, 1.37, 0.18 - i * 0.2), _wood)
 	_add_box_part(cart, Vector3(0.08, 0.08, 0.8), Vector3(-0.86, 1.1, 0), _metal)
 	_add_omni(Vector3(4.9, 2.4, 7.2), Color(1.0, 0.7, 0.4), 2.6, 12.0)
 
@@ -887,6 +601,7 @@ func _build_machine() -> void:
 			Color("6b6862"), Color("6b6862"), -1.7, "machine")
 	if _machine == null:
 		return
+	_add_cylinder_collider(_machine, 0.5, 1.7, Vector3(0, 0.85, 0))
 	_machine.bob_amp = 0.0
 	_machine.interact_range = 3.0
 	# 用建模参考里的 robot.glb 换掉程序化外壳：交互逻辑不变，只换外观
@@ -905,6 +620,7 @@ func _build_machine() -> void:
 	if _stone != null:
 		stool_node.material_override = _stone
 	add_child(stool_node)
+	_add_box_collider(stool_node, Vector3(0.4, 0.45, 0.4))
 
 	_add_box_part(self, Vector3(0.28, 0.2, 0.16), seat + Vector3(0.7, 0.86, 0.0), _metal)
 	_add_omni(seat + Vector3(0.0, 1.4, -1.3), Color(1.0, 0.72, 0.46), 1.8, 7.0)
@@ -1158,7 +874,7 @@ func _build_hud() -> void:
 	_notice_panel.add_child(_notice_label)
 
 	var help := Label.new()
-	help.hide()
+	help.text = "WASD 移动    空格 翻滚    左键 挥锅    F 交互    Esc 返回标题"
 	help.anchor_top = 1.0
 	help.anchor_bottom = 1.0
 	help.offset_left = 28.0
@@ -1227,16 +943,49 @@ func _solid_box(size: Vector3, center: Vector3, mat: Material) -> StaticBody3D:
 	return body
 
 
-func _house_box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> void:
-	var mi := _add_box_part(parent, size, pos, mat)
+## 只加碰撞、不渲染的静态体：形状挂在传入的父节点下，offset 是本地偏移
+func _add_box_collider(parent, size: Vector3, offset := Vector3.ZERO) -> void:
+	var host := parent as Node3D
+	if host == null:
+		return
 	var body := StaticBody3D.new()
-	body.position = pos
-	var shape := CollisionShape3D.new()
+	body.position = offset
+	var node := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = size
-	shape.shape = box
-	body.add_child(shape)
-	parent.add_child(body)
+	node.shape = box
+	body.add_child(node)
+	host.add_child(body)
+
+
+func _add_cylinder_collider(parent, radius: float, height: float, offset := Vector3.ZERO) -> void:
+	var host := parent as Node3D
+	if host == null:
+		return
+	var body := StaticBody3D.new()
+	body.position = offset
+	var node := CollisionShape3D.new()
+	var cylinder := CylinderShape3D.new()
+	cylinder.radius = radius
+	cylinder.height = height
+	node.shape = cylinder
+	body.add_child(node)
+	host.add_child(body)
+
+
+func _add_capsule_collider(parent, radius: float, height: float, offset := Vector3.ZERO) -> void:
+	var host := parent as Node3D
+	if host == null:
+		return
+	var body := StaticBody3D.new()
+	body.position = offset
+	var node := CollisionShape3D.new()
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = radius
+	capsule.height = height
+	node.shape = capsule
+	body.add_child(node)
+	host.add_child(body)
 
 
 func _add_box_part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
@@ -1537,47 +1286,8 @@ func _model_aabb(root: Node3D) -> AABB:
 func _build_garden() -> void:
 	# 菜畦原来正压在关卡轴线上；入洞隧道改成从南侧沿轴线进来之后，
 	# 把它整体挪到营地东半边，别挡住矿车滑行和下车落点。
-	var center := Vector3(9.5, 0.0, 10.0)
-	var half := Vector2(3.4, 2.0)
-	var rail := StandardMaterial3D.new()
-	rail.albedo_color = Color(0.88, 0.87, 0.82)
-	rail.roughness = 0.7
-	rail.emission_enabled = true
-	rail.emission = Color(0.16, 0.15, 0.14)
-	rail.emission_energy_multiplier = 0.25
-
-	# 注意：_solid_box 的坐标是**生活区本地坐标**，不能再套 to_global，
-	# 否则土床会被推到 39 米开外。
-	_solid_box(Vector3(half.x * 2.0 - 0.3, 0.12, half.y * 2.0 - 0.3),
-			center + Vector3(0, 0.06, 0), _wood)
-
-	for i in 9:
-		var t := -1.0 + 2.0 * float(i) / 8.0
-		_add_box_part(self, Vector3(0.09, 0.62, 0.09),
-				center + Vector3(t * half.x, 0.31, -half.y), rail)
-		_add_box_part(self, Vector3(0.09, 0.62, 0.09),
-				center + Vector3(t * half.x, 0.31, half.y), rail)
-	for i in 6:
-		var t := -1.0 + 2.0 * float(i) / 5.0
-		_add_box_part(self, Vector3(0.09, 0.62, 0.09),
-				center + Vector3(-half.x, 0.31, t * half.y), rail)
-		_add_box_part(self, Vector3(0.09, 0.62, 0.09),
-				center + Vector3(half.x, 0.31, t * half.y), rail)
-
-	for height in [0.34, 0.56]:
-		_add_box_part(self, Vector3(half.x * 2.0, 0.055, 0.055),
-				center + Vector3(0, height, -half.y), rail)
-		_add_box_part(self, Vector3(half.x * 2.0, 0.055, 0.055),
-				center + Vector3(0, height, half.y), rail)
-		_add_box_part(self, Vector3(0.055, 0.055, half.y * 2.0),
-				center + Vector3(-half.x, height, 0), rail)
-		_add_box_part(self, Vector3(0.055, 0.055, half.y * 2.0),
-				center + Vector3(half.x, height, 0), rail)
-
-	for ix in 3:
-		for iz in 2:
-			var spot := center + Vector3(-1.7 + 1.7 * float(ix), 0.0, -0.8 + 1.6 * float(iz))
-			_place_model("plant.glb", to_global(spot), 0.95, float(ix) * 0.9)
+	# 菜畦已预制体化，见 scenes/chapter2/living/garden.tscn
+	add_child(preload("res://scenes/chapter2/living/garden.tscn").instantiate())
 
 
 
@@ -1853,13 +1563,13 @@ func _record_chapter_complete() -> void:
 
 func _build_cooking_station() -> void:
 	var station := CookingStation.new()
-	station.position = Vector3(-9.0, 0.4, 7.0) if docked else Vector3(-6.8, 0.4, 4.2)
+	station.position = Vector3(-8.4, 0.4, 4.4) if docked else Vector3(-6.8, 0.4, 4.2)
 	add_child(station)
 	var spots := {
-		"chocolate": Vector3(-11.2, 0.25, 3.2),
-		"cream": Vector3(-6.3, 0.25, 5.2),
-		"butter": Vector3(-10.8, 0.25, 8.1),
-		"sugar": Vector3(-4.5, 0.25, 3.9),
+		"chocolate": Vector3(-10.6, 0.25, 3.7),
+		"cream": Vector3(-8.9, 0.25, 3.7),
+		"butter": Vector3(-7.2, 0.25, 3.7),
+		"sugar": Vector3(-5.5, 0.25, 3.7),
 	}
 	for id in spots:
 		var ingredient := CaveIngredient.new()

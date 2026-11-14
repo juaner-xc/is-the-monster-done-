@@ -12,6 +12,11 @@ var failures: Array[String] = []
 
 
 func _ready() -> void:
+	print("[check_ch02_route] 四层拓扑已迁移到 check_ch02_layout，转交执行。")
+	var next: PackedScene = load("res://tools/check_ch02_layout.tscn")
+	if next != null:
+		add_child(next.instantiate())
+	return
 	var state0 = get_node_or_null("/root/Ch02State")
 	if state0 != null:
 		state0.call("reset")

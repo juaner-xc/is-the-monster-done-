@@ -1,0 +1,88 @@
+[gd_scene format=3 uid="uid://63ccisyp04vb"]
+
+[ext_resource type="Texture2D" uid="uid://dsdn5me8r3rbc" path="res://assets/PNG/SNOWFLAKE.png" id="1_aox66"]
+
+[sub_resource type="Curve" id="Curve_nx3m7"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.230769), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_kptg8"]
+curve = SubResource("Curve_nx3m7")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_xekaj"]
+emission_shape = 3
+emission_box_extents = Vector3(50, 1, 50)
+angle_min = 1.07288e-05
+angle_max = 360.0
+direction = Vector3(1, -1, 0)
+initial_velocity_min = 10.0
+initial_velocity_max = 20.0
+angular_velocity_min = 30.0
+angular_velocity_max = 50.0
+gravity = Vector3(0, -9.8, 20)
+linear_accel_min = 0.999998
+linear_accel_max = 10.0
+scale_min = 0.25
+scale_max = 0.5
+scale_curve = SubResource("CurveTexture_kptg8")
+turbulence_enabled = true
+turbulence_noise_strength = 6.0
+turbulence_noise_scale = 6.0
+collision_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8ignn"]
+transparency = 1
+shading_mode = 0
+albedo_texture = ExtResource("1_aox66")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_2jtgv"]
+material = SubResource("StandardMaterial3D_8ignn")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lai1i"]
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="SphereMesh_rt2rg"]
+material = SubResource("StandardMaterial3D_lai1i")
+radial_segments = 5
+rings = 3
+
+[node name="snow_fall" type="Node3D"]
+
+[node name="GPUParticles3D" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, -45)
+visible = false
+amount = 1000
+lifetime = 5.0
+visibility_aabb = AABB(-4, -25, -4, 8, 8, 8)
+process_material = SubResource("ParticleProcessMaterial_xekaj")
+draw_pass_1 = SubResource("QuadMesh_2jtgv")
+
+[node name="CPUParticles3D" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25, -40)
+cast_shadow = 0
+amount = 42
+lifetime = 2.0
+mesh = SubResource("SphereMesh_rt2rg")
+emission_shape = 3
+emission_box_extents = Vector3(40, 1, 12)
+direction = Vector3(1, -2, 0)
+gravity = Vector3(0, -9.8, 15)
+initial_velocity_min = 5.0
+initial_velocity_max = 10.0
+angular_velocity_min = 30.0
+angular_velocity_max = 50.0
+linear_accel_min = 1.0
+linear_accel_max = 10.0
+damping_min = 5.0
+damping_max = 10.0
+scale_amount_min = 0.13
+scale_amount_max = 0.25
+split_scale = true
+scale_curve_x = null
+scale_curve_y = null
+scale_curve_z = null

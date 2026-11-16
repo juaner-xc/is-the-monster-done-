@@ -1,0 +1,11 @@
+newmtl 33ca6cf1_7ed1_4b84_ba5f_19d7e17f13e2
+Ns 10.0
+Ni 1.5
+d 1.0
+Tr 0.0
+illum 2
+Ka 0.59 0.59 0.59
+Kd 0.5 0.5 0.5
+Ks 0.0 0.0 0.0
+map_Ka lake_tex.jpg
+map_Kd lake_tex.jpg

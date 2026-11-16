@@ -1,0 +1,44 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://rk05s575hlb8"
+path.s3tc="res://.godot/imported/stool_01_atlas_2_Normal.png-d0a6facbc184195d82debbefd0c7e15d.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "e337ff0ecde0980a6225b3b233f4b0ee"
+}
+
+[deps]
+
+source_file="res://assets/chapter2/models/stool_01_atlas_2_Normal.png"
+dest_files=["res://.godot/imported/stool_01_atlas_2_Normal.png-d0a6facbc184195d82debbefd0c7e15d.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/normal_map=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=1
+roughness/src_normal="res://assets/chapter2/models/stool_01_atlas_2_Normal.png"
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/models/doubao/ZBrush_defualt_group_color_1.png" id="1_72hxv"]
+[ext_resource type="Texture2D" path="res://assets/models/doubao/ZBrush_defualt_group_metalness_1.png" id="2_r2v5n"]
+[ext_resource type="Texture2D" path="res://assets/models/doubao/ZBrush_defualt_group_normal_1.png" id="3_c6egd"]
+[ext_resource type="Texture2D" path="res://assets/models/doubao/ZBrush_defualt_group_roughness_1.png" id="4_agj6a"]
+[ext_resource type="ArrayMesh" path="res://assets/models/doubao/3d66.com_JGI54557819879.obj" id="5_4frle"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_in268"]
+albedo_texture = ExtResource("1_72hxv")
+metallic = 1.0
+metallic_texture = ExtResource("2_r2v5n")
+roughness_texture = ExtResource("4_agj6a")
+normal_enabled = true
+normal_texture = ExtResource("3_c6egd")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_npc_col"]
+size = Vector3(0.7, 1.8, 0.8)
+
+[node name="DoubaoNPC" type="Node3D" unique_id=1749089787]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
+
+[node name="Body" type="MeshInstance3D" parent="." unique_id=1350910094]
+transform = Transform3D(1.7999334, 0, 0, 0, 1.7999334, 0, 0, 0, 1.7999334, 0, 0.8999469, 0)
+material_override = SubResource("StandardMaterial3D_in268")
+mesh = ExtResource("5_4frle")
+
+[node name="Collision" type="StaticBody3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("BoxShape3D_npc_col")

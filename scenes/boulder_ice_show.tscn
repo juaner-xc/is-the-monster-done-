@@ -1,0 +1,38 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/Blender/Boulder.blend" id="Boulder"]
+[ext_resource type="Material" path="res://assets/materials/mat_ice_boulder.tres" id="IceMat"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.1, 0.14, 1)
+tonemap_mode = 2
+
+[node name="BoulderIceShow" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.7, 0.6, 0)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="Fill" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.4, -2.3, 0)
+light_energy = 0.45
+light_color = Color(0.55, 0.7, 1, 1)
+
+[node name="BackLight" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.25, 3.3, 0)
+light_energy = 0.5
+light_color = Color(0.7, 0.85, 1, 1)
+
+[node name="Boulder" parent="." instance=ExtResource("Boulder")]
+
+[node name="Icosphere" parent="Boulder" index="0"]
+surface_material_override/0 = ExtResource("IceMat")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(3.5, 2.2, 4.2)
+rotation = Vector3(-0.35, 0.72, 0)

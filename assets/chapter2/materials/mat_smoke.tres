@@ -1,0 +1,15 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/chapter2/textures/smoke_puff.png" id="1_smoke"]
+
+[resource]
+resource_name = "MatSmoke (灰色烟雾)"
+shading_mode = 0
+transparency = 1
+albedo_texture = ExtResource("1_smoke")
+albedo_color = Color(0.62, 0.62, 0.62, 1)
+billboard_mode = 3
+billboard_keep_scale = true
+vertex_color_use_as_albedo = true
+vertex_color_is_srgb = false
+depth_draw_mode = 2

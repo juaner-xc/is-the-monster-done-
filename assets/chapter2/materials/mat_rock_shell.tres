@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/chapter2/textures/rock_diffuse.png" id="1_rock"]
+
+[resource]
+resource_name = "MatCaveShell (洞壁与顶壁)"
+albedo_texture = ExtResource("1_rock")
+albedo_color = Color(0.4, 0.43, 0.52, 1)
+vertex_color_use_as_albedo = true
+vertex_color_is_srgb = false
+roughness = 1.0
+metallic = 0.0
+uv1_scale = Vector3(0.28, 0.28, 0.28)
+uv1_triplanar = true
+emission_enabled = true
+emission = Color(0.085, 0.095, 0.13, 1)
+emission_energy_multiplier = 0.9

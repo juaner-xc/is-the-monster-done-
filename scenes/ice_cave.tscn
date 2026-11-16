@@ -1,0 +1,507 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/Textures/Snow/7/7_diffuseOriginal.bmp" id="1_gdiff"]
+[ext_resource type="Texture2D" path="res://assets/Textures/Snow/7/7_metallic.bmp" id="2_gmtl"]
+[ext_resource type="Texture2D" path="res://assets/Textures/Snow/7/7_normal.bmp" id="3_gnrm"]
+[ext_resource type="Texture2D" path="res://assets/Textures/Snow/8/8_diffuseOriginal.bmp" id="4_rdiff"]
+[ext_resource type="Texture2D" path="res://assets/Textures/Snow/8/8_normal.bmp" id="5_rnrm"]
+[ext_resource type="PackedScene" path="res://scenes/snow_fall.tscn" id="6_snowfall"]
+[ext_resource type="PackedScene" path="res://assets/Blender/Trees/TreeL.blend" id="7_tl"]
+[ext_resource type="PackedScene" path="res://assets/Blender/Trees/TreeM.blend" id="8_tm"]
+[ext_resource type="PackedScene" path="res://assets/Blender/Trees/TreeS.blend" id="9_ts"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_bottom_color = Color(0.86, 0.9, 0.94, 1)
+ground_horizon_color = Color(0.86, 0.9, 0.94, 1)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 2
+ambient_light_energy = 1.1
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.4
+glow_bloom = 0.05
+fog_enabled = true
+fog_light_color = Color(0.8, 0.87, 0.94, 1)
+fog_density = 0.006
+
+[sub_resource type="StandardMaterial3D" id="MatGroundSnow"]
+albedo_texture = ExtResource("1_gdiff")
+metallic = 1.0
+metallic_texture = ExtResource("2_gmtl")
+normal_enabled = true
+normal_texture = ExtResource("3_gnrm")
+uv1_scale = Vector3(0.09, 0.09, 0.09)
+uv1_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="MatSnowCover"]
+albedo_color = Color(0.93, 0.96, 1, 1)
+albedo_texture = ExtResource("4_rdiff")
+metallic = 0.05
+roughness = 0.25
+normal_enabled = true
+normal_texture = ExtResource("5_rnrm")
+emission_enabled = true
+emission = Color(0.45, 0.62, 0.9, 1)
+emission_energy_multiplier = 0.05
+uv1_scale = Vector3(0.2, 0.2, 0.2)
+uv1_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="MatIceRock"]
+albedo_color = Color(0.52, 0.6, 0.76, 1)
+albedo_texture = ExtResource("4_rdiff")
+metallic = 0.15
+roughness = 0.3
+normal_enabled = true
+normal_texture = ExtResource("5_rnrm")
+emission_enabled = true
+emission = Color(0.35, 0.5, 0.85, 1)
+emission_energy_multiplier = 0.06
+uv1_scale = Vector3(0.45, 0.45, 0.45)
+uv1_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="MatDark"]
+albedo_color = Color(0.12, 0.16, 0.26, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="MatWood"]
+albedo_color = Color(0.45, 0.28, 0.16, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="MatMetal"]
+albedo_color = Color(0.2, 0.2, 0.23, 1)
+metallic = 0.85
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="MatGlow"]
+albedo_color = Color(1, 0.9, 0.65, 1)
+emission_enabled = true
+emission = Color(1, 0.78, 0.45, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="PlaneMesh" id="MeshGround"]
+size = Vector2(800, 800)
+
+[sub_resource type="CylinderMesh" id="MeshPost"]
+top_radius = 0.09
+bottom_radius = 0.14
+height = 5.0
+
+[sub_resource type="CylinderMesh" id="MeshBase"]
+top_radius = 0.36
+bottom_radius = 0.46
+height = 0.25
+
+[sub_resource type="BoxMesh" id="MeshArm"]
+size = Vector3(1.9, 0.14, 0.2)
+
+[sub_resource type="BoxMesh" id="MeshBrace"]
+size = Vector3(0.1, 0.9, 0.1)
+
+[sub_resource type="BoxMesh" id="MeshCap"]
+size = Vector3(0.24, 0.1, 0.24)
+
+[sub_resource type="CylinderMesh" id="MeshChain"]
+top_radius = 0.022
+bottom_radius = 0.022
+height = 0.9
+
+[sub_resource type="BoxMesh" id="MeshGlowBox"]
+size = Vector3(0.32, 0.4, 0.32)
+
+[sub_resource type="BoxMesh" id="MeshBar"]
+size = Vector3(0.045, 0.48, 0.045)
+
+[sub_resource type="CylinderMesh" id="MeshRoof"]
+top_radius = 0.02
+bottom_radius = 0.3
+height = 0.28
+
+[sub_resource type="CylinderMesh" id="MeshPlate"]
+top_radius = 0.27
+bottom_radius = 0.27
+height = 0.06
+
+[sub_resource type="SphereMesh" id="MeshFinial"]
+radius = 0.045
+height = 0.09
+
+[node name="IceCave" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.7, -0.3, 0)
+light_color = Color(0.9, 0.93, 1, 1)
+light_energy = 1.0
+shadow_enabled = true
+
+[node name="Floor" type="StaticBody3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("MeshGround")
+surface_material_override/0 = SubResource("MatGroundSnow")
+
+[node name="DarkMouth" type="CSGSphere3D" parent="."]
+position = Vector3(0, 1.9, 3.7)
+scale = Vector3(1.25, 1.05, 0.6)
+radius = 1.75
+radial_segments = 12
+rings = 6
+material = SubResource("MatDark")
+
+[node name="Cave" type="CSGCombiner3D" parent="."]
+use_collision = true
+
+[node name="GroundSkirt" type="CSGSphere3D" parent="Cave"]
+position = Vector3(0, 0.3, -0.5)
+scale = Vector3(1.3, 0.22, 1.1)
+radius = 7.0
+radial_segments = 12
+rings = 6
+material = SubResource("MatSnowCover")
+
+[node name="MoundMain" type="CSGSphere3D" parent="Cave"]
+position = Vector3(0, 0, -0.5)
+scale = Vector3(1.25, 0.9, 1)
+radius = 5.5
+radial_segments = 12
+rings = 6
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="MoundLeft" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-2.8, 1, -0.6)
+scale = Vector3(1.2, 0.75, 0.9)
+radius = 3.5
+radial_segments = 12
+rings = 6
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="MoundPeak" type="CSGSphere3D" parent="Cave"]
+position = Vector3(2.2, 3.4, -1.8)
+scale = Vector3(1.1, 1.5, 1)
+radius = 3.0
+radial_segments = 12
+rings = 6
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="MoundBackLeft" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-1.5, 2.6, -2.4)
+scale = Vector3(1.1, 1.1, 0.9)
+radius = 3.0
+radial_segments = 12
+rings = 6
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="SnowCapMound" type="CSGSphere3D" parent="Cave"]
+position = Vector3(0, 3.4, -0.5)
+scale = Vector3(1.12, 0.32, 0.8)
+radius = 5.6
+radial_segments = 12
+rings = 6
+material = SubResource("MatSnowCover")
+
+[node name="SnowCapLeft" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-2.8, 2.3, -0.6)
+scale = Vector3(1.1, 0.4, 0.85)
+radius = 3.5
+radial_segments = 12
+rings = 6
+material = SubResource("MatSnowCover")
+
+[node name="SnowCapBack" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-1.5, 3.4, -2.4)
+scale = Vector3(1.05, 0.42, 0.9)
+radius = 3.0
+radial_segments = 12
+rings = 6
+material = SubResource("MatSnowCover")
+
+[node name="OverhangBoulder" type="CSGSphere3D" parent="Cave"]
+position = Vector3(0, 3.9, 3)
+rotation = Vector3(0.05, 0.1, -0.08)
+scale = Vector3(1.15, 0.4, 0.55)
+radius = 2.6
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="OverhangBoulder2" type="CSGSphere3D" parent="Cave"]
+position = Vector3(1.6, 5.2, 1.5)
+rotation = Vector3(0.1, -0.15, 0.12)
+scale = Vector3(0.95, 0.5, 0.5)
+radius = 1.6
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="SnowCapBoulder" type="CSGSphere3D" parent="Cave"]
+position = Vector3(0, 4.62, 2.95)
+rotation = Vector3(0.05, 0.1, -0.08)
+scale = Vector3(1.1, 0.25, 0.5)
+radius = 2.6
+radial_segments = 10
+rings = 5
+material = SubResource("MatSnowCover")
+
+[node name="SnowCapBoulder2" type="CSGSphere3D" parent="Cave"]
+position = Vector3(1.6, 5.75, 1.45)
+rotation = Vector3(0.1, -0.15, 0.12)
+scale = Vector3(0.9, 0.25, 0.42)
+radius = 1.6
+radial_segments = 10
+rings = 5
+material = SubResource("MatSnowCover")
+
+[node name="SnowCapPeak" type="CSGSphere3D" parent="Cave"]
+position = Vector3(2.2, 7, -1.8)
+scale = Vector3(1, 0.5, 0.95)
+radius = 2.4
+radial_segments = 10
+rings = 5
+material = SubResource("MatSnowCover")
+
+[node name="RockPillarL" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-2.5, 1.6, 3.5)
+rotation = Vector3(0, 0.3, 0.1)
+scale = Vector3(0.9, 1.5, 0.8)
+radius = 1.5
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockPillarR" type="CSGSphere3D" parent="Cave"]
+position = Vector3(2.6, 1.5, 3.4)
+rotation = Vector3(0, -0.25, -0.08)
+scale = Vector3(1, 1.4, 0.9)
+radius = 1.6
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockBaseL" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-3.6, 0.55, 3.5)
+rotation = Vector3(0, 0.5, 0.06)
+scale = Vector3(1.1, 0.7, 0.9)
+radius = 1.1
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockBaseR" type="CSGSphere3D" parent="Cave"]
+position = Vector3(3.7, 0.6, 3.3)
+rotation = Vector3(0, -0.4, -0.05)
+scale = Vector3(1.1, 0.75, 0.9)
+radius = 1.2
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockRight" type="CSGSphere3D" parent="Cave"]
+position = Vector3(4.2, 0.9, 2.8)
+rotation = Vector3(0, -0.6, 0)
+scale = Vector3(1.2, 0.9, 1)
+radius = 1.3
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockOutcropL" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-3.4, 3.2, 1.6)
+rotation = Vector3(0.1, 0.5, 0.15)
+scale = Vector3(1.2, 1, 0.9)
+radius = 1.5
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockOutcropTop" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-0.8, 5.1, -0.8)
+rotation = Vector3(0.2, 0.2, -0.2)
+scale = Vector3(1.3, 0.9, 1)
+radius = 1.5
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockSmallL" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-1.6, 0.45, 3.3)
+rotation = Vector3(0, 0.2, 0)
+scale = Vector3(1.1, 0.7, 0.9)
+radius = 0.6
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="RockSmallR" type="CSGSphere3D" parent="Cave"]
+position = Vector3(1.8, 0.4, 3.2)
+rotation = Vector3(0, -0.3, 0)
+scale = Vector3(1, 0.7, 0.9)
+radius = 0.5
+radial_segments = 10
+rings = 5
+smooth_faces = false
+material = SubResource("MatIceRock")
+
+[node name="SnowCapPillarL" type="CSGSphere3D" parent="Cave"]
+position = Vector3(-2.5, 3.5, 3.5)
+rotation = Vector3(0, 0.3, 0.1)
+scale = Vector3(0.85, 0.35, 0.75)
+radius = 1.45
+radial_segments = 10
+rings = 5
+material = SubResource("MatSnowCover")
+
+[node name="SnowCapPillarR" type="CSGSphere3D" parent="Cave"]
+position = Vector3(2.6, 3.35, 3.4)
+rotation = Vector3(0, -0.25, -0.08)
+scale = Vector3(0.95, 0.35, 0.85)
+radius = 1.55
+radial_segments = 10
+rings = 5
+material = SubResource("MatSnowCover")
+
+[node name="CaveInnerLight" type="OmniLight3D" parent="."]
+position = Vector3(0, 1.8, 5.2)
+light_color = Color(0.5, 0.7, 1, 1)
+light_energy = 0.7
+omni_range = 6
+
+[node name="Trees" type="Node3D" parent="."]
+
+[node name="TreeL1" parent="Trees" instance=ExtResource("7_tl")]
+position = Vector3(-14, 0, -14)
+
+[node name="TreeL2" parent="Trees" instance=ExtResource("7_tl")]
+rotation = Vector3(0, 0.8, 0)
+position = Vector3(14, 0, -19)
+
+[node name="TreeM1" parent="Trees" instance=ExtResource("8_tm")]
+position = Vector3(-9, 0, -9)
+
+[node name="TreeM2" parent="Trees" instance=ExtResource("8_tm")]
+rotation = Vector3(0, -0.6, 0)
+position = Vector3(10, 0, -12)
+
+[node name="TreeS1" parent="Trees" instance=ExtResource("9_ts")]
+position = Vector3(-6.5, 0, -7)
+
+[node name="TreeS2" parent="Trees" instance=ExtResource("9_ts")]
+rotation = Vector3(0, 1.2, 0)
+position = Vector3(6.5, 0, -8)
+
+[node name="snow_fall" parent="." instance=ExtResource("6_snowfall")]
+
+[node name="LampPost" type="Node3D" parent="."]
+position = Vector3(5.2, 0, 3.2)
+
+[node name="Base" type="MeshInstance3D" parent="LampPost"]
+position = Vector3(0, 0.12, 0)
+mesh = SubResource("MeshBase")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Post" type="MeshInstance3D" parent="LampPost"]
+position = Vector3(0, 2.5, 0)
+mesh = SubResource("MeshPost")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="PostCap" type="MeshInstance3D" parent="LampPost"]
+position = Vector3(0, 5.05, 0)
+mesh = SubResource("MeshCap")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Arm" type="MeshInstance3D" parent="LampPost"]
+position = Vector3(-0.85, 4.98, 0)
+mesh = SubResource("MeshArm")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Brace" type="MeshInstance3D" parent="LampPost"]
+position = Vector3(-0.35, 4.55, 0)
+rotation = Vector3(0, 0, 0.7)
+mesh = SubResource("MeshBrace")
+surface_material_override/0 = SubResource("MatWood")
+
+[node name="Lantern" type="Node3D" parent="LampPost"]
+position = Vector3(-1.45, 3.95, 0)
+
+[node name="Chain" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(0, 0.72, 0)
+mesh = SubResource("MeshChain")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="GlowCore" type="MeshInstance3D" parent="LampPost/Lantern"]
+mesh = SubResource("MeshGlowBox")
+surface_material_override/0 = SubResource("MatGlow")
+
+[node name="Bar1" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(0.14, 0, 0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Bar2" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(0.14, 0, -0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Bar3" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(-0.14, 0, 0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Bar4" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(-0.14, 0, -0.14)
+mesh = SubResource("MeshBar")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Roof" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(0, 0.34, 0)
+mesh = SubResource("MeshRoof")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="Finial" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("MeshFinial")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="BottomPlate" type="MeshInstance3D" parent="LampPost/Lantern"]
+position = Vector3(0, -0.26, 0)
+mesh = SubResource("MeshPlate")
+surface_material_override/0 = SubResource("MatMetal")
+
+[node name="LanternOmniLight" type="OmniLight3D" parent="LampPost/Lantern"]
+light_color = Color(1, 0.83, 0.58, 1)
+light_energy = 7.0
+omni_range = 20.0
+shadow_enabled = true
+
+[node name="LanternSpotLight" type="SpotLight3D" parent="LampPost/Lantern"]
+rotation = Vector3(-2.09, 0, 0)
+light_color = Color(1, 0.85, 0.6, 1)
+light_energy = 3.5
+spot_range = 14.0
+spot_angle = 40.0
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(0, 3.2, 14)
+rotation = Vector3(-0.13, 0, 0)

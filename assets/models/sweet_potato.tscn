@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_1"]
+radius = 0.28
+height = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1"]
+albedo_color = Color(0.55, 0.28, 0.12, 1)
+roughness = 0.72
+metallic = 0.0
+
+[node name="SweetPotato" type="Node3D"]
+rotation = Vector3(0, 0, 1.5708)
+
+[node name="Body" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_1")
+material_override = SubResource("StandardMaterial3D_1")

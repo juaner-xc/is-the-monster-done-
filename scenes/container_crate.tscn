@@ -1,0 +1,303 @@
+[gd_scene format=3]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.23, 0.24, 0.26, 1)
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="MatBody"]
+albedo_color = Color(0.27, 0.45, 0.66, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="MatLid"]
+albedo_color = Color(0.36, 0.56, 0.76, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="MatRail"]
+albedo_color = Color(0.2, 0.35, 0.52, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="MatVent"]
+albedo_color = Color(0.13, 0.24, 0.38, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="MatMetal"]
+albedo_color = Color(0.65, 0.67, 0.7, 1)
+metallic = 0.9
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="MatFloor"]
+albedo_color = Color(0.24, 0.25, 0.27, 1)
+metallic = 0.2
+roughness = 0.35
+
+[sub_resource type="PlaneMesh" id="MeshFloor"]
+size = Vector2(40, 40)
+
+[sub_resource type="PrismMesh" id="MeshVent"]
+left_to_right = 0.5
+size = Vector3(0.3, 0.2, 0.05)
+
+[node name="ContainerCrate" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.6, 0.5, 0)
+light_energy = 1.3
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("MeshFloor")
+surface_material_override/0 = SubResource("MatFloor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(2.1, 1.9, 2.5)
+rotation = Vector3(-0.33, 0.7, 0)
+
+[node name="Body" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.75, 0)
+size = Vector3(1.9, 1.25, 1.9)
+use_collision = true
+material = SubResource("MatBody")
+
+[node name="Lid" type="CSGBox3D" parent="."]
+position = Vector3(0, 1.5, 0)
+size = Vector3(2, 0.28, 2)
+material = SubResource("MatLid")
+
+[node name="LidSeam" type="CSGBox3D" parent="."]
+position = Vector3(0, 1.385, 0)
+size = Vector3(2.04, 0.05, 2.04)
+material = SubResource("MatRail")
+
+[node name="RailFL" type="CSGBox3D" parent="."]
+position = Vector3(-0.84, 0.75, 0.84)
+size = Vector3(0.26, 1.3, 0.26)
+material = SubResource("MatRail")
+
+[node name="RailFR" type="CSGBox3D" parent="."]
+position = Vector3(0.84, 0.75, 0.84)
+size = Vector3(0.26, 1.3, 0.26)
+material = SubResource("MatRail")
+
+[node name="RailBL" type="CSGBox3D" parent="."]
+position = Vector3(-0.84, 0.75, -0.84)
+size = Vector3(0.26, 1.3, 0.26)
+material = SubResource("MatRail")
+
+[node name="RailBR" type="CSGBox3D" parent="."]
+position = Vector3(0.84, 0.75, -0.84)
+size = Vector3(0.26, 1.3, 0.26)
+material = SubResource("MatRail")
+
+[node name="HandleFL" type="CSGBox3D" parent="."]
+position = Vector3(-0.84, 1.3, 0.97)
+size = Vector3(0.14, 0.1, 0.06)
+material = SubResource("MatMetal")
+
+[node name="HandleFR" type="CSGBox3D" parent="."]
+position = Vector3(0.84, 1.3, 0.97)
+size = Vector3(0.14, 0.1, 0.06)
+material = SubResource("MatMetal")
+
+[node name="HandleBL" type="CSGBox3D" parent="."]
+position = Vector3(-0.84, 1.3, -0.97)
+size = Vector3(0.14, 0.1, 0.06)
+material = SubResource("MatMetal")
+
+[node name="HandleBR" type="CSGBox3D" parent="."]
+position = Vector3(0.84, 1.3, -0.97)
+size = Vector3(0.14, 0.1, 0.06)
+material = SubResource("MatMetal")
+
+[node name="FootFL" type="CSGBox3D" parent="."]
+position = Vector3(-0.8, 0.07, 0.8)
+size = Vector3(0.3, 0.14, 0.3)
+material = SubResource("MatRail")
+
+[node name="FootFR" type="CSGBox3D" parent="."]
+position = Vector3(0.8, 0.07, 0.8)
+size = Vector3(0.3, 0.14, 0.3)
+material = SubResource("MatRail")
+
+[node name="FootBL" type="CSGBox3D" parent="."]
+position = Vector3(-0.8, 0.07, -0.8)
+size = Vector3(0.3, 0.14, 0.3)
+material = SubResource("MatRail")
+
+[node name="FootBR" type="CSGBox3D" parent="."]
+position = Vector3(0.8, 0.07, -0.8)
+size = Vector3(0.3, 0.14, 0.3)
+material = SubResource("MatRail")
+
+[node name="BandF1" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.98, 0.955)
+size = Vector3(1.3, 0.34, 0.06)
+material = SubResource("MatRail")
+
+[node name="BandF2" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.52, 0.955)
+size = Vector3(1.3, 0.34, 0.06)
+material = SubResource("MatRail")
+
+[node name="BandB1" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.98, -0.955)
+size = Vector3(1.3, 0.34, 0.06)
+material = SubResource("MatRail")
+
+[node name="BandB2" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.52, -0.955)
+size = Vector3(1.3, 0.34, 0.06)
+material = SubResource("MatRail")
+
+[node name="BandL1" type="CSGBox3D" parent="."]
+position = Vector3(-0.955, 0.98, 0)
+size = Vector3(0.06, 0.34, 1.3)
+material = SubResource("MatRail")
+
+[node name="BandL2" type="CSGBox3D" parent="."]
+position = Vector3(-0.955, 0.52, 0)
+size = Vector3(0.06, 0.34, 1.3)
+material = SubResource("MatRail")
+
+[node name="BandR1" type="CSGBox3D" parent="."]
+position = Vector3(0.955, 0.98, 0)
+size = Vector3(0.06, 0.34, 1.3)
+material = SubResource("MatRail")
+
+[node name="BandR2" type="CSGBox3D" parent="."]
+position = Vector3(0.955, 0.52, 0)
+size = Vector3(0.06, 0.34, 1.3)
+material = SubResource("MatRail")
+
+[node name="VentFU1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.42, 0.98, 0.99)
+rotation = Vector3(0, 0, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentFU2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.98, 0.99)
+rotation = Vector3(0, 0, 0.2)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentFU3" type="MeshInstance3D" parent="."]
+position = Vector3(0.42, 0.98, 0.99)
+rotation = Vector3(0, 0, 2.94)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentFL1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.48, 0.52, 0.99)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentFL2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.16, 0.52, 0.99)
+rotation = Vector3(0, 0, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentFL3" type="MeshInstance3D" parent="."]
+position = Vector3(0.16, 0.52, 0.99)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentFL4" type="MeshInstance3D" parent="."]
+position = Vector3(0.48, 0.52, 0.99)
+rotation = Vector3(0, 0, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBU1" type="MeshInstance3D" parent="."]
+position = Vector3(0.42, 0.98, -0.99)
+rotation = Vector3(0, 3.14159, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBU2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.98, -0.99)
+rotation = Vector3(0, 3.14159, 0.2)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBU3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.42, 0.98, -0.99)
+rotation = Vector3(0, 3.14159, 2.94)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBL1" type="MeshInstance3D" parent="."]
+position = Vector3(0.48, 0.52, -0.99)
+rotation = Vector3(0, 3.14159, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBL2" type="MeshInstance3D" parent="."]
+position = Vector3(0.16, 0.52, -0.99)
+rotation = Vector3(0, 3.14159, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBL3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.16, 0.52, -0.99)
+rotation = Vector3(0, 3.14159, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentBL4" type="MeshInstance3D" parent="."]
+position = Vector3(-0.48, 0.52, -0.99)
+rotation = Vector3(0, 3.14159, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentLU1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.99, 0.98, 0.42)
+rotation = Vector3(0, -1.5708, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentLU2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.99, 0.98, -0.42)
+rotation = Vector3(0, -1.5708, 2.94)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentLL1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.99, 0.52, 0.48)
+rotation = Vector3(0, -1.5708, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentLL2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.99, 0.52, -0.48)
+rotation = Vector3(0, -1.5708, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentRU1" type="MeshInstance3D" parent="."]
+position = Vector3(0.99, 0.98, -0.42)
+rotation = Vector3(0, 1.5708, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentRU2" type="MeshInstance3D" parent="."]
+position = Vector3(0.99, 0.98, 0.42)
+rotation = Vector3(0, 1.5708, 2.94)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentRL1" type="MeshInstance3D" parent="."]
+position = Vector3(0.99, 0.52, -0.48)
+rotation = Vector3(0, 1.5708, 0)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")
+
+[node name="VentRL2" type="MeshInstance3D" parent="."]
+position = Vector3(0.99, 0.52, 0.48)
+rotation = Vector3(0, 1.5708, 3.14159)
+mesh = SubResource("MeshVent")
+surface_material_override/0 = SubResource("MatVent")

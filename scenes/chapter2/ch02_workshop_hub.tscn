@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/chapter2/ch02_workshop_hub.gd" id="1_hub"]
+
+[node name="Ch02WorkshopHub" type="Node3D"]
+script = ExtResource("1_hub")

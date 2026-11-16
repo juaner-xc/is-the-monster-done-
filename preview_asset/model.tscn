@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://preview_asset/model.glb" id="1_m7cwc"]
+
+[sub_resource type="Environment" id="Environment_labmf"]
+background_mode = 1
+background_color = Color(0.05, 0.07, 0.12, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.94, 0.93, 0.91, 1)
+ambient_light_energy = 0.3
+
+[node name="ModelScene" type="Node3D" unique_id=2118670647]
+
+[node name="model" type="Node3D" parent="." unique_id=74819716 instance=ExtResource("1_m7cwc")]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=717681939]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1600, 244, 2658)
+fov = 50.0
+near = 0.5
+far = 20000.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=44131056]
+environment = SubResource("Environment_labmf")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1148672555]
+transform = Transform3D(0.81915206, -0.46984634, 0.32898995, 0, 0.57357645, 0.81915206, -0.57357645, -0.6710101, 0.46984634, 0, 0, 0)
+light_energy = 1.2
+
+[node name="Fill" type="DirectionalLight3D" parent="." unique_id=142794882]
+transform = Transform3D(-0.50000006, 0.4330127, -0.75, 0, 0.8660254, 0.5, 0.8660254, 0.25000003, -0.43301275, 0, 0, 0)
+light_energy = 0.4

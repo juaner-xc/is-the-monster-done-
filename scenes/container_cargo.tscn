@@ -1,0 +1,513 @@
+[gd_scene format=3]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.23, 0.24, 0.26, 1)
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="MatCargo"]
+albedo_color = Color(0.32, 0.52, 0.72, 1)
+metallic = 0.5
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="MatSheet"]
+albedo_color = Color(0.26, 0.44, 0.62, 1)
+metallic = 0.7
+roughness = 0.42
+
+[sub_resource type="StandardMaterial3D" id="MatCargoDark"]
+albedo_color = Color(0.22, 0.38, 0.55, 1)
+metallic = 0.55
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="MatCast"]
+albedo_color = Color(0.75, 0.78, 0.82, 1)
+metallic = 0.6
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="MatWhite"]
+albedo_color = Color(0.92, 0.93, 0.95, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="MatGlow"]
+albedo_color = Color(0.95, 0.96, 0.9, 1)
+emission_enabled = true
+emission = Color(1, 1, 0.9, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="StandardMaterial3D" id="MatFloor"]
+albedo_color = Color(0.24, 0.25, 0.27, 1)
+metallic = 0.2
+roughness = 0.35
+
+[sub_resource type="PlaneMesh" id="MeshFloor"]
+size = Vector2(40, 40)
+
+[sub_resource type="CylinderMesh" id="MeshLogo"]
+top_radius = 0.16
+bottom_radius = 0.16
+height = 0.02
+
+[node name="ContainerCargo" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.6, 0.5, 0)
+light_energy = 1.3
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("MeshFloor")
+surface_material_override/0 = SubResource("MatFloor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(2.8, 1.8, 3)
+rotation = Vector3(-0.27, 0.75, 0)
+
+[node name="Body" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.65, 0)
+size = Vector3(2.6, 1.3, 1.3)
+use_collision = true
+material = SubResource("MatCargo")
+
+[node name="TopRail" type="CSGBox3D" parent="."]
+position = Vector3(0, 1.32, 0)
+size = Vector3(2.66, 0.08, 1.36)
+material = SubResource("MatCargoDark")
+
+[node name="BottomRail" type="CSGBox3D" parent="."]
+position = Vector3(0, 0.06, 0)
+size = Vector3(2.66, 0.12, 1.36)
+material = SubResource("MatCargoDark")
+
+[node name="CastFLB" type="CSGBox3D" parent="."]
+position = Vector3(-1.22, 0.14, 0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastFRB" type="CSGBox3D" parent="."]
+position = Vector3(1.22, 0.14, 0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastBLB" type="CSGBox3D" parent="."]
+position = Vector3(-1.22, 0.14, -0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastBRB" type="CSGBox3D" parent="."]
+position = Vector3(1.22, 0.14, -0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastFLT" type="CSGBox3D" parent="."]
+position = Vector3(-1.22, 1.16, 0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastFRT" type="CSGBox3D" parent="."]
+position = Vector3(1.22, 1.16, 0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastBLT" type="CSGBox3D" parent="."]
+position = Vector3(-1.22, 1.16, -0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CastBRT" type="CSGBox3D" parent="."]
+position = Vector3(1.22, 1.16, -0.58)
+size = Vector3(0.28, 0.2, 0.28)
+material = SubResource("MatCast")
+
+[node name="CorrF1" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.2, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF2" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.305, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF3" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.41, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF4" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.515, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF5" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.62, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF6" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.725, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF7" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.83, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF8" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.935, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF9" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.04, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrF10" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.145, 0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB1" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.2, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB2" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.305, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB3" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.41, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB4" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.515, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB5" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.62, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB6" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.725, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB7" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.83, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB8" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 0.935, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB9" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.04, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrB10" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.145, -0.64)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.045
+height = 2.35
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL1" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, -0.47)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL2" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, -0.365)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL3" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, -0.26)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL4" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, -0.155)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL5" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, -0.05)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL6" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, 0.055)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL7" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, 0.16)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL8" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, 0.265)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL9" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, 0.37)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="CorrL10" type="CSGCylinder3D" parent="."]
+position = Vector3(-1.29, 0.68, 0.475)
+radius = 0.045
+height = 1.2
+radial_segments = 12
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="DoorPanelR" type="CSGBox3D" parent="."]
+position = Vector3(1.315, 0.65, 0)
+size = Vector3(0.02, 0.95, 1.05)
+material = SubResource("MatCargoDark")
+
+[node name="GlowStripR1" type="CSGBox3D" parent="."]
+position = Vector3(1.345, 0.65, 0.3)
+size = Vector3(0.03, 0.85, 0.05)
+material = SubResource("MatGlow")
+
+[node name="GlowStripR2" type="CSGBox3D" parent="."]
+position = Vector3(1.345, 0.65, -0.3)
+size = Vector3(0.03, 0.85, 0.05)
+material = SubResource("MatGlow")
+
+[node name="GlowStripL1" type="CSGBox3D" parent="."]
+position = Vector3(-1.345, 0.65, 0.3)
+size = Vector3(0.03, 0.85, 0.05)
+material = SubResource("MatGlow")
+
+[node name="GlowStripL2" type="CSGBox3D" parent="."]
+position = Vector3(-1.345, 0.65, -0.3)
+size = Vector3(0.03, 0.85, 0.05)
+material = SubResource("MatGlow")
+
+[node name="PocketFL" type="CSGBox3D" parent="."]
+position = Vector3(-0.6, 0.14, 0.66)
+size = Vector3(0.5, 0.12, 0.06)
+material = SubResource("MatCargoDark")
+
+[node name="PocketFR" type="CSGBox3D" parent="."]
+position = Vector3(0.6, 0.14, 0.66)
+size = Vector3(0.5, 0.12, 0.06)
+material = SubResource("MatCargoDark")
+
+[node name="PocketBL" type="CSGBox3D" parent="."]
+position = Vector3(-0.6, 0.14, -0.66)
+size = Vector3(0.5, 0.12, 0.06)
+material = SubResource("MatCargoDark")
+
+[node name="PocketBR" type="CSGBox3D" parent="."]
+position = Vector3(0.6, 0.14, -0.66)
+size = Vector3(0.5, 0.12, 0.06)
+material = SubResource("MatCargoDark")
+
+[node name="LogoDisc" type="MeshInstance3D" parent="."]
+position = Vector3(0.55, 0.68, 0.71)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("MeshLogo")
+surface_material_override/0 = SubResource("MatWhite")
+
+[node name="LogoBar" type="CSGBox3D" parent="."]
+position = Vector3(0.98, 0.68, 0.7)
+size = Vector3(0.55, 0.12, 0.02)
+material = SubResource("MatWhite")
+
+[node name="LabelTop" type="CSGBox3D" parent="."]
+position = Vector3(0.5, 1.16, 0.7)
+size = Vector3(0.55, 0.06, 0.02)
+material = SubResource("MatWhite")
+
+[node name="LabelBottom" type="CSGBox3D" parent="."]
+position = Vector3(-0.7, 0.24, 0.7)
+size = Vector3(0.5, 0.06, 0.02)
+material = SubResource("MatWhite")
+
+[node name="RoofCorr1" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.31, -0.5)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.04
+height = 2.4
+radial_segments = 10
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="RoofCorr2" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.31, -0.3)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.04
+height = 2.4
+radial_segments = 10
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="RoofCorr3" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.31, -0.1)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.04
+height = 2.4
+radial_segments = 10
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="RoofCorr4" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.31, 0.1)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.04
+height = 2.4
+radial_segments = 10
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="RoofCorr5" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.31, 0.3)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.04
+height = 2.4
+radial_segments = 10
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="RoofCorr6" type="CSGCylinder3D" parent="."]
+position = Vector3(0, 1.31, 0.5)
+rotation = Vector3(0, 0, 1.5708)
+radius = 0.04
+height = 2.4
+radial_segments = 10
+rings = 1
+material = SubResource("MatSheet")
+
+[node name="RoofVent1" type="CSGBox3D" parent="."]
+position = Vector3(-0.85, 1.33, 0)
+size = Vector3(0.25, 0.04, 0.2)
+material = SubResource("MatCargoDark")
+
+[node name="RoofVent2" type="CSGBox3D" parent="."]
+position = Vector3(0.85, 1.33, 0)
+size = Vector3(0.25, 0.04, 0.2)
+material = SubResource("MatCargoDark")

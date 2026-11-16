@@ -184,8 +184,12 @@ func on_split_interact() -> void:
 	if _choice == null:
 		return
 	_choice.call("present", "稀缺能源只有一份。接在哪边？", [
-		{"id": "pot", "title": "注入奶蛙的锅", "desc": "料理强化。灶台会全部熄灭。"},
-		{"id": "stove", "title": "接入备用小灶", "desc": "放弃强化。居民会搬锅过来。"},
+		{"id": "pot", "name": "注入奶蛙的锅",
+			"battle": "近战获得冰雾强化，命中会减速。",
+			"world": "灶台会全部熄灭，居民不会把锅搬过来。"},
+		{"id": "stove", "name": "接入备用小灶",
+			"battle": "放弃这次战斗强化。",
+			"world": "灶台亮起，居民把锅搬过来；火山备用供餐恢复。"},
 	])
 
 

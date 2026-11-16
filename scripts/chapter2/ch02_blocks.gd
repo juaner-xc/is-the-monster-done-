@@ -479,6 +479,7 @@ func _build_core_gate() -> void:
 
 	# 通往 Boss 的门：北墙（-Z 侧，z-78）正中，正对千席宴炉
 	_boss_gate = _box(Vector3(6.0, 4.2, 0.6), room + Vector3(0, 2.1, -11.0), _panel)
+	_boss_gate.name = "BossGate"
 	_light(room + Vector3(0, 4.0, 0), Color(0.9, 0.6, 0.3), 1.6, 16.0)
 	_add_checkpoint("Checkpoint_Core", Vector3(origin.x + 54.0, 1.0, origin.z), "主炉控制区")
 
@@ -854,7 +855,7 @@ func _start_minecart() -> void:
 	var hall: Vector3 = origin + Vector3(28.0, 0.0, 0.0)
 	_minecart = Node3D.new()
 	_minecart.name = "Minecart"
-	_minecart.position = hall + Vector3(0.0, 0.62, -16.0)
+	_minecart.position = hall + Vector3(0.0, 0.62, -8.0)
 	_transport_section.add_child(_minecart)
 	_make_non_blocking(_minecart)
 
@@ -904,7 +905,7 @@ func _start_minecart() -> void:
 	# 来回跑：沿南北轨道往返（轨道已转 90°，与全场轴线同向）
 	var tween := create_tween().set_loops()
 	tween.tween_property(_minecart, "position:x", _minecart.position.x, 0.01)
-	tween.tween_property(_minecart, "position:z", hall.z + 16.0, 7.0) \
+	tween.tween_property(_minecart, "position:z", hall.z + 8.0, 6.0) \
 			.set_trans(Tween.TRANS_SINE)
-	tween.tween_property(_minecart, "position:z", hall.z - 16.0, 7.0) \
+	tween.tween_property(_minecart, "position:z", hall.z - 8.0, 6.0) \
 			.set_trans(Tween.TRANS_SINE)

@@ -33,7 +33,6 @@ func _build() -> void:
 		return
 	_built = true
 	add_to_group("zone_lower_entrance")
-	_build_graffiti()
 	_build_bell_point()
 	_hook_lava_hazard()
 

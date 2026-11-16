@@ -369,27 +369,13 @@ transform = Transform3D(-0.06086256, 0, -0.9981462, 0, 1, 0, 0.9981462, 0, -0.06
 material_override = ExtResource("4_i7de6")
 mesh = SubResource("BoxMesh_pni0i")
 
-[node name="Bench_01" parent="Deck_Props" unique_id=1195468547 instance=ExtResource("5_lymgw")]
-transform = Transform3D(-0.88271934, 0, 0.4880192, 0, 1.0086408, 0, -0.4880192, 0, -0.88271934, -6.3337345, 7.695318e-08, 15.907584)
-
-[node name="Bench_02" parent="Deck_Props" unique_id=705942402 instance=ExtResource("5_lymgw")]
-transform = Transform3D(-0.7387026, 0, 0.68678576, 0, 1.0086408, 0, -0.68678576, 0, -0.7387026, -8.707707, 0.50308096, 13.451763)
-
 [node name="_MeshInstance3D_77" type="MeshInstance3D" parent="Deck_Props" unique_id=1642801972]
 transform = Transform3D(1.2195122, 0, 0, 0, 1.2195122, 0, 0, 0, 1.2195122, 13.4, 0, -11.4)
 mesh = ExtResource("9_qt7rm")
 
-[node name="_MeshInstance3D_78" type="MeshInstance3D" parent="Deck_Props" unique_id=732727418]
-transform = Transform3D(1.3158014, 0, 0.5563119, 0, 1.4285715, 0, -0.5563119, 0, 1.3158014, 13.4, 0, 8.6)
-mesh = ExtResource("10_ka5p5")
-
 [node name="_MeshInstance3D_79" type="MeshInstance3D" parent="Deck_Props" unique_id=78257896]
 transform = Transform3D(1.8572003, 0, 0, 0, 1.8572003, 0, 0, 0, 1.8572003, 10.5, -0.023240482, -11.5)
 mesh = ExtResource("11_0fcoq")
-
-[node name="_MeshInstance3D_80" type="MeshInstance3D" parent="Deck_Props" unique_id=1424063251]
-transform = Transform3D(0.5019714, 0, 0.6325634, 0, 0.8075344, 0, -0.6325634, 0, 0.5019714, 15.2, 0, 11.6)
-mesh = ExtResource("12_iy6k0")
 
 [node name="_StaticBody3D_83" type="StaticBody3D" parent="Deck_Props" unique_id=1109652474]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0.86, -9)
@@ -446,15 +432,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.4, 0.42, -11.4)
 
 [node name="Shape" type="CollisionShape3D" parent="Deck_Props/Col_Barrel" unique_id=1947456054]
 shape = SubResource("CylinderShape3D_prop_barrel")
-
-[node name="Col_Crate_East" type="StaticBody3D" parent="Deck_Props" unique_id=1527023837]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.4, 0.38, 8.6)
-
-[node name="Shape" type="CollisionShape3D" parent="Deck_Props/Col_Crate_East" unique_id=284502150]
-shape = SubResource("BoxShape3D_prop_crate")
-
-[node name="Col_Crate_North" type="StaticBody3D" parent="Deck_Props" unique_id=1945934164]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.2, 0.38, 11.6)
-
-[node name="Shape" type="CollisionShape3D" parent="Deck_Props/Col_Crate_North" unique_id=1752852491]
-shape = SubResource("BoxShape3D_prop_crate")

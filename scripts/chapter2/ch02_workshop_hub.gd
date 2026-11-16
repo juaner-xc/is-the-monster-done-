@@ -421,37 +421,48 @@ func _open_gate() -> void:
 
 # ------------------------------------------------------------------ 管道与陈设
 func _build_pipes() -> void:
-	# 三层拓扑重排后，旧生活区东侧主管横穿低层→中层坡道视野；
-	# 这一段装饰管不再生成，避免挡住楼梯和平台。
+	# 生活区不再横穿东西向主管；运输管改由 volcano_cave 沿西侧南北向铺设。
 	return
-	# 主管不再是一条直线：两顶帐篷各绕一次，两头一直伸出生活区之外。
-	# 管道路径用折线表示，每段之间用球形接头补上，看起来才像真的管道而不是拼起来的圆柱。
-	var path := [
-		Vector3(-34.0, 2.4, -18.0),
-		Vector3(-20.0, 2.4, -18.0),
-		Vector3(-10.0, 2.4, -18.0),
-		Vector3(-10.0, 2.4, -12.0),
-		Vector3(-2.0, 2.4, -12.0),
-		Vector3(4.0, 2.4, -18.0),
-		Vector3(34.0, 2.4, -18.0),
-	]
-	for i in path.size() - 1:
-		_pipe_section(path[i], path[i + 1], 0.3, _metal)
-	for i in range(1, path.size() - 1):
-		_pipe_joint(path[i], 0.33, _metal)
 
-	# 发红的法兰：每隔一个拐点套一圈，让「热」这件事看得见
+
+## 生活区中央的架空运输管：从陶陶餐车后方经过，不挡主路。
+func _build_center_pipe() -> void:
+	var z := -1.0
+	var y := 5.0
+	_pipe_section(Vector3(-13.0, y, z), Vector3(15.0, y, z), 0.18, _metal)
+	for px in [-13.0, -7.0, -1.0, 5.0, 11.0, 15.0]:
+		_pipe_joint(Vector3(px, y, z), 0.23, _metal)
 	var glow := _load_mat("res://assets/chapter2/materials/mat_ember.tres")
 	if glow != null:
-		for i in [1, 3, 5]:
-			_pipe_joint(path[i], 0.4, glow)
+		for px in [-9.0, 3.0, 12.0]:
+			_pipe_joint(Vector3(px, y, z), 0.32, glow)
+	for px in [-12.0, 14.0]:
+		_pipe_drop(Vector3(px, y, z), _metal)
+	_add_omni(Vector3(2.0, y + 0.4, z), Color(1.0, 0.56, 0.24), 1.8, 20.0)
 
-	# 立管：从主管接到地面
-	for i in [0, 2, 4]:
-		_pipe_drop(path[i], _metal)
 
-	_add_omni(Vector3(-4.0, 3.2, -16.0), Color(1.0, 0.54, 0.2), 2.4, 22.0)
-	_add_omni(Vector3(4.0, 3.0, -16.0), Color(1.0, 0.5, 0.18), 1.6, 12.0)
+## 生活区点缀：地毯、长凳、货箱/桶、盆栽、餐车遮棚。
+func _build_living_decor() -> void:
+	# 陶陶/餐车脚下的深色地毯
+	var rug_mat := StandardMaterial3D.new()
+	rug_mat.albedo_color = Color(0.24, 0.08, 0.05)
+	rug_mat.roughness = 0.95
+	var rug := CylinderMesh.new()
+	rug.top_radius = 3.8
+	rug.bottom_radius = 3.8
+	rug.height = 0.035
+	rug.radial_segments = 32
+	var rug_node := MeshInstance3D.new()
+	rug_node.mesh = rug
+	rug_node.position = Vector3(3.2, 0.605, 4.0)
+	rug_node.material_override = rug_mat
+	add_child(rug_node)
+
+	# 边缘盆栽；不再摆长凳和货箱，避免再次形成一排“棕色积木”
+	_place_model("plant.glb", to_global(Vector3(-15.2, 0.0, 12.8)), 1.1, 1.4)
+	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-15.2, 0.7, 12.8))
+	_place_model("plant.glb", to_global(Vector3(14.2, 0.0, 11.5)), 1.0, 2.2)
+	_add_cylinder_collider(self, 0.3, 1.4, Vector3(14.2, 0.7, 11.5))
 
 
 ## 一段直管：从 a 指向 b，用四元数把圆柱的 Y 轴转过去
@@ -503,6 +514,7 @@ func _build_living_space() -> void:
 	_build_cooking_station()
 	# 营地本体（帐篷 / 火盆 / 家当）已预制体化，见 scenes/chapter2/living/camp.tscn
 	add_child(preload("res://scenes/chapter2/living/camp.tscn").instantiate())
+	_build_living_decor()
 
 
 
@@ -525,14 +537,7 @@ func _build_cottages() -> void:
 ## 生活区的公用道具：灶台、三盆盆栽、三盏吊灯。原来靠 _cottage_props_done
 ## 保证「只补一次」，拆开后由 _build_cottages 在房子之后单独调用一次。
 func _build_cottage_props() -> void:
-	_solid_box(Vector3(5.0, 0.14, 1.3), Vector3(-8.4, 0.82, 2.4), _metal)
-	for x in [-10.2, -6.6]:
-		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 1.7), _metal)
-		_solid_box(Vector3(0.2, 0.8, 0.2), Vector3(x, 0.45, 3.1), _metal)
-	_deco_mesh("kitchenware_pot.tres", Vector3(-9.2, 0.9, 2.4), 0.5, 0.0, null)
-	_deco_mesh("kitchenware_pan.tres", Vector3(-7.4, 0.9, 2.3), 0.32, 0.8, null)
-	_add_omni(Vector3(-8.4, 2.6, 2.4), Color(1.0, 0.74, 0.46), 2.6, 13.0)
-
+	# 中央主干道上原来的长条备餐桌已移除，避免挡住玩家动线。
 	# 盆栽：金属和岩石里唯一的活物，压一压「全是机器」的观感
 	_place_model("plant.glb", to_global(Vector3(-16.8, 0.0, 8.8)), 1.1, 0.0)
 	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-16.8, 0.7, 8.8))
@@ -544,53 +549,85 @@ func _build_cottage_props() -> void:
 
 func _build_residents() -> void:
 	# 居民全部贴着「有人生活的那几处」站：火盆边、帐篷口、石屋门口、梯口。
-	var pair_a: Variant = _make_npc("resident_pair_a", "居民", Vector3(-6.0, 0, 10.6),
+	var pair_a: Variant = _make_npc("resident_pair_a", "居民", Vector3(-10.5, 0, 10.8),
 			Color("8a9a7c"), Color("b8613f"), 0.2)
 	_add_capsule_collider(pair_a, 0.35, 1.75, Vector3(0, 0.875, 0))
-	var pair_b: Variant = _make_npc("resident_pair_b", "居民", Vector3(-4.4, 0, 11.2),
+	var pair_b: Variant = _make_npc("resident_pair_b", "居民", Vector3(-12.0, 0, 11.5),
 			Color("9a8f7a"), Color("6a7f9a"), -0.4)
 	_add_capsule_collider(pair_b, 0.35, 1.75, Vector3(0, 0.875, 0))
 	if pair_a != null and pair_b != null:
 		pair_a.face_target = pair_b
 		pair_b.face_target = pair_a
 
-	_add_capsule_collider(_make_npc("resident_pipe", "居民", Vector3(-1.4, 0, -6.9), Color("7c7a86"), Color("9a5b3f"), PI),
+	_add_capsule_collider(_make_npc("resident_pipe", "居民", Vector3(-13.5, 0, -1.0), Color("7c7a86"), Color("9a5b3f"), PI),
 			0.35, 1.75, Vector3(0, 0.875, 0))
-	_add_capsule_collider(_make_npc("resident_queue", "居民", Vector3(11.0, 0, -2.4), Color("87907a"), Color("c9764a"), -1.1),
+	_add_capsule_collider(_make_npc("resident_queue", "居民", Vector3(10.8, 0, 0.5), Color("87907a"), Color("c9764a"), -1.1),
 			0.35, 1.75, Vector3(0, 0.875, 0))
-	_add_capsule_collider(_make_npc("resident_tent", "居民", Vector3(-9.8, 0, -6.6), Color("8f8271"), Color("7a5b8f"), 1.4),
+	_add_capsule_collider(_make_npc("resident_tent", "居民", Vector3(-12.0, 0, -10.5), Color("8f8271"), Color("7a5b8f"), 1.4),
 			0.35, 1.75, Vector3(0, 0.875, 0))
 
 
 func _build_taotao() -> void:
 	# 陶陶 + 餐车摆在中轴偏南：玩家从隧道下来往北走，第一眼就看见她。
 	# 她面朝南（yaw=PI），是迎着进场方向站的 —— 原来正面朝北，看见的是后脑勺。
-	_taotao = _make_npc("taotao", "陶陶", Vector3(2.4, 0, 8.6),
+	_taotao = _make_npc("taotao", "陶陶", Vector3(2.0, 0, 4.0),
 			Color("eae2d0"), Color("e08a3c"), PI, "taotao")
 	if _taotao != null:
 		_taotao.interact_range = 3.2
 
 	var cart := Node3D.new()
-	cart.position = Vector3(5.0, 0, 7.4)
+	cart.position = Vector3(5.2, 0, 3.2)
 	cart.rotation.y = -0.55
 	add_child(cart)
 	_add_box_collider(cart, Vector3(1.7, 1.05, 0.95), Vector3(0, 0.7, 0))
 	_add_box_part(cart, Vector3(1.5, 0.75, 0.9), Vector3(0, 0.85, 0), _metal)
+	# 红色围板 + 金属台面：让它一眼读成“餐车”，不是一只灰箱子
+	var cart_red := StandardMaterial3D.new()
+	cart_red.albedo_color = Color(0.55, 0.14, 0.06)
+	cart_red.roughness = 0.7
+	for sz in [-0.47, 0.47]:
+		_add_box_part(cart, Vector3(1.52, 0.52, 0.05), Vector3(0, 0.86, sz), cart_red)
+	for sx in [-0.77, 0.77]:
+		_add_box_part(cart, Vector3(0.05, 0.52, 0.9), Vector3(sx, 0.86, 0), cart_red)
+	_add_box_part(cart, Vector3(1.82, 0.08, 1.02), Vector3(0, 1.30, 0), _metal)
+	var pot := CylinderMesh.new()
+	pot.top_radius = 0.27
+	pot.bottom_radius = 0.22
+	pot.height = 0.32
+	_add_mesh_part(cart, pot, Vector3(-0.35, 1.50, 0), _metal)
+	for i in 2:
+		var bowl := CylinderMesh.new()
+		bowl.top_radius = 0.12
+		bowl.bottom_radius = 0.09
+		bowl.height = 0.09
+		_add_mesh_part(cart, bowl, Vector3(0.25 + i * 0.3, 1.40, 0.15 - i * 0.2), _wood)
 	for sx in [-0.56, 0.56]:
 		for sz in [-0.32, 0.32]:
 			var wheel := CylinderMesh.new()
-			wheel.top_radius = 0.19
-			wheel.bottom_radius = 0.19
-			wheel.height = 0.09
+			wheel.top_radius = 0.29
+			wheel.bottom_radius = 0.29
+			wheel.height = 0.1
 			var wheel_node := MeshInstance3D.new()
 			wheel_node.mesh = wheel
 			wheel_node.rotation.x = PI * 0.5
-			wheel_node.position = Vector3(sx, 0.19, sz)
+			wheel_node.position = Vector3(sx, 0.29, sz)
 			if _metal != null:
 				wheel_node.material_override = _metal
 			cart.add_child(wheel_node)
 	_add_box_part(cart, Vector3(0.08, 0.08, 0.8), Vector3(-0.86, 1.1, 0), _metal)
-	_add_omni(Vector3(4.9, 2.4, 7.2), Color(1.0, 0.7, 0.4), 2.6, 12.0)
+	# 小餐伞：不遮住陶陶，但让餐车有轮廓
+	var pole := CylinderMesh.new()
+	pole.top_radius = 0.035
+	pole.bottom_radius = 0.035
+	pole.height = 2.0
+	_add_mesh_part(cart, pole, Vector3(0, 2.15, -0.25), _metal)
+	var canopy := CylinderMesh.new()
+	canopy.top_radius = 0.12
+	canopy.bottom_radius = 1.55
+	canopy.height = 0.35
+	canopy.radial_segments = 16
+	_add_mesh_part(cart, canopy, Vector3(0, 3.15, -0.25), cart_red)
+	_add_omni(Vector3(5.1, 2.4, 3.0), Color(1.0, 0.7, 0.4), 2.6, 12.0)
 
 
 func _build_machine() -> void:
@@ -1135,10 +1172,14 @@ func _start_ending(energy: String) -> void:
 	out_tween.tween_property(fade, "color:a", 1.0, 1.0)
 	await out_tween.finished
 
-	# 送回生活区，站在陶陶面前
+	# 送回生活区，站在陶陶面前（她在哪就回到哪，中央广场/生活区都适用）
 	if player != null:
-		player.global_position = to_global(Vector3(-1.0, 0.3, 1.0))
-		player.rotation.y = atan2(-1.0, 0.0)
+		if _taotao != null and is_instance_valid(_taotao):
+			player.global_position = _taotao.global_position + Vector3(0.0, 0.12, 2.6)
+			player.rotation.y = 0.0
+		else:
+			player.global_position = to_global(Vector3(-1.0, 0.3, 1.0))
+			player.rotation.y = atan2(-1.0, 0.0)
 
 	# 两套世界状态：小灶接上就还有热饭，没有就只剩储备
 	if _main_light != null:
@@ -1176,10 +1217,12 @@ func _ask_after_boss() -> void:
 	add_child(ui)
 	ui.chosen.connect(_on_after_boss_choice)
 	ui.call("present", "主炉停了。走之前，还做点什么吗？", [
-		{"id": "stay", "title": "我帮你把这边安顿好再走。",
-			"desc": "推进帮助居民的路线。会多花一点时间。"},
-		{"id": "leave", "title": "路已经开了，我得走了。",
-			"desc": "直接离开工坊。留下尚未解决的困难。"},
+		{"id": "stay", "name": "留下来安顿",
+			"battle": "不改变战斗构筑。",
+			"world": "推进帮助居民的路线，会多花一点时间。"},
+		{"id": "leave", "name": "直接离开",
+			"battle": "不改变战斗构筑。",
+			"world": "直接离开工坊，留下尚未解决的困难。"},
 	])
 
 
@@ -1195,6 +1238,7 @@ func _on_after_boss_choice(id: String) -> void:
 
 func _show_ending_card() -> void:
 	var layer := CanvasLayer.new()
+	layer.name = "EndingCard"
 	layer.layer = 21
 	add_child(layer)
 	var root := Control.new()
@@ -1210,6 +1254,7 @@ func _show_ending_card() -> void:
 	panel.offset_right = 280.0
 	panel.offset_top = -80.0
 	panel.offset_bottom = 80.0
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.modulate.a = 0.0
 	panel.add_theme_stylebox_override("panel",
 			_panel_style(Color(0.08, 0.05, 0.03, 0.95), ORANGE, 18, 2))
@@ -1218,11 +1263,15 @@ func _show_ending_card() -> void:
 	label.text = "第二章 · 火山熔岩工坊\n完"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_size_override("font_size", 28)
 	label.add_theme_color_override("font_color", CREAM)
 	panel.add_child(label)
 	var tween := create_tween()
 	tween.tween_property(panel, "modulate:a", 1.0, 0.8)
+	await get_tree().create_timer(3.6).timeout
+	if is_instance_valid(layer):
+		layer.queue_free()
 
 
 ## 通用模型摆放：按包围盒缩放到目标高度、底面落地、可指定朝向。

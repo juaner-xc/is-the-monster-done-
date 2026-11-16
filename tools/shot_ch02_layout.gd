@@ -11,11 +11,16 @@ const SHOTS := [
 	{"name": "l_under", "pos": Vector3(-72.0, 3.2, 8.0), "look": Vector3(-47.0, 4.7, -14.0), "ortho": false},
 	{"name": "l_stair3", "pos": Vector3(-39.0, 13.5, -12.0), "look": Vector3(-39.0, 9.9, -30.0), "ortho": false},
 	{"name": "l_stair4", "pos": Vector3(-34.0, 18.5, -48.0), "look": Vector3(-40.0, 14.5, -72.0), "ortho": false},
+	{"name": "l_gate", "pos": Vector3(-39.0, 12.0, -49.0), "look": Vector3(-39.0, 11.2, -56.0), "ortho": false},
 	{"name": "l_boss", "pos": Vector3(-39.0, 2.2, 20.0), "look": Vector3(-39.0, 26.0, -117.0), "ortho": false},
 	{"name": "l_boss_facade", "pos": Vector3(-39.0, 22.0, -70.0), "look": Vector3(-39.0, 24.0, -104.0), "ortho": false},
 	{"name": "l_door_b", "pos": Vector3(-41.0, 9.5, -14.0), "look": Vector3(-48.0, 11.5, -14.0), "ortho": false},
 	{"name": "l_door_c", "pos": Vector3(-37.0, 9.5, -14.0), "look": Vector3(-31.0, 11.5, -14.0), "ortho": false},
 	{"name": "l_clothes", "pos": Vector3(-12.0, 2.2, 8.0), "look": Vector3(-20.0, 1.4, 0.0), "ortho": false},
+	{"name": "l_hub_center", "pos": Vector3(-37.0, 2.8, 35.0), "look": Vector3(-37.0, 1.4, 21.0), "ortho": false},
+	{"name": "l_cart", "pos": Vector3(-33.0, 3.0, 32.0), "look": Vector3(-33.8, 1.2, 23.2), "ortho": false},
+	{"name": "l_west_pipe", "pos": Vector3(-110.0, 38.0, 52.0), "look": Vector3(-58.0, 7.0, -42.0), "ortho": false},
+	{"name": "l_garden", "pos": Vector3(-30.0, 2.5, 36.0), "look": Vector3(-28.0, 0.8, 28.0), "ortho": false},
 ]
 
 const OUT_DIR := "res://ch02_shots"

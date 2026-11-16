@@ -58,6 +58,8 @@ var _wood: StandardMaterial3D
 var _wood_dark: StandardMaterial3D
 var _dark_mat: StandardMaterial3D
 var _cart_mat: StandardMaterial3D
+var _deck_stone: StandardMaterial3D
+var _rail_mat: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -82,6 +84,19 @@ func _load_materials() -> void:
 	_cart_mat.albedo_color = Color(0.26, 0.21, 0.19)
 	_cart_mat.metallic = 0.55
 	_cart_mat.roughness = 0.55
+	# P1 站台和生活区地台统一成深色火山石
+	_deck_stone = StandardMaterial3D.new()
+	_deck_stone.albedo_color = Color(0.14, 0.135, 0.14)
+	_deck_stone.roughness = 0.93
+	var deck_tex := load("res://assets/chapter2/textures/rock_diffuse.png") as Texture2D
+	if deck_tex != null:
+		_deck_stone.albedo_texture = deck_tex
+		_deck_stone.uv1_triplanar = true
+		_deck_stone.uv1_world_triplanar = true
+		_deck_stone.uv1_scale = Vector3(0.25, 0.25, 0.25)
+	_rail_mat = StandardMaterial3D.new()
+	_rail_mat.albedo_color = Color(0.78, 0.76, 0.72)
+	_rail_mat.roughness = 0.8
 
 
 func _build() -> void:
@@ -205,10 +220,17 @@ func _build_apron(mouth_x: float, floor_y: float) -> void:
 	# 高度错开一点就不会共面闪烁，8 mm 的落差肉眼看不出。
 	var deck_y := floor_y - 0.008
 	_solid_box(Vector3(length + 0.4, 1.0, CORRIDOR_WIDTH + 2.8),
-			Vector3(mouth_x - 0.2 + length * 0.5, deck_y - 0.5, 0.0), _stone)
+			Vector3(mouth_x - 0.2 + length * 0.5, deck_y - 0.5, 0.0), _deck_stone)
 	for side in [-1.0, 1.0]:
 		_solid_box(Vector3(length, 0.7, 0.36),
-				Vector3(mouth_x + length * 0.5, deck_y + 0.3, side * (half_w + 1.2)), _stone)
+				Vector3(mouth_x + length * 0.5, deck_y + 0.3, side * (half_w + 1.2)), _deck_stone)
+		# 与生活区同款白色石栏杆
+		for i in range(8):
+			var px := mouth_x + 1.0 + float(i) * (length - 1.0) / 7.0
+			_solid_box(Vector3(0.14, 1.0, 0.14),
+				Vector3(px, deck_y + 0.55, side * (half_w + 1.2)), _rail_mat)
+		_solid_box(Vector3(length, 0.1, 0.1),
+			Vector3(mouth_x + length * 0.5, deck_y + 1.03, side * (half_w + 1.2)), _rail_mat)
 	# 注意：floor_y 是**局部**高度（洞口为 0），营地地台高度是世界值，
 	# 落差要用 floor_world_y 去算，否则算出来是负的、坡直接不建。
 	var drop := floor_world_y - HUB_DECK_Y
@@ -216,7 +238,7 @@ func _build_apron(mouth_x: float, floor_y: float) -> void:
 		return
 	var run := 1.9
 	var ramp := _solid_box(Vector3(run, 0.3, CORRIDOR_WIDTH + 2.8),
-			Vector3(mouth_x + length + run * 0.5, deck_y - drop * 0.5 - 0.14, 0.0), _stone)
+			Vector3(mouth_x + length + run * 0.5, deck_y - drop * 0.5 - 0.14, 0.0), _deck_stone)
 	ramp.rotation.z = -atan2(drop, run)
 
 	# 站台灯：洞口现在立在营地外面，靠环境光读不出体量，

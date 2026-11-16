@@ -154,11 +154,12 @@ func _process(delta: float) -> void:
 	if docked:
 		_poll_stuck_scene()
 	if _furnace_light != null:
-		_alarm_time += delta
-		var speed := 2.4 if _alarm_active else 0.9
-		var floor_energy := 1.5 if _alarm_active else 0.9
-		var pulse := 0.5 + 0.5 * sin(_alarm_time * speed)
-		_furnace_light.light_energy = floor_energy + pulse * (1.5 if _alarm_active else 0.55)
+		if _alarm_active:
+			_alarm_time += delta
+			var pulse := 0.5 + 0.5 * sin(_alarm_time * 2.4)
+			_furnace_light.light_energy = 1.5 + pulse * 1.5
+		else:
+			_furnace_light.light_energy = 1.2
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -638,6 +639,8 @@ func _build_machine() -> void:
 			Color("6b6862"), Color("6b6862"), -1.7, "machine")
 	if _machine == null:
 		return
+	if player != null:
+		_machine.face_target = player
 	_add_cylinder_collider(_machine, 0.5, 1.7, Vector3(0, 0.85, 0))
 	_machine.bob_amp = 0.0
 	_machine.interact_range = 3.0

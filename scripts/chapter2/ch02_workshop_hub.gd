@@ -576,11 +576,58 @@ func _build_taotao() -> void:
 	if _taotao != null:
 		_taotao.interact_range = 3.2
 
-	var cart := preload("res://scenes/chapter2/taotao_food_cart.tscn").instantiate() as Node3D
+	var cart := Node3D.new()
 	cart.position = Vector3(5.2, 0, 3.2)
 	cart.rotation.y = -0.55
 	add_child(cart)
 	_add_box_collider(cart, Vector3(1.7, 1.05, 0.95), Vector3(0, 0.7, 0))
+	_add_box_part(cart, Vector3(1.5, 0.75, 0.9), Vector3(0, 0.85, 0), _metal)
+	# 红色围板 + 金属台面：让它一眼读成“餐车”，不是一只灰箱子
+	var cart_red := StandardMaterial3D.new()
+	cart_red.albedo_color = Color(0.55, 0.14, 0.06)
+	cart_red.roughness = 0.7
+	for sz in [-0.47, 0.47]:
+		_add_box_part(cart, Vector3(1.52, 0.52, 0.05), Vector3(0, 0.86, sz), cart_red)
+	for sx in [-0.77, 0.77]:
+		_add_box_part(cart, Vector3(0.05, 0.52, 0.9), Vector3(sx, 0.86, 0), cart_red)
+	_add_box_part(cart, Vector3(1.82, 0.08, 1.02), Vector3(0, 1.30, 0), _metal)
+	var pot := CylinderMesh.new()
+	pot.top_radius = 0.27
+	pot.bottom_radius = 0.22
+	pot.height = 0.32
+	_add_mesh_part(cart, pot, Vector3(-0.35, 1.50, 0), _metal)
+	for i in 2:
+		var bowl := CylinderMesh.new()
+		bowl.top_radius = 0.12
+		bowl.bottom_radius = 0.09
+		bowl.height = 0.09
+		_add_mesh_part(cart, bowl, Vector3(0.25 + i * 0.3, 1.40, 0.15 - i * 0.2), _wood)
+	for sx in [-0.56, 0.56]:
+		for sz in [-0.32, 0.32]:
+			var wheel := CylinderMesh.new()
+			wheel.top_radius = 0.29
+			wheel.bottom_radius = 0.29
+			wheel.height = 0.1
+			var wheel_node := MeshInstance3D.new()
+			wheel_node.mesh = wheel
+			wheel_node.rotation.x = PI * 0.5
+			wheel_node.position = Vector3(sx, 0.29, sz)
+			if _metal != null:
+				wheel_node.material_override = _metal
+			cart.add_child(wheel_node)
+	_add_box_part(cart, Vector3(0.08, 0.08, 0.8), Vector3(-0.86, 1.1, 0), _metal)
+	# 小餐伞：不遮住陶陶，但让餐车有轮廓
+	var pole := CylinderMesh.new()
+	pole.top_radius = 0.035
+	pole.bottom_radius = 0.035
+	pole.height = 2.0
+	_add_mesh_part(cart, pole, Vector3(0, 2.15, -0.25), _metal)
+	var canopy := CylinderMesh.new()
+	canopy.top_radius = 0.12
+	canopy.bottom_radius = 1.55
+	canopy.height = 0.35
+	canopy.radial_segments = 16
+	_add_mesh_part(cart, canopy, Vector3(0, 3.15, -0.25), cart_red)
 	_add_omni(Vector3(5.1, 2.4, 3.0), Color(1.0, 0.7, 0.4), 2.6, 12.0)
 
 

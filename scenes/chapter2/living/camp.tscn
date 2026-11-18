@@ -1,0 +1,122 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://assets/chapter2/meshes/gear_crate_wood.tres" id="2_11kt6"]
+[ext_resource type="ArrayMesh" path="res://assets/chapter2/meshes/kitchenware_barrel.tres" id="3_lqwd8"]
+[ext_resource type="Material" path="res://assets/chapter2/materials/mat_ember.tres" id="6_q5d0d"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_i7or4"]
+resource_name = "MatMetal (老旧厨具金属)"
+albedo_color = Color(0.32999998, 0.315, 0.3, 1)
+metallic = 0.35
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="BoxMesh_lo7wc"]
+size = Vector3(0.16, 0.9, 0.16)
+
+[sub_resource type="BoxMesh" id="BoxMesh_10ass"]
+size = Vector3(0.16, 0.9, 0.16)
+
+[sub_resource type="BoxMesh" id="BoxMesh_6api1"]
+size = Vector3(0.16, 0.9, 0.16)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_kph0a"]
+top_radius = 0.62
+bottom_radius = 0.42
+height = 0.34
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_c2nwx"]
+top_radius = 0.54
+height = 0.1
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_brazier"]
+height = 0.95
+radius = 0.62
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_camp_crate"]
+size = Vector3(0.72, 0.72, 0.72)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_camp_barrel"]
+height = 0.85
+radius = 0.4
+
+[node name="LivingCamp" type="Node3D" unique_id=1949600401]
+
+[node name="_MeshInstance3D_96" type="MeshInstance3D" parent="." unique_id=174345209]
+transform = Transform3D(1.341961, 0, 0.489854, 0, 1.4285715, 0, -0.489854, 0, 1.341961, -15.8, 0, 2.2)
+mesh = ExtResource("2_11kt6")
+
+[node name="_MeshInstance3D_97" type="MeshInstance3D" parent="." unique_id=2037759388]
+transform = Transform3D(1.2195122, 0, 0, 0, 1.2195122, 0, 0, 0, 1.2195122, -16.2, 0, 3.6)
+mesh = ExtResource("3_lqwd8")
+
+[node name="_MeshInstance3D_99" type="MeshInstance3D" parent="." unique_id=1582186258]
+transform = Transform3D(1.3647665, 0, 0.42217174, 0, 1.4285715, 0, -0.42217174, 0, 1.3647665, 16.2, 0, -7.6)
+mesh = ExtResource("2_11kt6")
+
+[node name="_MeshInstance3D_101" type="MeshInstance3D" parent="." unique_id=1663981010]
+transform = Transform3D(1.1585366, 0, 0, 0, 1.1585366, 0, 0, 0, 1.1585366, 17.4, 0, -8.4)
+mesh = ExtResource("3_lqwd8")
+
+[node name="_Node3D_110" type="Node3D" parent="." unique_id=1863400024]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2, 0, 12.6)
+
+[node name="_MeshInstance3D_111" type="MeshInstance3D" parent="_Node3D_110" unique_id=971401557]
+transform = Transform3D(0.98722726, 0.15931821, 0, -0.15931821, 0.98722726, 0, 0, 0, 1, 0.34, 0.45, 0)
+material_override = SubResource("StandardMaterial3D_i7or4")
+mesh = SubResource("BoxMesh_lo7wc")
+
+[node name="_MeshInstance3D_112" type="MeshInstance3D" parent="_Node3D_110" unique_id=1896905581]
+transform = Transform3D(0.99680173, -0.07991469, 0, 0.07991469, 0.99680173, 0, 0, 0, 1, -0.17, 0.45, 0.29444864)
+material_override = SubResource("StandardMaterial3D_i7or4")
+mesh = SubResource("BoxMesh_10ass")
+
+[node name="_MeshInstance3D_113" type="MeshInstance3D" parent="_Node3D_110" unique_id=24666259]
+transform = Transform3D(0.99680173, -0.07991469, 0, 0.07991469, 0.99680173, 0, 0, 0, 1, -0.17, 0.45, -0.29444864)
+material_override = SubResource("StandardMaterial3D_i7or4")
+mesh = SubResource("BoxMesh_6api1")
+
+[node name="_MeshInstance3D_114" type="MeshInstance3D" parent="_Node3D_110" unique_id=271738360]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.02, 0)
+material_override = SubResource("StandardMaterial3D_i7or4")
+mesh = SubResource("CylinderMesh_kph0a")
+
+[node name="_MeshInstance3D_115" type="MeshInstance3D" parent="_Node3D_110" unique_id=974072522]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.18, 0)
+material_override = ExtResource("6_q5d0d")
+mesh = SubResource("CylinderMesh_c2nwx")
+
+[node name="_OmniLight3D_116" type="OmniLight3D" parent="." unique_id=1567224946]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.2, 1.5, 12.6)
+light_color = Color(1, 0.55, 0.22, 1)
+light_energy = 3.6
+omni_range = 12.0
+
+[node name="Body" type="StaticBody3D" parent="_Node3D_110"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+
+[node name="Shape" type="CollisionShape3D" parent="_Node3D_110/Body"]
+shape = SubResource("CylinderShape3D_brazier")
+
+[node name="Col_Crate_W" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.8, 0.36, 2.2)
+
+[node name="Shape" type="CollisionShape3D" parent="Col_Crate_W"]
+shape = SubResource("BoxShape3D_camp_crate")
+
+[node name="Col_Barrel_W" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.2, 0.42, 3.6)
+
+[node name="Shape" type="CollisionShape3D" parent="Col_Barrel_W"]
+shape = SubResource("CylinderShape3D_camp_barrel")
+
+[node name="Col_Crate_E" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.2, 0.36, -7.6)
+
+[node name="Shape" type="CollisionShape3D" parent="Col_Crate_E"]
+shape = SubResource("BoxShape3D_camp_crate")
+
+[node name="Col_Barrel_E" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.4, 0.42, -8.4)
+
+[node name="Shape" type="CollisionShape3D" parent="Col_Barrel_E"]
+shape = SubResource("CylinderShape3D_camp_barrel")

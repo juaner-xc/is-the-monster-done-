@@ -33,6 +33,7 @@ func _draw():
 	draw_line(project(Vector2(0,42)),project(Vector2(0,-33)),Color(0.85,0.65,0.3,.6),2)
 	draw_circle(project(Vector2(0,-20)),5.4*scale_,Color(.8,.57,.25,.18))
 	for node in hall.points.values():
+		if not node.visible: continue
 		var pos = node.global_position
 		draw_circle(project(Vector2(pos.x,pos.z)),2.0,Color("dbbd7b"))
 	if hall != null and is_instance_valid(hall.player):

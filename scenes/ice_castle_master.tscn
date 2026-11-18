@@ -1,0 +1,7 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/doubao/doubao_npc.tscn" id="1_doubao"]
+[ext_resource type="Script" path="res://scripts/ice_castle_master.gd" id="2_scr"]
+
+[node name="IceCastleMaster" instance=ExtResource("1_doubao")]
+script = ExtResource("2_scr")

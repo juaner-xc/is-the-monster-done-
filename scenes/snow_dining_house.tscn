@@ -13,6 +13,9 @@
 [ext_resource type="PackedScene" path="res://scenes/kendeqi_ground_floor_rooms.tscn" id="7_rooms"]
 [ext_resource type="PackedScene" path="res://scenes/kendeqi_lodge_profile.tscn" id="8_profile"]
 [ext_resource type="PackedScene" path="res://scenes/kendeqi_supply_chest.tscn" id="9_supply_chest"]
+[ext_resource type="Script" path="res://scripts/winter_greenery.gd" id="10_winter_greenery"]
+[ext_resource type="PackedScene" path="res://scenes/kendeqi_picture_window.tscn" id="11_picture_window"]
+[ext_resource type="Script" path="res://scripts/kendeqi_holiday_props.gd" id="12_holiday_props"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k1wcs"]
 resource_name = "Plaster"
@@ -264,28 +267,28 @@ size = Vector3(0.23, 0.4, 0.23)
 size = Vector3(0.32, 0.07, 0.32)
 
 [sub_resource type="BoxMesh" id="BoxMesh_ypwne"]
-size = Vector3(1.5, 4.2, 0.24)
+size = Vector3(1.025, 4.2, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_jynvr"]
-size = Vector3(1.5, 4.2, 0.24)
+size = Vector3(1.025, 4.2, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_y3i15"]
-size = Vector3(1.5, 1.65, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_sc0rr"]
-size = Vector3(1.5, 1.65, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_5jwtv"]
-size = Vector3(1.5, 1.1500001, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_a4c4p"]
-size = Vector3(1.5, 1.1500001, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_mw6wh"]
-size = Vector3(1.35, 4.2, 0.24)
+size = Vector3(0.875, 4.2, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_6iaxf"]
-size = Vector3(1.35, 4.2, 0.24)
+size = Vector3(0.875, 4.2, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_i1a08"]
 size = Vector3(3.3, 0.8500001, 0.24)
@@ -294,28 +297,28 @@ size = Vector3(3.3, 0.8500001, 0.24)
 size = Vector3(3.3, 0.8500001, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_q5x76"]
-size = Vector3(1.35, 4.2, 0.24)
+size = Vector3(0.875, 4.2, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_5ixot"]
-size = Vector3(1.35, 4.2, 0.24)
+size = Vector3(0.875, 4.2, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_owh1j"]
-size = Vector3(1.5, 1.65, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_pr53n"]
-size = Vector3(1.5, 1.65, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_d7csk"]
-size = Vector3(1.5, 1.1500001, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ii2b0"]
-size = Vector3(1.5, 1.1500001, 0.24)
+size = Vector3(2.45, 1.02, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_i0cfx"]
-size = Vector3(1.5, 4.2, 0.24)
+size = Vector3(1.025, 4.2, 0.24)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_a6oeo"]
-size = Vector3(1.5, 4.2, 0.24)
+size = Vector3(1.025, 4.2, 0.24)
 
 [sub_resource type="BoxMesh" id="BoxMesh_s3jqw"]
 size = Vector3(0.22, 4.3, 0.32)
@@ -326,50 +329,11 @@ size = Vector3(0.22, 4.3, 0.32)
 [sub_resource type="BoxMesh" id="BoxMesh_652qg"]
 size = Vector3(12.2, 0.22, 0.34)
 
-[sub_resource type="BoxMesh" id="BoxMesh_pb5uu"]
-size = Vector3(1.4, 1.25, 0.05)
-
-[sub_resource type="BoxMesh" id="BoxMesh_0mel1"]
-size = Vector3(0.12, 1.5, 0.15)
-
-[sub_resource type="BoxMesh" id="BoxMesh_l1ny1"]
-size = Vector3(1.7, 0.12, 0.2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_8d1dc"]
-size = Vector3(0.12, 1.5, 0.15)
-
-[sub_resource type="BoxMesh" id="BoxMesh_q1otc"]
-size = Vector3(1.7, 0.12, 0.2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_pnvc4"]
-size = Vector3(0.06, 1.32, 0.12)
-
-[sub_resource type="BoxMesh" id="BoxMesh_akvjx"]
-size = Vector3(1.5, 0.06, 0.12)
+[sub_resource type="BoxMesh" id="FrontCeilingTrim"]
+size = Vector3(12.0, 0.40, 0.18)
 
 [sub_resource type="BoxMesh" id="BoxMesh_gwprb"]
 size = Vector3(4.2, 0.15, 0.28)
-
-[sub_resource type="BoxMesh" id="BoxMesh_a3vrf"]
-size = Vector3(1.4, 1.25, 0.05)
-
-[sub_resource type="BoxMesh" id="BoxMesh_js8nx"]
-size = Vector3(0.12, 1.5, 0.15)
-
-[sub_resource type="BoxMesh" id="BoxMesh_jnhuh"]
-size = Vector3(1.7, 0.12, 0.2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_enxuv"]
-size = Vector3(0.12, 1.5, 0.15)
-
-[sub_resource type="BoxMesh" id="BoxMesh_5jf8c"]
-size = Vector3(1.7, 0.12, 0.2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_iwmim"]
-size = Vector3(0.06, 1.32, 0.12)
-
-[sub_resource type="BoxMesh" id="BoxMesh_fpxec"]
-size = Vector3(1.5, 0.06, 0.12)
 
 [sub_resource type="BoxMesh" id="BoxMesh_kxato"]
 size = Vector3(4.2, 0.15, 0.28)
@@ -1787,48 +1751,48 @@ omni_range = 6.0
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)
 
 [node name="WallPanel" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1507257418]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.25, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.4875, 2.1, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_ypwne")
 
 [node name="WallPanelCollision" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=308400848]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.25, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.4875, 2.1, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@65" type="CollisionShape3D" parent="CutawayWalls/FrontWall/WallPanelCollision" unique_id=519947343]
 shape = SubResource("BoxShape3D_jynvr")
 
 [node name="SillWall" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1770082083]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.825, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.51, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_y3i15")
 
 [node name="SillWallCollision" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=402703979]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.825, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.51, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@66" type="CollisionShape3D" parent="CutawayWalls/FrontWall/SillWallCollision" unique_id=1748090152]
 shape = SubResource("BoxShape3D_sc0rr")
 
 [node name="HeaderWall" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1024843662]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 3.625, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 3.69, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_5jwtv")
 
 [node name="HeaderWallCollision" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=1554458999]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 3.625, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 3.69, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@67" type="CollisionShape3D" parent="CutawayWalls/FrontWall/HeaderWallCollision" unique_id=1642505373]
 shape = SubResource("BoxShape3D_a4c4p")
 
 [node name="@MeshInstance3D@68" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1213405055]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.325, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0875, 2.1, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_mw6wh")
 
 [node name="@StaticBody3D@69" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=1463262342]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.325, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0875, 2.1, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@70" type="CollisionShape3D" parent="CutawayWalls/FrontWall/@StaticBody3D@69" unique_id=5070098]
@@ -1847,48 +1811,48 @@ collision_mask = 0
 shape = SubResource("BoxShape3D_3gm6i")
 
 [node name="@MeshInstance3D@74" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=473021985]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.325, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0875, 2.1, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_q5x76")
 
 [node name="@StaticBody3D@75" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=366246420]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.325, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0875, 2.1, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@76" type="CollisionShape3D" parent="CutawayWalls/FrontWall/@StaticBody3D@75" unique_id=492235398]
 shape = SubResource("BoxShape3D_5ixot")
 
 [node name="@MeshInstance3D@77" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1743331032]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.825, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.51, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_owh1j")
 
 [node name="@StaticBody3D@78" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=81648268]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.825, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 0.51, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@79" type="CollisionShape3D" parent="CutawayWalls/FrontWall/@StaticBody3D@78" unique_id=844484498]
 shape = SubResource("BoxShape3D_pr53n")
 
 [node name="@MeshInstance3D@80" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=596285796]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 3.625, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 3.69, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_d7csk")
 
 [node name="@StaticBody3D@81" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=1302444406]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 3.625, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 3.69, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@82" type="CollisionShape3D" parent="CutawayWalls/FrontWall/@StaticBody3D@81" unique_id=2050186377]
 shape = SubResource("BoxShape3D_ii2b0")
 
 [node name="@MeshInstance3D@83" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1876499399]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.25, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.4875, 2.1, 0)
 material_override = SubResource("StandardMaterial3D_k1wcs")
 mesh = SubResource("BoxMesh_i0cfx")
 
 [node name="@StaticBody3D@84" type="StaticBody3D" parent="CutawayWalls/FrontWall" unique_id=1385557534]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.25, 2.1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.4875, 2.1, 0)
 collision_mask = 0
 
 [node name="@CollisionShape3D@85" type="CollisionShape3D" parent="CutawayWalls/FrontWall/@StaticBody3D@84" unique_id=1342802493]
@@ -1909,85 +1873,26 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.1, 0)
 material_override = SubResource("StandardMaterial3D_pyvnm")
 mesh = SubResource("BoxMesh_652qg")
 
-[node name="WarmWindow" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=197820015]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 2.35, 0)
-material_override = SubResource("StandardMaterial3D_b1g1g")
-mesh = SubResource("BoxMesh_pb5uu")
-
-[node name="WindowJamb" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=750701783]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.54, 2.35, 0.02)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_0mel1")
-
-[node name="WindowSill" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=39561242]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 1.63, 0.02)
-material_override = SubResource("StandardMaterial3D_mr4wi")
-mesh = SubResource("BoxMesh_l1ny1")
-
-[node name="@MeshInstance3D@87" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=51528138]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.96, 2.35, 0.02)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_8d1dc")
-
-[node name="@MeshInstance3D@88" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1498663530]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 3.07, 0.02)
-material_override = SubResource("StandardMaterial3D_mr4wi")
-mesh = SubResource("BoxMesh_q1otc")
-
-[node name="WindowMullion" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=252445997]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 2.35, 0.04)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_pnvc4")
-
-[node name="WindowTransom" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=122319173]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 2.35, 0.04)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_akvjx")
-
 [node name="LowerTimber" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=807154141]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.85, 1.15, 0.01)
 material_override = SubResource("StandardMaterial3D_pyvnm")
 mesh = SubResource("BoxMesh_gwprb")
 
-[node name="@MeshInstance3D@89" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1477304009]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 2.35, 0)
-material_override = SubResource("StandardMaterial3D_b1g1g")
-mesh = SubResource("BoxMesh_a3vrf")
-
-[node name="@MeshInstance3D@90" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1995703375]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.96, 2.35, 0.02)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_js8nx")
-
-[node name="@MeshInstance3D@91" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=924746420]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 1.63, 0.02)
-material_override = SubResource("StandardMaterial3D_mr4wi")
-mesh = SubResource("BoxMesh_jnhuh")
-
-[node name="@MeshInstance3D@92" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=1441956131]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.54, 2.35, 0.02)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_enxuv")
-
-[node name="@MeshInstance3D@93" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=2050574219]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 3.07, 0.02)
-material_override = SubResource("StandardMaterial3D_mr4wi")
-mesh = SubResource("BoxMesh_5jf8c")
-
-[node name="@MeshInstance3D@94" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=2001607517]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 2.35, 0.04)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_iwmim")
-
-[node name="@MeshInstance3D@95" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=971281539]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.75, 2.35, 0.04)
-material_override = SubResource("StandardMaterial3D_pyvnm")
-mesh = SubResource("BoxMesh_fpxec")
-
 [node name="@MeshInstance3D@96" type="MeshInstance3D" parent="CutawayWalls/FrontWall" unique_id=443746270]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.85, 1.15, 0.01)
 material_override = SubResource("StandardMaterial3D_pyvnm")
 mesh = SubResource("BoxMesh_kxato")
+
+[node name="LeftPictureWindow" parent="CutawayWalls/FrontWall" instance=ExtResource("11_picture_window")]
+position = Vector3(-3.75, 2.1, 0)
+
+[node name="RightPictureWindow" parent="CutawayWalls/FrontWall" instance=ExtResource("11_picture_window")]
+position = Vector3(3.75, 2.1, 0)
+
+[node name="CeilingTrim" type="MeshInstance3D" parent="CutawayWalls/FrontWall"]
+position = Vector3(0, 4.11, -0.14)
+mesh = SubResource("FrontCeilingTrim")
+material_override = SubResource("StandardMaterial3D_pyvnm")
 
 [node name="Interior" type="Node3D" parent="." unique_id=1882850476]
 
@@ -2506,6 +2411,26 @@ outline_size = 8
 [node name="GroundFloorRooms" parent="." instance=ExtResource("7_rooms")]
 
 [node name="LodgeProfile" parent="." instance=ExtResource("8_profile")]
+
+[node name="MantelGreenery" type="Node3D" parent="Interior"]
+position = Vector3(-4.25, 2.43, -2.58)
+scale = Vector3(1.03, 0.78, 0.9)
+script = ExtResource("10_winter_greenery")
+
+[node name="MantelStockingsAndCandles" type="Node3D" parent="Interior"]
+position = Vector3(-4.25, 2.38, -2.60)
+script = ExtResource("12_holiday_props")
+
+[node name="WindowGreenery" type="Node3D" parent="Interior"]
+position = Vector3(0, 3.37, -4.71)
+scale = Vector3(1.2, 1.0, 1.0)
+script = ExtResource("10_winter_greenery")
+
+[node name="WindowFairyLight" type="OmniLight3D" parent="Interior/WindowGreenery"]
+position = Vector3(0, -0.17, 0.22)
+light_color = Color(1, 0.72, 0.43, 1)
+light_energy = 0.37
+omni_range = 3.0
 
 [node name="KitchenBenchFootprint" type="StaticBody3D" parent="Interior"]
 position = Vector3(3.1, 0.53, -3.95)

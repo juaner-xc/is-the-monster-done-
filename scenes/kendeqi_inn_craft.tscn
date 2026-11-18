@@ -1,5 +1,10 @@
 [gd_scene format=4]
 
+[ext_resource type="Script" path="res://scripts/winter_greenery.gd" id="1_winter_greenery"]
+[ext_resource type="Script" path="res://scripts/kendeqi_holiday_props.gd" id="2_holiday_props"]
+[ext_resource type="Script" path="res://scripts/kendeqi_roof_snow.gd" id="3_roof_snow"]
+[ext_resource type="Script" path="res://scripts/kendeqi_facade_dressing.gd" id="4_facade_dressing"]
+
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nkos6"]
 albedo_color = Color(0.49019608, 0.46666667, 0.44705883, 1)
 roughness = 0.84
@@ -6002,6 +6007,14 @@ mesh = SubResource("ArrayMesh_ygd2y")
 material_override = SubResource("ShaderMaterial_do5h8")
 mesh = SubResource("ArrayMesh_l5sxf")
 
+[node name="WinterSnowpack" type="MeshInstance3D" parent="Entrance/SmallSlateGable"]
+script = ExtResource("3_roof_snow")
+depth = 0.24
+spacing = 0.11
+
+[node name="FestivalPorch" type="Node3D" parent="Entrance"]
+script = ExtResource("4_facade_dressing")
+
 [node name="PorchPedimentSill" type="MeshInstance3D" parent="Entrance" unique_id=1626591623]
 transform = Transform3D(0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 3.22, 10.64)
 material_override = SubResource("ShaderMaterial_4xknp")
@@ -6013,6 +6026,20 @@ material_override = SubResource("ShaderMaterial_4xknp")
 mesh = SubResource("BoxMesh_746ww")
 
 [node name="HalfTimberedFacade" type="Node3D" parent="." unique_id=1777571986]
+
+[node name="FacadeWreath" type="Node3D" parent="HalfTimberedFacade"]
+position = Vector3(0, 6.30, 7.05)
+scale = Vector3(1.92, 1.92, 1.62)
+script = ExtResource("1_winter_greenery")
+shape = 1
+
+[node name="FestivalWindowBoxes" type="Node3D" parent="HalfTimberedFacade"]
+script = ExtResource("4_facade_dressing")
+placement = 1
+
+[node name="UpperFestivalFacade" type="Node3D" parent="HalfTimberedFacade"]
+script = ExtResource("4_facade_dressing")
+placement = 3
 
 [node name="OverhangingBelt" type="MeshInstance3D" parent="HalfTimberedFacade" unique_id=70719906]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.09, 6.76)
@@ -11529,6 +11556,16 @@ mesh = SubResource("ArrayMesh_ao536")
 material_override = SubResource("ShaderMaterial_do5h8")
 mesh = SubResource("ArrayMesh_m3jaw")
 
+[node name="WinterSnowpack" type="MeshInstance3D" parent="BayWindow/SmallSlateGable"]
+script = ExtResource("3_roof_snow")
+depth = 0.19
+spacing = 0.085
+
+[node name="BayWindowGreenery" type="Node3D" parent="BayWindow/FrontGlazing"]
+position = Vector3(0, -1.99, -1.32)
+script = ExtResource("4_facade_dressing")
+placement = 2
+
 [node name="LeftPlasterSill" type="StaticBody3D" parent="BayWindow" unique_id=1486225073]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.25, 0.54, -0.01)
 
@@ -11553,6 +11590,11 @@ shape = SubResource("BoxShape3D_5j4hx")
 
 [node name="GreatDiningTable" type="Node3D" parent="DiningHall" unique_id=122676025]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -4.26, 0, 1.59)
+
+[node name="HolidayTableSetting" type="Node3D" parent="DiningHall/GreatDiningTable"]
+position = Vector3(1.63, 1.154, 0)
+script = ExtResource("2_holiday_props")
+placement = 1
 
 [node name="OakSlab" type="StaticBody3D" parent="DiningHall/GreatDiningTable" unique_id=1140270494]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.04, 0)

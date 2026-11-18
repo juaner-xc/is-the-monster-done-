@@ -47,6 +47,7 @@ var _door_block: CollisionShape3D
 var _door_hint: Label3D
 var _player_near := false
 var _door_open := false
+var key_returned := false
 var _open_t := 0.0
 
 
@@ -81,6 +82,10 @@ func _ready() -> void:
 	_build_stairway(trim)
 	_build_interior(inner, trim, floor_mat, glow)
 	_build_door(door, trim, metal)
+	add_to_group("ice_castle")
+	if RunState.ice_castle_keys_returned:
+		key_returned = true
+		_door_open = true
 	set_process(not Engine.is_editor_hint())
 
 
@@ -718,6 +723,33 @@ func _banquet_paintings(g: Node3D, _frame: Material, _canvas: Material,
 					Vector3(-s * 0.10, 2.02, -1.05 + float(t) * 2.10), tape)
 			tp.rotation.x = deg_to_rad(18.0 if t == 0 else -16.0)
 
+	# 喷泉正上方后墙中央的放大照片：比两侧拍立得大一圈（底边略高于喷泉顶球）
+	# 注意 z：中心哥特窗的实心框板在 z=-7.0~-6.8、窗棂在 -6.74~-6.62，
+	# 画像必须前移到 -6.55 才不会被中央窗整块挡住（x=0 正对中心窗）
+	var big := Node3D.new()
+	big.name = "MasterPortrait"
+	big.position = Vector3(0.0, HALL_FLOOR + 7.0, -6.55)
+	g.add_child(big)
+	_box(big, "MasterPortraitCard", Vector3(3.6, 4.5, 0.12), Vector3.ZERO, paper)
+	_photo_face(big, "MasterPortraitFace", Vector2(3.0, 3.7),
+			Vector3(0.0, 0.30, 0.10), 0.0, _painting_material("p8_master.jpg"))
+	var tag := _box(big, "OldCargoTag", Vector3(0.62, 0.37, 0.022),
+			Vector3(0.84, -2.27, 0.12), _ice_mat(Color("bf9b6b"), 0.05))
+	tag.rotation.z = -0.13
+	var stamp := Label3D.new()
+	stamp.text = "✧"
+	stamp.modulate = Color("704631")
+	stamp.font_size = 54
+	stamp.pixel_size = 0.004
+	stamp.outline_size = 0
+	stamp.position = Vector3(0.08, -0.07, 0.017)
+	tag.add_child(stamp)
+	for t in 2:
+		var btp := _box(big, "MasterPortraitTape%d" % t,
+				Vector3(1.15, 0.62, 0.03),
+				Vector3(-1.30 + float(t) * 2.60, 2.32, 0.10), tape)
+		btp.rotation.z = deg_to_rad(16.0 if t == 0 else -14.0)
+
 
 ## 单面 QuadMesh：UV 固定为整张贴图（0..1），不会像薄 Box 那样被各面裁切。
 func _photo_face(parent: Node3D, nm: String, size: Vector2,
@@ -1094,8 +1126,15 @@ func _process(delta: float) -> void:
 		_door_block.disabled = _open_t > 0.5
 	if _door_hint != null:
 		_door_hint.visible = _player_near
-		_door_hint.text = "按 Enter 关门" if _door_open else "按 Enter 开门"
+		if not key_returned and not _door_open:
+			_door_hint.text = "门锁着，需要钥匙"
+		else:
+			_door_hint.text = "按 Enter 关门" if _door_open else "按 Enter 开门"
 
+
+func open_by_key() -> void:
+	key_returned = true
+	_door_open = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint() or not _player_near:
@@ -1104,6 +1143,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var ek := event as InputEventKey
 	if ek.pressed and not ek.echo and (ek.keycode == KEY_ENTER or ek.keycode == KEY_KP_ENTER):
+		if not _door_open and not key_returned:
+			if _door_hint != null:
+				_door_hint.text = "门锁着，需要钥匙"
+			return
 		_door_open = not _door_open
 		get_viewport().set_input_as_handled()
 

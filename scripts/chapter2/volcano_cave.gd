@@ -6,6 +6,7 @@ const TITLE_SCENE := "res://scenes/front_end.tscn"
 const CavePlayerScript = preload("res://scripts/chapter2/cave_player.gd")
 const CameraScript = preload("res://scripts/third_person_camera.gd")
 const CaveEntranceScript = preload("res://scripts/chapter2/cave_entrance.gd")
+const MAT := preload("res://scripts/chapter2/ch02_materials.gd")
 
 # HUD 配色沿用第一章 hud.gd
 const INK := Color("3a2418")
@@ -20,6 +21,19 @@ const ORANGE := Color("f28b2f")
 const L0_Y := 0.58
 const L1_Y := 5.23
 const L2_Y := 9.88
+const L3_Y := 14.53
+## 2F 中央广场：中央、左仓库、右厨房，短桥连接。
+const MID_Z := -14.0
+const KITCHEN_CENTER := Vector3(-17.0, L1_Y, MID_Z)
+const WAREHOUSE_CENTER := Vector3(-61.0, L1_Y, MID_Z)
+const HUB_MID_CENTER := Vector3(-39.0, L1_Y, MID_Z)
+## 2F → 3F 梯在广场北沿正中；3F → 4F 梯在运输站北沿。
+const STAIR_HUB_X := -39.0
+const STAIR_HUB_Z := -18.0
+const STAIR_CORE_X := -39.0
+const STAIR_CORE_Z := -56.0
+## 临时预览：打开 3F→4F 前置门和 Boss 门，方便查看圆厅；确认后改回 false。
+const REVIEW_OPEN_CORE_GATE := true
 ## 主炉轴线：整关沿 X=-39 向 -Z 叠层，炉口在 -Z 尽头
 const AXIS_X := -39.0
 ## 三层石厅的庭院半宽：从轴线到拱廊内脚
@@ -67,8 +81,6 @@ var _notice_panel: PanelContainer
 var _lava_blocks: Array = []
 
 
-var travel_menu = preload("res://scripts/travel_kitchen.gd").new()
-
 func _ready() -> void:
 	_entry_handoff_active = CinematicFlow.from_film
 	# 转场影片（包括跳过影片）演的就是「陶陶初遇」，进场时这一章已经算认识她了：
@@ -92,7 +104,6 @@ func _ready() -> void:
 	_push_lava_to_edge()
 	_build_scatter()
 	_build_atmosphere()
-	_build_route_signs()
 	_apply_three_layer_topology()
 	_build_topology_zones()
 	_bind_merged_characters()
@@ -108,13 +119,11 @@ func _ready() -> void:
 	# 主炉是整关的视觉地标，它的灯必须在大雾里也照得到，所以放在
 	# 渲染预算（距离淡出）之后再建，避免被 24 m 淡出掐掉。
 	_build_main_furnace()
+	_build_boss_boiler()
 	_raise_shell_over_furnace()
+	_remove_shell_over_boss()
 	_build_axis_banners()
 	_build_hud()
-
-	add_child(travel_menu)
-	travel_menu.setup(self,2)
-	travel_menu.stove_position = player.global_position
 	# 淡入要等 HUD 建好（黑场图层在 HUD 里）才能启动
 	if riding:
 		if _entry_handoff_active:
@@ -159,9 +168,9 @@ func _build_volcano_terraces() -> void:
 func _clear_props_in_built_areas() -> void:
 	var zones := [
 		Rect2(-54.0, 2.0, 42.0, 36.0),    # 生活区地台
-		Rect2(-10.0, 0.0, 42.0, 40.0),    # 运输站
-		Rect2(44.0, 0.0, 36.0, 30.0),     # 主炉控制区
-		Rect2(56.0, -2.0, 44.0, 44.0),    # 千席宴炉
+		Rect2(-76.0, -24.0, 74.0, 20.0),  # 2F 中央广场 + 仓库/厨房
+		Rect2(-59.0, -63.0, 40.0, 38.0),  # 3F 运输站
+		Rect2(-61.0, -119.0, 42.0, 58.0), # 4F 控制区 + 宴炉 + 主炉
 		Rect2(-38.0, 38.0, 110.0, 58.0),  # 南侧四层台地与熔岩湖
 		Rect2(-38.0, -52.0, 110.0, 44.0), # 北侧四层台地与熔岩湖
 		Rect2(18.0, -10.0, 60.0, 12.0),   # 北湖东段的岸边
@@ -208,6 +217,7 @@ func _build_atmosphere() -> void:
 	_build_ash()
 	_build_lava_glow()
 	_build_lava_stalactites()
+	_raise_ceiling_props()
 	_build_tunnel_fill()
 
 
@@ -221,7 +231,7 @@ func _build_route_signs() -> void:
 		return
 	var sx := AXIS_X - 5.5
 	_add_route_sign(Vector3(sx, L0_Y, 2.0), 5.0, "运输站  ↑", "中央大阶梯 · 18 级")
-	_add_route_sign(Vector3(sx, L1_Y, -12.0), 3.6, "B 仓库 ← · C 厨房 →", "D 平台 · 支阀")
+	_add_route_sign(Vector3(sx, L1_Y, -12.0), 3.6, "← 备用小厨房    原料仓库 →", "B 台地 / C 台地 · D 平台")
 	_add_route_sign(Vector3(sx, L1_Y, -46.0), 3.6, "主炉广场  ↑", "关阀 · 清怪")
 	_add_route_sign(Vector3(sx, L2_Y, -60.0), 3.6, "主炉控制区", "控制台 · 三道阀")
 	_add_route_sign(Vector3(sx, L2_Y, -82.0), 3.6, "千席宴炉  →", "Boss 场")
@@ -253,68 +263,325 @@ func _apply_three_layer_topology() -> void:
 	stone.emission_energy_multiplier = 0.18
 	stone.roughness = 0.96
 
-	# 中层（L1）：D=中枢空地，B=仓库，C=厨房
-	_topo_move_terrace(terrace_d, Vector3(AXIS_X, L1_Y, -14.0))
-	_topo_move_terrace(terrace_b, Vector3(-61.0, L1_Y, -14.0))
-	_topo_move_terrace(terrace_c, Vector3(-17.0, L1_Y, -14.0))
-	# 台面视觉补层：原平台材质在暖光下发黑，补一层浅色石面让站位可见。
-	_topo_deck_overlay(Vector3(AXIS_X, L1_Y, -14.0), Vector2(12.0, 12.0))
-	_topo_deck_overlay(Vector3(-61.0, L1_Y, -14.0), Vector2(16.0, 14.0))
-	_topo_deck_overlay(Vector3(-17.0, L1_Y, -14.0), Vector2(14.0, 12.0))
-	_mid_support(Vector3(AXIS_X, L1_Y, -14.0), Vector2(12.0, 12.0), stone, "Topo_Support_Hub")
-	_mid_support(Vector3(-61.0, L1_Y, -14.0), Vector2(16.0, 14.0), stone, "Topo_Support_Warehouse")
-	_mid_support(Vector3(-17.0, L1_Y, -14.0), Vector2(14.0, 12.0), stone, "Topo_Support_Kitchen")
-	_mid_bridge(Vector3(-49.0, L1_Y - 0.06, -14.0), Vector3(8.0, 0.4, 4.0), stone, "Topo_Bridge_Left")
-	_mid_bridge(Vector3(-28.5, L1_Y - 0.06, -14.0), Vector3(9.0, 0.4, 4.0), stone, "Topo_Bridge_Right")
-	# 桥与台面接缝补薄石台，消除台阶感
-	_mid_bridge(Vector3(-53.0, L1_Y - 0.06, -14.0), Vector3(3.0, 0.4, 4.0), stone, "Topo_Seam_Left")
-	_mid_bridge(Vector3(-24.0, L1_Y - 0.06, -14.0), Vector3(3.0, 0.4, 4.0), stone, "Topo_Seam_Right")
+	# 2F（L1）：中央广场居中，左仓库、右厨房，台面直接搭接。
+	_topo_move_terrace(terrace_d, HUB_MID_CENTER)
+	_topo_move_terrace(terrace_b, WAREHOUSE_CENTER)
+	_topo_move_terrace(terrace_c, KITCHEN_CENTER)
+	_topo_deck_overlay(HUB_MID_CENTER, Vector2(20.0, 16.0))
+	_topo_deck_overlay(WAREHOUSE_CENTER, Vector2(26.0, 16.0))
+	_topo_deck_overlay(KITCHEN_CENTER, Vector2(28.0, 20.0))
+	_mid_support(HUB_MID_CENTER, Vector2(20.0, 16.0), stone, "Topo_Support_Hub", false)
+	_mid_support(WAREHOUSE_CENTER, Vector2(26.0, 16.0), stone, "Topo_Support_Warehouse", false)
+	_mid_support(KITCHEN_CENTER, Vector2(28.0, 20.0), stone, "Topo_Support_Kitchen", false)
 
-	# L0 → L1：中央大阶梯（18 级 × 0.26 m，6 m 宽），正对主炉轴线
-	_topo_stairs(Vector3(AXIS_X, L0_Y, 1.7), L1_Y - L0_Y, 6.0, stone, "Topo_Stairs_Low_Hub")
-	_mid_bridge(Vector3(AXIS_X, L1_Y, -7.6), Vector3(6.4, 0.4, 5.6), stone, "Topo_Landing_L1")
+	# L0 → L1：中央大阶梯。梯顶比 2F 地面高 0.4m，直接落回台面。
+	_topo_stairs(Vector3(AXIS_X, L0_Y, 1.0), L1_Y - L0_Y + 0.4, 6.0, stone, "Topo_Stairs_Low_Hub")
+	_mid_bridge(Vector3(AXIS_X, L1_Y, -9.0), Vector3(6.4, 0.4, 4.8), stone, "Topo_Landing_L1")
 
-	# 运输站/控制区/宴炉：整段沿 -Z 挪到轴线上
-	_topo_move_section(blocks.get("_transport_section"), Vector3(-53.5, 0.0, -58.0))
-	_topo_move_section(blocks.get("_core_section"), Vector3(-87.5, 0.0, -87.0))
-	_topo_move_section(blocks.get("_boss_section"), Vector3(-121.5, 0.0, -115.0))
+	# 运输站/控制区/宴炉：整段北移并上移，x 对齐主炉轴线
+	_topo_move_section(blocks.get("_transport_section"), Vector3(-55.5, 0.0, -64.0))
+	_topo_move_section(blocks.get("_core_section"), Vector3(-89.5, 0.0, -94.0))
+	_topo_move_section(blocks.get("_boss_section"), Vector3(-123.5, 0.0, -122.0))
 
-	# L1 → L2：第二道大阶梯，落在控制区门口
-	_topo_stairs(Vector3(AXIS_X, L1_Y, -49.0), L2_Y - L1_Y, 6.0, stone, "Topo_Stairs_Transport_Core")
-	_mid_bridge(Vector3(AXIS_X, L2_Y, -57.35), Vector3(6.4, 0.4, 3.6), stone, "Topo_Landing_L2")
-	# L2 内部：控制区 ↔ 千席宴炉 同层，只补平台接缝
-	_mid_bridge(Vector3(-37.0, L2_Y - 0.06, -79.0), Vector3(12.0, 0.4, 4.2), stone, "Topo_Seam_Boss")
+	# 2F → 3F：广场北沿正中上运输站
+	_topo_stairs(Vector3(STAIR_HUB_X, L1_Y, STAIR_HUB_Z), L2_Y - L1_Y + 0.4, 6.0, stone, "Topo_Stairs_Hub_Transport")
+	_mid_bridge(Vector3(STAIR_HUB_X, L2_Y, -26.0), Vector3(6.4, 0.4, 1.6), stone, "Topo_Landing_L2")
+	# 3F → 4F：运输站北沿上控制区
+	_topo_stairs(Vector3(STAIR_CORE_X, L2_Y, STAIR_CORE_Z), L3_Y - L2_Y + 0.4, 6.0, stone, "Topo_Stairs_Transport_Core")
+	_mid_bridge(Vector3(STAIR_CORE_X, L3_Y, -65.0), Vector3(6.4, 0.4, 2.8), stone, "Topo_Landing_L3")
+	_mid_bridge(Vector3(AXIS_X, L3_Y - 0.01, -85.6), Vector3(12.0, 0.4, 3.2), stone, "Topo_Seam_Boss")
 	_build_topo_stairs_gate()
+	_build_mid_architecture(stone)
+	_build_transport_pipe()
+	call_deferred("_clean_south_block_row")
+
+
+## 2F 的支撑、房间围合、屋顶、桥拱、柱列与栏杆。
+func _build_mid_architecture(mat: Material) -> void:
+	var script: Script = load("res://scripts/chapter2/ch02_mid_architecture.gd") as Script
+	if script == null:
+		return
+	var node: Node3D = script.new()
+	node.name = "MidArchitecture"
+	add_child(node)
+	node.call("setup", self, mat)
+
+
+## 生活区南沿遗留的一排低矮方块（旧台阶/墙垛残件），玩家一直问“怎么删不掉”。
+## 它们挂在关卡根节点下，不在 WorkshopHub 里，所以按位置清掉。
+func _clean_south_block_row() -> void:
+	for child in get_children():
+		if not (child is MeshInstance3D):
+			continue
+		var mi := child as MeshInstance3D
+		if not (mi.mesh is BoxMesh):
+			continue
+		var box := mi.mesh as BoxMesh
+		if box.size.y > 1.6:
+			continue
+		var p := mi.global_position
+		if p.z > 26.0 and p.z < 28.5 and p.x > -50.0 and p.x < -18.0:
+			mi.queue_free()
+
+
+## 生活区与运输站的古典高路灯 + 亮色旗帜。
+func _build_chapter_lanterns() -> void:
+	var iron := MAT.iron(Color(0.10, 0.095, 0.09))
+	var cloth := StandardMaterial3D.new()
+	cloth.albedo_color = Color(0.62, 0.08, 0.045)
+	cloth.roughness = 0.9
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.90, 0.66, 0.22)
+	gold.metallic = 0.6
+	gold.roughness = 0.3
+	var spots := [
+		[Vector3(-52.0, 0.58, 33.0), 5.4],
+		[Vector3(-22.0, 0.58, 33.0), 5.4],
+		[Vector3(-54.0, 9.88, -36.0), 4.8],
+		[Vector3(-24.0, 9.88, -36.0), 4.8],
+	]
+	for spec in spots:
+		var base: Vector3 = spec[0]
+		var h: float = spec[1]
+		var post := MeshInstance3D.new()
+		var pm := CylinderMesh.new()
+		pm.top_radius = 0.12
+		pm.bottom_radius = 0.20
+		pm.height = h
+		pm.radial_segments = 10
+		post.mesh = pm
+		post.position = base + Vector3(0, h * 0.5, 0)
+		post.material_override = iron
+		add_child(post)
+		var lamp := MeshInstance3D.new()
+		var lm := SphereMesh.new()
+		lm.radius = 0.34
+		lm.height = 0.62
+		lamp.mesh = lm
+		lamp.position = base + Vector3(0, h + 0.2, 0)
+		var glow := StandardMaterial3D.new()
+		glow.albedo_color = Color(1.0, 0.72, 0.36)
+		glow.emission_enabled = true
+		glow.emission = Color(1.0, 0.58, 0.22)
+		glow.emission_energy_multiplier = 2.2
+		lamp.material_override = glow
+		add_child(lamp)
+		var light := OmniLight3D.new()
+		light.position = base + Vector3(0, h + 0.2, 0)
+		light.light_color = Color(1.0, 0.62, 0.30)
+		light.light_energy = 1.8
+		light.omni_range = 12.0
+		light.shadow_enabled = false
+		add_child(light)
+		# 亮红长旗 + 金色圆徽
+		var banner := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(1.25, 2.8, 0.06)
+		banner.mesh = bm
+		banner.position = base + Vector3(0.85, h - 1.5, 0.0)
+		banner.material_override = cloth
+		add_child(banner)
+		var emblem := MeshInstance3D.new()
+		var em := CylinderMesh.new()
+		em.top_radius = 0.26
+		em.bottom_radius = 0.26
+		em.height = 0.06
+		em.radial_segments = 16
+		emblem.mesh = em
+		emblem.rotation.x = PI * 0.5
+		emblem.position = base + Vector3(0.85, h - 1.1, 0.05)
+		emblem.material_override = gold
+		add_child(emblem)
+
+
+## 西侧运输管：从隧道外西侧起，沿南北向绕过西侧仓库，逐层升到运输站、控制区和 Boss 厅。
+## 只做视觉引导，不加碰撞，避免再次挡路。
+func _build_transport_pipe() -> void:
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.16, 0.15, 0.14)
+	metal.metallic = 0.7
+	metal.roughness = 0.38
+	var ember := StandardMaterial3D.new()
+	ember.albedo_color = Color(0.9, 0.18, 0.04)
+	ember.emission_enabled = true
+	ember.emission = Color(1.0, 0.22, 0.04)
+	ember.emission_energy_multiplier = 1.8
+	var path := [
+		Vector3(-52.0, 1.15, 47.0),
+		Vector3(-58.0, 1.15, 43.0),
+		Vector3(-66.0, 3.2, 36.0),
+		Vector3(-66.0, 3.2, 22.0),
+		Vector3(-77.0, 8.0, 4.0),
+		Vector3(-77.0, 8.0, -26.0),
+		Vector3(-60.0, 12.6, -42.0),
+		Vector3(-60.0, 12.6, -70.0),
+		Vector3(-60.0, 18.0, -84.0),
+		Vector3(-56.5, 18.0, -104.0),
+	]
+	for i in range(path.size() - 1):
+		_pipe_world(path[i], path[i + 1], 0.23, metal)
+	for i in range(1, path.size() - 1):
+		_pipe_ball(path[i], 0.28, metal)
+	for i in [2, 4, 6, 8]:
+		_pipe_ball(path[i], 0.36, ember)
+	# 沿线的支撑柱，让长管有落点
+	for spec in [
+		[Vector3(-66.0, 0.0, 22.0), 3.2],
+		[Vector3(-77.0, 0.0, -10.0), 8.0],
+		[Vector3(-60.0, 0.0, -52.0), 12.6],
+		[Vector3(-60.0, 0.0, -88.0), 18.0],
+	]:
+		_pipe_world(spec[0], spec[0] + Vector3(0, spec[1], 0), 0.16, metal)
+	for p in [Vector3(-69.0, 3.2, 22.0), Vector3(-69.0, 8.0, -10.0),
+			Vector3(-63.0, 12.6, -52.0), Vector3(-63.0, 18.0, -88.0)]:
+		var lamp := OmniLight3D.new()
+		lamp.position = p + Vector3(0, 0.6, 0)
+		lamp.light_color = Color(1.0, 0.42, 0.16)
+		lamp.light_energy = 1.2
+		lamp.omni_range = 5.0
+		lamp.shadow_enabled = false
+		add_child(lamp)
+
+
+func _pipe_world(a: Vector3, b: Vector3, radius: float, mat: Material) -> void:
+	var length := a.distance_to(b)
+	if length < 0.05:
+		return
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = radius
+	cyl.bottom_radius = radius
+	cyl.height = length
+	var node := MeshInstance3D.new()
+	node.mesh = cyl
+	node.position = (a + b) * 0.5
+	node.quaternion = Quaternion(Vector3.UP, (b - a).normalized())
+	node.material_override = mat
+	add_child(node)
+
+
+func _pipe_ball(p: Vector3, radius: float, mat: Material) -> void:
+	var sphere := SphereMesh.new()
+	sphere.radius = radius
+	sphere.height = radius * 2.0
+	var node := MeshInstance3D.new()
+	node.mesh = sphere
+	node.position = p
+	node.material_override = mat
+	add_child(node)
 
 
 ## 运输站→控制区抬高栈道的前置门：仓库能源、运输站阀门、厨房分流全部完成后才打开。
 func _build_topo_stairs_gate() -> void:
+	if REVIEW_OPEN_CORE_GATE:
+		_topo_stairs_gate = null
+		return
 	var body := StaticBody3D.new()
 	body.name = "Topo_StairsGate"
-	body.position = Vector3(AXIS_X, L1_Y + 1.6, -49.0)
+	body.position = Vector3(AXIS_X, L2_Y + 1.2, -55.0)
 	add_child(body)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(6.0, 3.2, 0.35)
+	box.size = Vector3(6.0, 2.4, 0.35)
 	shape.shape = box
 	body.add_child(shape)
 	var metal := StandardMaterial3D.new()
-	metal.albedo_color = Color(0.18, 0.16, 0.15)
-	metal.metallic = 0.65
-	metal.roughness = 0.4
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = box.size
-	mi.mesh = bm
-	mi.material_override = metal
-	body.add_child(mi)
+	metal.albedo_color = Color(0.48, 0.50, 0.52)
+	metal.metallic = 0.55
+	metal.roughness = 0.45
+	var stone := StandardMaterial3D.new()
+	stone.albedo_color = Color(0.36, 0.37, 0.38)
+	stone.roughness = 0.9
+	# 门框 + 竖栅栏，不要一块实心墙
+	for spec in [
+		[Vector3(6.4, 0.35, 0.55), Vector3(0, 1.2, 0), stone],
+		[Vector3(0.45, 2.4, 0.55), Vector3(-2.95, 0, 0), stone],
+		[Vector3(0.45, 2.4, 0.55), Vector3(2.95, 0, 0), stone],
+		[Vector3(6.4, 0.2, 0.55), Vector3(0, -1.1, 0), stone],
+		[Vector3(6.0, 0.1, 0.16), Vector3(0, 0.55, 0.08), metal],
+		[Vector3(6.0, 0.1, 0.16), Vector3(0, -0.55, 0.08), metal],
+	]:
+		var part := MeshInstance3D.new()
+		var pmesh := BoxMesh.new()
+		pmesh.size = spec[0]
+		part.mesh = pmesh
+		part.position = spec[1]
+		part.material_override = spec[2]
+		body.add_child(part)
+	for i in range(9):
+		var bar := MeshInstance3D.new()
+		var bmesh := BoxMesh.new()
+		bmesh.size = Vector3(0.1, 2.1, 0.1)
+		bar.mesh = bmesh
+		bar.position = Vector3(-2.4 + 0.6 * float(i), 0, 0.06)
+		bar.material_override = metal
+		body.add_child(bar)
+	# 中央锁盘 + 三枚前置指示灯
+	var lock := MeshInstance3D.new()
+	var lock_mesh := CylinderMesh.new()
+	lock_mesh.top_radius = 0.45
+	lock_mesh.bottom_radius = 0.45
+	lock_mesh.height = 0.14
+	lock_mesh.radial_segments = 20
+	lock.mesh = lock_mesh
+	lock.rotation.x = PI * 0.5
+	lock.position = Vector3(0, 0, 0.28)
+	lock.material_override = metal
+	body.add_child(lock)
+	var glow_mat := StandardMaterial3D.new()
+	glow_mat.albedo_color = Color(0.9, 0.25, 0.05)
+	glow_mat.emission_enabled = true
+	glow_mat.emission = Color(1.0, 0.25, 0.03)
+	glow_mat.emission_energy_multiplier = 2.0
+	for sx in [-1.8, 0.0, 1.8]:
+		var lamp := MeshInstance3D.new()
+		var sphere := SphereMesh.new()
+		sphere.radius = 0.11
+		sphere.height = 0.22
+		lamp.mesh = sphere
+		lamp.position = Vector3(sx, 1.12, 0.28)
+		lamp.material_override = glow_mat
+		body.add_child(lamp)
 	var label := Label3D.new()
 	label.text = "三处前置未完成"
 	label.font = ThemeDB.fallback_font
 	label.font_size = 48
 	label.modulate = Color(1.0, 0.62, 0.30)
-	label.position = Vector3(0, 1.75, 0.0)
+	label.position = Vector3(0, 1.55, 0.0)
 	body.add_child(label)
+	# 门两侧萤石路灯：灰色石柱 + 冷蓝晶体 + 发光
+	var lamp_stone := StandardMaterial3D.new()
+	lamp_stone.albedo_color = Color(0.34, 0.35, 0.36)
+	lamp_stone.roughness = 0.85
+	for sx in [-3.6, 3.6]:
+		var post := MeshInstance3D.new()
+		var pmesh := CylinderMesh.new()
+		pmesh.top_radius = 0.12
+		pmesh.bottom_radius = 0.18
+		pmesh.height = 2.0
+		post.mesh = pmesh
+		post.position = Vector3(sx, -0.2, 0.0)
+		post.material_override = lamp_stone
+		body.add_child(post)
+		var crystal := MeshInstance3D.new()
+		var cm := SphereMesh.new()
+		cm.radius = 0.24
+		cm.height = 0.5
+		crystal.mesh = cm
+		crystal.position = Vector3(sx, 0.95, 0.0)
+		var cglow := StandardMaterial3D.new()
+		cglow.albedo_color = Color(0.45, 0.75, 0.95)
+		cglow.emission_enabled = true
+		cglow.emission = Color(0.35, 0.7, 1.0)
+		cglow.emission_energy_multiplier = 1.8
+		crystal.material_override = cglow
+		body.add_child(crystal)
+		var light := OmniLight3D.new()
+		light.position = Vector3(sx, 1.0, 0.4)
+		light.light_color = Color(0.35, 0.65, 1.0)
+		light.light_energy = 1.4
+		light.omni_range = 6.0
+		light.shadow_enabled = false
+		body.add_child(light)
 	_topo_stairs_gate = body
 
 
@@ -461,17 +728,11 @@ func _topo_stairs(start: Vector3, rise: float, width: float, mat: Material,
 	body.name = label
 	body.position = start + Vector3(0, 0, -run * 0.5)
 	add_child(body)
-	# 顶级向落台延伸，让角色的胶囊碰撞体越过坡顶再接触落台边缘。
-	var landing_overlap := 0.6
 	var wedge := ConvexPolygonShape3D.new()
 	wedge.points = PackedVector3Array([
 		Vector3(-hw, 0.0, run * 0.5), Vector3(hw, 0.0, run * 0.5),
 		Vector3(-hw, 0.0, -run * 0.5), Vector3(hw, 0.0, -run * 0.5),
 		Vector3(-hw, rise, -run * 0.5), Vector3(hw, rise, -run * 0.5),
-		Vector3(-hw, 0.0, -run * 0.5 - landing_overlap),
-		Vector3(hw, 0.0, -run * 0.5 - landing_overlap),
-		Vector3(-hw, rise, -run * 0.5 - landing_overlap),
-		Vector3(hw, rise, -run * 0.5 - landing_overlap),
 	])
 	var shape := CollisionShape3D.new()
 	shape.shape = wedge
@@ -489,9 +750,6 @@ func _topo_stairs(start: Vector3, rise: float, width: float, mat: Material,
 		mi.material_override = mat
 		mi.position = Vector3(0.0, (step_top - plinth) * 0.5,
 				run * 0.5 - tread * (float(i) + 0.5))
-		if i == steps - 1:
-			bm.size.z += landing_overlap
-			mi.position.z -= landing_overlap * 0.5
 		body.add_child(mi)
 	# 两侧只留碰撞挡墙（观感上梯体已经是实心的了）。
 	# 以前这里还有一排 0.9 m 的护墙板，全都是悬空薄片；换成贴坡石栏之后
@@ -543,8 +801,8 @@ func _build_topology_zones() -> void:
 		return
 	var low: Vector3 = workshop_hub.global_position
 	_add_topology_zone("Zone_Lower_CircleBase", Vector3(low.x, 0.6, low.z), Vector2(52.0, 42.0))
-	_add_topology_zone("Zone_Mid_HubArea", Vector3(AXIS_X, L1_Y, -14.0), Vector2(18.0, 18.0))
-	_add_topology_zone("Zone_High_MainFurnace", Vector3(AXIS_X, L2_Y, -95.0), Vector2(28.0, 28.0))
+	_add_topology_zone("Zone_Mid_HubArea", Vector3(AXIS_X, L1_Y, MID_Z), Vector2(70.0, 24.0))
+	_add_topology_zone("Zone_High_MainFurnace", Vector3(AXIS_X, L3_Y, -102.0), Vector2(44.0, 64.0))
 
 
 func _add_topology_zone(zone_name: String, center: Vector3, size: Vector2) -> void:
@@ -726,7 +984,7 @@ func _build_lava_stalactites() -> void:
 		basalt.emission_energy_multiplier = 1.0
 		instance.material_override = basalt
 		instance.scale = Vector3.ONE * scale_factor
-		instance.position = Vector3(spot.x, ground + 26.0, spot.z)
+		instance.position = Vector3(spot.x, ground + 50.0, spot.z)
 		add_child(instance)
 
 		# 尖端下面一小段发光的「滴落」
@@ -736,13 +994,46 @@ func _build_lava_stalactites() -> void:
 		cylinder.bottom_radius = 0.01
 		cylinder.height = 4.0
 		drip.mesh = cylinder
-		drip.position = Vector3(spot.x, ground + 23.5, spot.z)
+		drip.position = Vector3(spot.x, ground + 47.5, spot.z)
 		var ember := load("res://assets/chapter2/materials/mat_ember.tres") as Material
 		if ember != null:
 			drip.material_override = ember
 		add_child(drip)
 
 		# 钟乳不挂灯：发光的「滴落」本身够了
+
+
+## 洞顶的旧钟乳石/萤石挂得太低，像贴脸的低模。整体抬高并缩小，
+## 让它们退到洞顶背景里；萤石同时压暗自发光，不再像路灯。
+func _raise_ceiling_props() -> void:
+	var rocks := get_node_or_null("Terrain_Main/Props/Rocks")
+	if rocks != null:
+		for node in rocks.get_children():
+			if not String(node.name).begins_with("Stalactite"):
+				continue
+			if node is Node3D:
+				var n := node as Node3D
+				n.position.y += 18.0
+				n.scale *= 0.65
+				# Boss 厅正上方那几块巨型钟乳会变成压顶灰板，直接收掉
+				if String(n.name).begins_with("StalactiteBig") \
+						and Vector2(n.position.x - AXIS_X, n.position.z + 102.0).length() < 30.0:
+					n.visible = false
+	var fluorite := get_node_or_null("Terrain_Main/Props/Fluorite")
+	if fluorite != null:
+		for node in fluorite.get_children():
+			if not (node is MeshInstance3D):
+				continue
+			var mi := node as MeshInstance3D
+			mi.position.y += 9.0
+			mi.scale *= 0.58
+			var mat := mi.material_override as StandardMaterial3D
+			if mat != null:
+				var dim := mat.duplicate() as StandardMaterial3D
+				dim.albedo_color = Color(0.26, 0.31, 0.38)
+				dim.emission = Color(0.22, 0.3, 0.38)
+				dim.emission_energy_multiplier = 0.8
+				mi.material_override = dim
 
 
 ## 洞内太暗：这里把整场景的环境光与既有灯光提亮一档（只修改内存中的副本，不改 tscn）
@@ -922,7 +1213,7 @@ func _process(delta: float) -> void:
 	if riding and minecart != null and is_instance_valid(minecart):
 		# 乘车期间把玩家固定在矿车里
 		player.global_position = minecart.global_position + Vector3.UP * cart_rider_height
-		if Input.is_action_just_pressed("jump"):
+		if Input.is_action_just_pressed("dodge"):
 			_dismount_from_cart()
 	if game_camera != null and player != null:
 		game_camera.follow(player, delta, player.shake)
@@ -997,16 +1288,8 @@ func _spawn_player() -> void:
 	if preview != null:
 		preview.current = false
 
-	var skip_intro := CinematicFlow.has_meta("skip_minecart_intro")
-	if skip_intro:
-		CinematicFlow.remove_meta("skip_minecart_intro")
 	if minecart != null:
-		if skip_intro:
-			minecart.global_position += cave_entrance.cart_forward * cave_entrance.coast_distance
-			player.global_position = minecart.global_position + cave_entrance.cart_forward * 1.5
-			player.reset_physics_interpolation()
-		else:
-			_begin_minecart_ride()
+		_begin_minecart_ride()
 
 
 ## 奶龙出生在隧道深处的矿车里：镜头在洞里、正对洞口；矿车缓缓滑出，
@@ -1063,7 +1346,7 @@ func _play_entry_fade() -> void:
 	tween.tween_callback(func() -> void: _fade_rect.visible = false)
 
 
-## 空格跳车：小幅前跳出矿车，落地后正常操作
+## Shift 下车：小幅前跳出矿车，落地后正常操作
 func _dismount_from_cart() -> void:
 	if not riding:
 		return
@@ -1074,7 +1357,7 @@ func _dismount_from_cart() -> void:
 	if _ride_tween != null and _ride_tween.is_valid():
 		_ride_tween.kill()
 	player.movement_locked = false
-	# 跳车后保留短暂闪避冷却，避免落地前连续闪避
+	# 同一次空格不再触发后空翻闪避
 	player.dodge_cooldown = maxf(player.dodge_cooldown, 0.30)
 	player.velocity = cart_forward * 2.3 + Vector3.UP * 4.4
 	_hide_ride_hint()
@@ -1171,7 +1454,7 @@ func _build_help_bar(root: Control) -> void:
 			_panel_style(Color(0.07, 0.05, 0.04, 0.86), Color(0.95, 0.71, 0.34, 0.55), 16, 1))
 	root.add_child(panel)
 	var help := Label.new()
-	help.text = "WASD 移动    鼠标转镜头    滚轮缩放    左键挥锅    右键调味弹    空格 跳跃/跳车    Shift 闪避    V 挥手    Esc 返回标题"
+	help.text = "WASD 移动    鼠标转镜头    滚轮缩放    左键挥锅    右键调味弹    Shift 下车/闪避    V 挥手    Esc 返回标题"
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	help.add_theme_color_override("font_color", CREAM)
@@ -1194,7 +1477,7 @@ func _build_ride_hint(root: Control) -> void:
 	_ride_hint.modulate.a = 0.0
 	root.add_child(_ride_hint)
 	var hint := Label.new()
-	hint.text = "空格 · 跳下矿车"
+	hint.text = "Shift · 下车"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 20)
@@ -1386,7 +1669,7 @@ func _restore_taotao_on_load() -> void:
 func _build_terrace_c() -> void:
 	if workshop_hub == null:
 		return
-	var script: Script = load("res://scripts/chapter2/ch02_terrace_c.gd") as Script
+	var script: Script = load("res://scripts/chapter2/ch02_terrace_b.gd") as Script
 	if script == null:
 		return
 	var holder := get_node_or_null("Zone_Mid_Exploration")
@@ -1404,7 +1687,7 @@ func _build_terrace_c() -> void:
 func _build_terrace_b() -> void:
 	if workshop_hub == null:
 		return
-	var script: Script = load("res://scripts/chapter2/ch02_terrace_b.gd") as Script
+	var script: Script = load("res://scripts/chapter2/ch02_terrace_c.gd") as Script
 	if script == null:
 		return
 	var holder := get_node_or_null("Zone_Mid_Exploration")
@@ -1414,6 +1697,7 @@ func _build_terrace_b() -> void:
 	var center: Vector3 = workshop_hub.global_transform * Vector3(corridor_x + 4.0, 3.12, -25.0)
 	terrace_b = script.new()
 	terrace_b.name = "TerraceB"
+	terrace_b.set("compact_floor", true)
 	holder.add_child(terrace_b)
 	terrace_b.setup(center)
 
@@ -1444,12 +1728,15 @@ func _clear_route_blockers() -> void:
 
 
 
-func _mid_support(center: Vector3, size: Vector2, mat: Material, label: String) -> void:
-	# 不再用一整面实心墙当承重：四角石柱 + 顶部圈梁，台地下方保持通透。
+func _mid_support(center: Vector3, size: Vector2, mat: Material, label: String,
+		with_ring := true) -> void:
+	# 四角石柱；with_ring=false 时整组不生成（仓库/厨房/广场不需要顶部圈梁）。
 	var root := Node3D.new()
 	root.name = label
 	root.position = center
 	add_child(root)
+	if not with_ring:
+		return
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var px: float = sx * (size.x * 0.5 - 0.85)
@@ -1807,28 +2094,160 @@ func _arcade_crates(at: Vector3, wood: Material) -> void:
 	_shell_trim_box(at + Vector3(-0.1, 1.28, 0.05), Vector3(0.8, 0.7, 0.7), wood)
 
 
+## Boss 主炉：在现有炉口外面再包一层巨大的铆钉锅炉壳体，
+## 把原来的平墙读成圆柱形炉体。
+func _build_boss_boiler() -> void:
+	var mouth := Vector3(AXIS_X, 26.03, -116.3)
+	var metal := MAT.iron(Color(0.16, 0.145, 0.13))
+	var trim := MAT.brass(Color(0.34, 0.29, 0.23))
+	var iron := MAT.iron(Color(0.09, 0.085, 0.08))
+	# 圆柱炉身的弧形分段
+	for i in range(28):
+		var a := TAU * float(i) / 28.0
+		var seg := TAU * 8.8 / 28.0 * 1.08
+		var panel := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(seg, 0.8, 8.4)
+		panel.mesh = bm
+		panel.position = mouth + Vector3(cos(a) * 8.8, sin(a) * 8.8, 0)
+		panel.rotation.z = a + PI * 0.5
+		panel.material_override = metal
+		add_child(panel)
+	# 正面法兰环 + 三道箍
+	for spec in [[7.0, 9.4, -112.0, trim], [8.4, 9.4, -113.0, iron],
+			[8.4, 9.4, -116.0, iron], [8.4, 9.4, -119.0, iron]]:
+		var ring := MeshInstance3D.new()
+		var torus := TorusMesh.new()
+		torus.inner_radius = spec[0]
+		torus.outer_radius = spec[1]
+		torus.rings = 32
+		torus.ring_segments = 6
+		ring.mesh = torus
+		ring.rotation.x = PI * 0.5
+		ring.position = Vector3(mouth.x, mouth.y, spec[2])
+		ring.material_override = spec[3]
+		add_child(ring)
+	# 铆钉、接缝和锈斑，让炉壳不是一块光滑金属
+	var rust := MAT.rust()
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		var rivet := MeshInstance3D.new()
+		var rm := SphereMesh.new()
+		rm.radius = 0.12
+		rm.height = 0.2
+		rivet.mesh = rm
+		rivet.position = Vector3(mouth.x + cos(a) * 8.7, mouth.y + sin(a) * 8.7, -111.7)
+		rivet.material_override = trim
+		add_child(rivet)
+	for i in range(10):
+		var a := TAU * float(i) / 10.0 + 0.23
+		var patch := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(0.8 + 0.4 * sin(float(i) * 1.9), 0.3, 0.06)
+		patch.mesh = pm
+		patch.position = Vector3(mouth.x + cos(a) * 8.85, mouth.y + sin(a) * 8.85, -111.9)
+		patch.rotation.z = a
+		patch.material_override = rust
+		add_child(patch)
+	for i in range(6):
+		var a := TAU * float(i) / 6.0 + 0.15
+		var seam := MeshInstance3D.new()
+		var sm2 := BoxMesh.new()
+		sm2.size = Vector3(0.08, 7.6, 0.08)
+		seam.mesh = sm2
+		seam.position = Vector3(mouth.x + cos(a) * 8.9, mouth.y + sin(a) * 8.9, -111.82)
+		seam.rotation.z = a
+		seam.material_override = iron
+		add_child(seam)
+	# 顶部烟囱
+	var stack := MeshInstance3D.new()
+	var sm := CylinderMesh.new()
+	sm.top_radius = 2.0
+	sm.bottom_radius = 2.4
+	sm.height = 9.0
+	sm.radial_segments = 20
+	stack.mesh = sm
+	stack.position = Vector3(mouth.x, mouth.y + 10.5, -118.0)
+	stack.material_override = metal
+	add_child(stack)
+	var cap := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 2.8
+	cm.bottom_radius = 2.8
+	cm.height = 0.7
+	cm.radial_segments = 20
+	cap.mesh = cm
+	cap.position = Vector3(mouth.x, mouth.y + 15.0, -118.0)
+	cap.material_override = iron
+	add_child(cap)
+	# 左右粗管 + 侧罐
+	for side in [-1.0, 1.0]:
+		_pipe_world(Vector3(mouth.x + side * 8.5, mouth.y - 1.0, -113.0),
+			Vector3(mouth.x + side * 12.0, mouth.y + 1.0, -108.0), 0.38, metal)
+		_pipe_world(Vector3(mouth.x + side * 12.0, mouth.y + 1.0, -108.0),
+			Vector3(mouth.x + side * 12.0, 17.0, -103.0), 0.38, metal)
+		var tank := MeshInstance3D.new()
+		var tm := CylinderMesh.new()
+		tm.top_radius = 1.5
+		tm.bottom_radius = 1.7
+		tm.height = 5.0
+		tm.radial_segments = 16
+		tank.mesh = tm
+		tank.position = Vector3(mouth.x + side * 14.0, 17.0, -108.0)
+		tank.material_override = metal
+		add_child(tank)
+	# 炉口前方的压力表
+	for sx in [-5.4, 5.4]:
+		var gauge := MeshInstance3D.new()
+		var gm := CylinderMesh.new()
+		gm.top_radius = 0.5
+		gm.bottom_radius = 0.5
+		gm.height = 0.12
+		gm.radial_segments = 16
+		gauge.mesh = gm
+		gauge.rotation.x = PI * 0.5
+		gauge.position = Vector3(mouth.x + sx, mouth.y - 4.8, -111.4)
+		var gmat := StandardMaterial3D.new()
+		gmat.albedo_color = Color(0.85, 0.62, 0.22)
+		gmat.emission_enabled = true
+		gmat.emission = Color(1.0, 0.5, 0.12)
+		gmat.emission_energy_multiplier = 1.2
+		gauge.material_override = gmat
+		add_child(gauge)
+	# 冷蓝洞顶补光，压住红色天空的平
+	for sx in [-14.0, 0.0, 14.0]:
+		var blue := OmniLight3D.new()
+		blue.position = Vector3(mouth.x + sx, 34.0, -104.0)
+		blue.light_color = Color(0.28, 0.40, 0.62)
+		blue.light_energy = 3.0
+		blue.omni_range = 44.0
+		blue.shadow_enabled = false
+		add_child(blue)
+
+
 ## 主炉：实体炉膛 + 熔岩瀑布。远景的 FurnaceFacade 保留，作为城市剪影。
 ## 概念图口径：圆炉口 + 双圈环形法兰 + 铆钉、7 m 分股长瀑、不规则岩缘水池、
 ## 两侧飞扶壁拱桥。炉口抬到 base+9.5（长瀑配高口），穹顶相应局部抬升。
 func _build_main_furnace() -> void:
-	var stone := _shell_mat(Color(0.21, 0.19, 0.175), 0.95)
-	var trim := _shell_mat(Color(0.31, 0.27, 0.22), 0.9)
-	var iron := _shell_mat(Color(0.12, 0.11, 0.10), 0.6)
-	var banner := _shell_mat(Color(0.26, 0.045, 0.025), 0.95)
-	var z := -110.0
-	var base_y := L2_Y
+	var stone := MAT.stone(Color(0.21, 0.19, 0.175))
+	var trim := MAT.brass(Color(0.31, 0.27, 0.22))
+	var iron := MAT.iron(Color(0.12, 0.11, 0.10))
+	var banner := MAT.cloth(Color(0.26, 0.045, 0.025))
+	var z := -117.0
+	var base_y := L3_Y
 	# 炉口抬到 base+9.5（19.38 m，压在 20.5 的旧洞顶之下是不行的——
 	# 配套的 _raise_shell_over_furnace 会把炉体正上方穹顶局部抬到 28 m 左右）
-	var mouth_y := base_y + 9.5
+	var mouth_y := base_y + 11.5
 	var r := 5.2
-	var wall_h := 9.5 + r + 2.0
+	var wall_h := 11.5 + r + 2.0
 
 	# 炉体主墙：中间留 13 宽的方洞，洞里看到的其实是圆口——
 	# 洞后垫一块 r7.6 的深色圆盘，透过方洞只能看到圆形内衬
 	var ow := 13.0
 	var open_top := mouth_y + r
 	var open_bottom := mouth_y - r
-	var pier_w := (48.0 - ow) * 0.5
+	var body_w := 20.0
+	var pier_w := (body_w - ow) * 0.5
 	for side in [-1.0, 1.0]:
 		_shell_body(Vector3(AXIS_X + side * (ow * 0.5 + pier_w * 0.5), base_y + wall_h * 0.5, z - 1.6),
 				Vector3(pier_w, wall_h, 3.2), stone)
@@ -1838,13 +2257,29 @@ func _build_main_furnace() -> void:
 			Vector3(ow, open_bottom - base_y, 3.2), stone)
 	# 墙体背后补一整块基座：炉体压到宴炉北缘之后，后半截会探出台地，
 	# 没有这块基座就会悬空。
-	_shell_body(Vector3(AXIS_X, base_y * 0.5, z - 3.0), Vector3(48.0, base_y, 7.0), stone)
-	# 两侧扶壁
+	_shell_body(Vector3(AXIS_X, base_y * 0.5, z - 3.0), Vector3(body_w, base_y, 7.0), stone)
+	# 炉体两侧不再放整块方形扶壁：侧壁会正对玩家，读成一块巨大的灰板。
+	# 改用下方贴墙的窄石箍和管道细节。
 	for side in [-1.0, 1.0]:
-		_shell_body(Vector3(AXIS_X + side * 17.0, base_y + wall_h * 0.5, z + 1.0),
-				Vector3(8.0, wall_h, 6.0), stone)
-		_shell_body(Vector3(AXIS_X + side * 21.0, base_y + 3.6, z + 2.0),
-				Vector3(3.0, 7.2, 4.0), stone)
+		_shell_body(Vector3(AXIS_X + side * 13.5, base_y + 1.2, z + 1.0),
+				Vector3(1.2, 2.4, 3.2), stone)
+	# 炉体侧墙的分缝、横带和竖向金属压条，避免一整块“灰板”
+	for side in [-1.0, 1.0]:
+		var px: float = AXIS_X + side * (ow * 0.5 + pier_w * 0.5)
+		for k in range(1, 6):
+			var yy := base_y + wall_h * float(k) / 6.0
+			_shell_trim_box(Vector3(px, yy, z + 0.02), Vector3(pier_w * 0.9, 0.14, 0.08), trim)
+		for dx in [-2.4, 0.0, 2.4]:
+			_shell_trim_box(Vector3(px + dx, base_y + wall_h * 0.5, z + 0.02),
+					Vector3(0.3, wall_h, 0.1), trim)
+		# 侧壁也要有横向石带，否则从场内看是一块纯黑侧板
+		var side_x: float = AXIS_X + side * (ow * 0.5)
+		for k in range(1, 6):
+			_shell_trim_box(Vector3(side_x, base_y + wall_h * float(k) / 6.0, z - 1.6),
+					Vector3(0.06, 0.14, 3.0), trim)
+		for dz in [-1.1, 0.0, 1.1]:
+			_shell_trim_box(Vector3(side_x, base_y + wall_h * 0.5, z - 1.6 + dz),
+					Vector3(0.08, wall_h, 0.28), trim)
 
 	# 圆形内衬：深色圆盘兜住光，把方洞读成圆口
 	var liner := MeshInstance3D.new()
@@ -1938,6 +2373,13 @@ func _build_main_furnace() -> void:
 		fill.omni_range = 20.0
 		fill.shadow_enabled = false
 		add_child(fill)
+		var side_fill := OmniLight3D.new()
+		side_fill.position = Vector3(AXIS_X + side * 9.0, base_y + 9.0, z + 9.0)
+		side_fill.light_color = Color(1.0, 0.42, 0.16)
+		side_fill.light_energy = 1.8
+		side_fill.omni_range = 18.0
+		side_fill.shadow_enabled = false
+		add_child(side_fill)
 
 	# 立面洗墙：两盏从上前方擦过炉体，把黑墙拉出体积
 	for side in [-1.0, 1.0]:
@@ -2149,7 +2591,7 @@ func _raise_shell_over_furnace() -> void:
 	var mesh := shell.mesh as ArrayMesh
 	if mesh == null:
 		return
-	var center := Vector2(AXIS_X, -108.0)
+	var center := Vector2(AXIS_X, -117.0)
 	var rebuilt := false
 	var prim_types: Array[int] = []
 	var surf_arrays: Array = []
@@ -2166,7 +2608,7 @@ func _raise_shell_over_furnace() -> void:
 				continue
 			var t := clampf(1.0 - d / 24.0, 0.0, 1.0)
 			t = t * t * (3.0 - 2.0 * t)
-			v.y += 8.5 * t
+			v.y += 15.0 * t
 			verts[i] = v
 			changed = true
 		if changed:
@@ -2177,6 +2619,112 @@ func _raise_shell_over_furnace() -> void:
 	if not rebuilt:
 		return
 	# ArrayMesh 不能原地改顶点：先收集全部 surface，再一次清空重建
+	mesh.clear_surfaces()
+	for s in range(surf_arrays.size()):
+		mesh.add_surface_from_arrays(prim_types[s], surf_arrays[s])
+
+
+## Boss 厅正上方不要整块岩壳：直接删掉洞顶三角形，开成真正的天窗。
+func _remove_shell_over_boss() -> void:
+	# 编辑要求：整块岩壳去掉，直接隐藏洞壳，只保留洞外天空与远景
+	var shell_node := get_node_or_null("Terrain_Main/CaveShell") as Node3D
+	if shell_node != null:
+		shell_node.visible = false
+	# 兜底：Boss 厅上方任何仍残留的大块岩板/顶盖一律隐藏
+	for n in find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var aabb: AABB = mi.global_transform * mi.get_aabb()
+		if aabb.position.y < 18.0:
+			continue
+		if aabb.size.x < 12.0 or aabb.size.z < 12.0:
+			continue
+		if Vector2(aabb.get_center().x - AXIS_X, aabb.get_center().z + 102.0).length() < 55.0:
+			mi.visible = false
+	return
+	var shell := get_node_or_null("Terrain_Main/CaveShell/ShellMesh") as MeshInstance3D
+	if shell == null or shell.mesh == null:
+		return
+	var mesh := shell.mesh as ArrayMesh
+	if mesh == null:
+		return
+	var center := Vector2(AXIS_X, -102.0)
+	var prim_types: Array[int] = []
+	var surf_arrays: Array = []
+	var rebuilt := false
+	for s in range(mesh.get_surface_count()):
+		var arrays := mesh.surface_get_arrays(s)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var idx = arrays[Mesh.ARRAY_INDEX]
+		var source := PackedInt32Array()
+		if idx == null:
+			source.resize(verts.size())
+			for i in range(verts.size()):
+				source[i] = i
+		else:
+			source = idx as PackedInt32Array
+		var keep := PackedInt32Array()
+		for t in range(0, source.size() - 2, 3):
+			var a := verts[source[t]]
+			var b := verts[source[t + 1]]
+			var c := verts[source[t + 2]]
+			var cy := (a.y + b.y + c.y) / 3.0
+			var cxz := Vector2((a.x + b.x + c.x) / 3.0, (a.z + b.z + c.z) / 3.0)
+			if cy > 14.0 and cxz.distance_to(center) < 42.0:
+				continue
+			keep.append(source[t])
+			keep.append(source[t + 1])
+			keep.append(source[t + 2])
+		arrays[Mesh.ARRAY_INDEX] = keep
+		prim_types.append(mesh.surface_get_primitive_type(s))
+		surf_arrays.append(arrays)
+		rebuilt = true
+	if not rebuilt:
+		return
+	mesh.clear_surfaces()
+	for s in range(surf_arrays.size()):
+		mesh.add_surface_from_arrays(prim_types[s], surf_arrays[s])
+
+
+## 圆形 Boss 厅的顶部需要净空：把洞顶在半径 18m 内整体抬高 12m，
+## 再向外平滑过渡，避免拱廊和城垛被洞顶切成一块灰板。
+func _raise_shell_over_boss() -> void:
+	var shell := get_node_or_null("Terrain_Main/CaveShell/ShellMesh") as MeshInstance3D
+	if shell == null or shell.mesh == null:
+		return
+	var mesh := shell.mesh as ArrayMesh
+	if mesh == null:
+		return
+	var center := Vector2(AXIS_X, -102.0)
+	var rebuilt := false
+	var prim_types: Array[int] = []
+	var surf_arrays: Array = []
+	for s in range(mesh.get_surface_count()):
+		var arrays := mesh.surface_get_arrays(s)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var changed := false
+		for i in range(verts.size()):
+			var v := verts[i]
+			if v.y < 14.0:
+				continue
+			var d := Vector2(v.x, v.z).distance_to(center)
+			if d > 36.0:
+				continue
+			var t := 1.0
+			if d > 24.0:
+				t = 1.0 - (d - 24.0) / 12.0
+				t = t * t * (3.0 - 2.0 * t)
+			v.y += 14.0 * t
+			verts[i] = v
+			changed = true
+		if changed:
+			arrays[Mesh.ARRAY_VERTEX] = verts
+			rebuilt = true
+		prim_types.append(mesh.surface_get_primitive_type(s))
+		surf_arrays.append(arrays)
+	if not rebuilt:
+		return
 	mesh.clear_surfaces()
 	for s in range(surf_arrays.size()):
 		mesh.add_surface_from_arrays(prim_types[s], surf_arrays[s])
@@ -2204,24 +2752,25 @@ func _build_hall_shell() -> void:
 	var stone := _shell_mat(Color(0.145, 0.155, 0.18), 0.94)
 	var recess := _shell_mat(Color(0.032, 0.035, 0.045), 0.98)
 	var width := HALL_HALF * 2.0
-	# 三层整层石台：L0 营地 / L1 运输站 / L2 主炉广场
+	# 四层石台：L0 生活区 / L2 运输站 / L3 主炉广场（2F 只留建筑台面）
 	_shell_deck(AXIS_X, L0_Y, 14.0, 26.0, width, stone)
-	_shell_deck(AXIS_X, L1_Y, -29.0, 42.0, width, stone, false)
-	_shell_deck(AXIS_X, L2_Y, -84.0, 56.0, width, stone, false)
-	# 前缘券廊：券洞开到行走面，洞里衬暗墙 + 道具 + 暖光
+	_shell_deck(AXIS_X, L2_Y, -44.0, 36.0, width, stone, false)
+	_shell_deck(AXIS_X, L3_Y, -91.0, 54.0, width, stone, false)
+	# 前缘券廊
 	_shell_arcade_band(-8.0, L1_Y, L1_Y - L0_Y, L0_Y, width, recess)
-	_shell_arcade_band(-56.0, L2_Y, L2_Y - L1_Y, L1_Y, width, recess)
-	# 压暗环境后，室内必须自带光源，否则关门就是一块黑
+	_shell_arcade_band(-26.0, L2_Y, L2_Y - L1_Y, L1_Y, width, recess)
 	for spot in [
 		[Vector3(AXIS_X, L1_Y + 4.4, -14.0), 2.6, 26.0],
-		[Vector3(AXIS_X, L1_Y + 4.4, -38.0), 2.8, 30.0],
-		[Vector3(-37.0, L2_Y + 3.2, -67.0), 2.2, 20.0],
-		[Vector3(-37.0, L2_Y + 4.0, -95.0), 2.6, 32.0],
-		# 拱廊洗墙灯：从正前方打亮两层券廊，拱环和券洞才读得出来
+		[Vector3(AXIS_X, L1_Y + 4.4, -34.0), 2.4, 26.0],
+		[Vector3(AXIS_X, L2_Y + 4.4, -44.0), 2.8, 30.0],
+		[Vector3(AXIS_X, L3_Y + 3.2, -74.0), 2.2, 20.0],
+		[Vector3(AXIS_X, L3_Y + 4.0, -102.0), 2.6, 32.0],
 		[Vector3(AXIS_X - 12.0, L0_Y + 2.8, -4.5), 1.8, 18.0],
 		[Vector3(AXIS_X + 12.0, L0_Y + 2.8, -4.5), 1.8, 18.0],
-		[Vector3(AXIS_X - 13.0, L1_Y + 3.0, -52.0), 1.8, 18.0],
-		[Vector3(AXIS_X + 13.0, L1_Y + 3.0, -52.0), 1.8, 18.0],
+		[Vector3(AXIS_X - 13.0, L1_Y + 3.0, -32.0), 1.8, 18.0],
+		[Vector3(AXIS_X + 13.0, L1_Y + 3.0, -32.0), 1.8, 18.0],
+		[Vector3(AXIS_X - 13.0, L2_Y + 3.0, -68.0), 1.8, 18.0],
+		[Vector3(AXIS_X + 13.0, L2_Y + 3.0, -68.0), 1.8, 18.0],
 	]:
 		var lamp := OmniLight3D.new()
 		lamp.position = spot[0]

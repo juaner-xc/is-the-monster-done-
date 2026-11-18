@@ -202,7 +202,7 @@ func _burst():
  add_child(smoke);smoke.position.y=0.7;smoke.emitting=true
  get_tree().create_timer(1.8).timeout.connect(smoke.queue_free)
 
-func _sound(is_bell):
+func _sound(is_bell, distant := false):
  # Synthesized transient and bell; no external sound asset required.
  var rate=22050
  var duration=1.1 if is_bell else 0.48
@@ -215,12 +215,12 @@ func _sound(is_bell):
   else:value=(sin(TAU*(90*t-45*t*t))*0.6+random.randf_range(-0.3,0.3))*exp(-t*11.0)*0.45
   samples.encode_s16(i*2,int(clampf(value,-1,1)*32767))
  var stream=AudioStreamWAV.new();stream.format=AudioStreamWAV.FORMAT_16_BITS;stream.mix_rate=rate;stream.data=samples
- var audio=AudioStreamPlayer3D.new();audio.stream=stream;audio.volume_db=-10;audio.max_distance=35;audio.unit_size=4
+ var audio=AudioStreamPlayer3D.new();audio.stream=stream;audio.volume_db=0.0 if distant else -10.0;audio.max_distance=180.0 if distant else 35.0;audio.unit_size=26.0 if distant else 4.0
  add_child(audio);audio.position=bell.position if is_bell else Vector3(0,0.6,0)
  audio.finished.connect(audio.queue_free);audio.play()
 
 
-func ring_attack():
+func ring_attack(distant := false):
  if death_time >= 0:return
  bell_swing=1.0
- _sound(true)
+ _sound(true, distant)

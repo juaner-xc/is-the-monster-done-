@@ -60,9 +60,9 @@ func _run() -> void:
 	_check(low != null, "低层区域已挂进 Zone_Lower_Entrance")
 	if low != null:
 		_check(low.get_node_or_null("OldServiceBell") != null, "旧取餐铃交互点存在")
-		_check(low.get_node_or_null("Shelter_0") != null, "避难小屋存在")
 
 	hub = scene.get("workshop_hub")
+	_check(hub.get_node_or_null("Cottage") != null, "生活区石屋预制体已生成")
 	_check(hub.get_parent() != null and hub.get_parent().name == "Zone_Lower_Entrance",
 			"生活区被归进低层区域")
 
@@ -183,24 +183,24 @@ func _run() -> void:
 	_check(terraces != null, "火山石台地群已生成")
 	if terraces != null:
 		for platform in ["Topo_Support_Hub", "Topo_Support_Warehouse", "Topo_Support_Kitchen"]:
-			_check(scene.has_node(platform), "三层拓扑平台 %s 已生成" % platform)
-		for bridge in ["Topo_Bridge_Left", "Topo_Bridge_Right"]:
-			_check(scene.has_node(bridge), "枢纽连接桥 %s 已生成" % bridge)
+			_check(scene.has_node(platform), "二层平台 %s 已生成" % platform)
+		for bridge in ["Topo_Stairs_Hub_Transport", "Topo_Stairs_Transport_Core"]:
+			_check(scene.has_node(bridge), "层间楼梯 %s 已生成" % bridge)
 		_check(terraces.get_node_or_null("South_Terrace_Low") == null, "不再生成已弃用的四层台地")
 		_check(terraces.get_node_or_null("LavaLake_South") != null, "南侧熔岩湖已生成")
 		_check(terraces.get_node_or_null("LavaLake_North") != null, "北侧熔岩湖已生成")
 		_check(terraces.get_node_or_null("LavaDamage_South") != null, "熔岩伤害区已生成")
 		_check(terraces.get_node_or_null("LavaDamage_North") != null, "北侧熔岩伤害区已生成")
 
-	# 运输站在中层，控制区和宴炉共用顶层。
+	# 运输站位于三层，控制区和宴炉共用四层。
 	var transport_section := blocks.get("_transport_section") as Node3D
-	_check(transport_section != null and is_equal_approx(transport_section.position.y, 4.65),
-			"运输站位于中层")
+	_check(transport_section != null and is_equal_approx(transport_section.position.y, 9.26),
+			"运输站位于三层")
 	var core_section := blocks.get("_core_section") as Node3D
 	var boss_section := blocks.get("_boss_section") as Node3D
-	_check(core_section != null and is_equal_approx(core_section.position.y, 9.30),
+	_check(core_section != null and is_equal_approx(core_section.position.y, 13.91),
 			"控制区位于顶层")
-	_check(boss_section != null and is_equal_approx(boss_section.position.y, 9.30),
+	_check(boss_section != null and is_equal_approx(boss_section.position.y, 13.93),
 			"千席宴炉与控制区同层")
 	_check(blocks.find_child("Checkpoint_Transport", true, false) != null,
 			"运输站重生点已生成")
@@ -305,13 +305,31 @@ func _run() -> void:
 
 	var upgrade = blocks.get("_upgrade")
 	_check(upgrade != null and upgrade.visible, "食材升级出现")
+	if upgrade != null:
+		var pickup: Node = upgrade.get_node("IngredientPickup")
+		var inventory := RunState.cooking_inventory
+		var chocolate := inventory.ingredient_count("chocolate")
+		var sugar := inventory.ingredient_count("sugar")
+		var candy := inventory.dish_count("dish_lava_candy")
+		pickup.call("interact", null)
+		pickup.call("interact", null)
+		_check(inventory.ingredient_count("chocolate") == chocolate + 1
+				and inventory.ingredient_count("sugar") == sugar + 1,
+				"运输站奖励只发放一次，巧克力和糖进入料理背包")
+		var cooking := CookingSystem.new()
+		add_child(cooking)
+		cooking.setup(inventory)
+		cooking.craft("chocolate", "sugar")
+		_check(inventory.dish_count("dish_lava_candy") == candy + 1,
+				"运输站奖励可合成熔岩硬糖")
+		inventory.dishes["dish_lava_candy"] = candy
 
 	# 3) 控制台
 	var origin: Vector3 = blocks.get("origin")
 	var space2 := get_viewport().get_world_3d().direct_space_state
 	var core_probe := space2.intersect_ray(PhysicsRayQueryParameters3D.create(
-			blocks.get("_core_section").to_global(origin + Vector3(62.0, 30.0, 0.0)), blocks.get("_core_section").to_global(origin + Vector3(62.0, -10.0, 0.0)), 1))
-	_check(not core_probe.is_empty() and absf(float(core_probe.position.y) - 9.88) < 0.15,
+			blocks.get("_core_section").to_global(origin + Vector3(62.0, 2.0, 0.0)), blocks.get("_core_section").to_global(origin + Vector3(62.0, -10.0, 0.0)), 1))
+	_check(not core_probe.is_empty() and absf(float(core_probe.position.y) - 14.53) < 0.15,
 			"控制区地面接上顶层石台")
 
 	var boss_gate := blocks.get("_boss_gate") as StaticBody3D
@@ -319,8 +337,8 @@ func _run() -> void:
 	blocks.call("_on_console_used")
 	await get_tree().create_timer(1.8).timeout
 	var boss_probe := space2.intersect_ray(PhysicsRayQueryParameters3D.create(
-			blocks.get("_boss_section").to_global(origin + Vector3(96.0, 40.0, 0.0)), blocks.get("_boss_section").to_global(origin + Vector3(96.0, -10.0, 0.0)), 1))
-	_check(not boss_probe.is_empty() and absf(float(boss_probe.position.y) - 9.88) < 0.15,
+			blocks.get("_boss_section").to_global(origin + Vector3(96.0, 2.0, 0.0)), blocks.get("_boss_section").to_global(origin + Vector3(96.0, -10.0, 0.0)), 1))
+	_check(not boss_probe.is_empty() and absf(float(boss_probe.position.y) - 14.53) < 0.15,
 			"Boss 场地接上顶层石台")
 	_check(boss_gate != null and boss_gate.position.y >= gate_closed_y + 4.5,
 			"控制台开启后，通往 Boss 场的闸门升起")

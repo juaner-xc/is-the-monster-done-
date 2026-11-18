@@ -1,9 +1,6 @@
 [gd_scene format=3 uid="uid://65o7aicgbeyk"]
 
 [ext_resource type="Texture2D" uid="uid://dy3wdmpxyab5d" path="res://assets/Textures/Snow/7/7_diffuseOriginal.bmp" id="1_snow"]
-[ext_resource type="Texture2D" uid="uid://h6hf8pxygdh4" path="res://assets/Textures/Snow/7/7_height.bmp" id="2_hgt"]
-[ext_resource type="Texture2D" uid="uid://bb26gd7wuw0dy" path="res://assets/Textures/Snow/7/7_metallic.bmp" id="3_mtl"]
-[ext_resource type="Texture2D" uid="uid://kp1yy28slljc" path="res://assets/Textures/Snow/7/7_normal.bmp" id="4_nrm"]
 [ext_resource type="PackedScene" uid="uid://byxd6qc10ijjs" path="res://assets/Blender/Trees/TreeL.blend" id="5_tl"]
 [ext_resource type="PackedScene" uid="uid://dh6rcoatr221j" path="res://assets/Blender/Trees/TreeM.blend" id="6_tm"]
 [ext_resource type="PackedScene" uid="uid://bcta7b1eomtda" path="res://assets/Blender/Trees/TreeS.blend" id="7_ts"]
@@ -30,7 +27,11 @@
 [ext_resource type="PackedScene" path="res://scenes/stele.tscn" id="31_stele"]
 [ext_resource type="PackedScene" path="res://scenes/ice_castle.tscn" id="33_castle"]
 [ext_resource type="PackedScene" path="res://scenes/mountain_ring.tscn" id="32_ring"]
-[ext_resource type="PackedScene" path="res://scenes/tunnel.tscn" id="34_tunnel"]
+[ext_resource type="PackedScene" path="res://scenes/kendeqi_christmas_tree.tscn" id="35_christmas_tree"]
+[ext_resource type="PackedScene" path="res://scenes/ice_castle_master.tscn" id="scr_master"]
+[ext_resource type="PackedScene" path="res://scenes/key_pickup.tscn" id="scr_pickup"]
+
+[ext_resource type="Shader" path="res://assets/shaders/snow_surface.gdshader" id="36_snow_surface"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
@@ -75,7 +76,7 @@ void vertex() { v_wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
 float r = length(v_wpos.xz);
 float t = smoothstep(inner, outer, r);
-float line = smoothstep(8.0, 2.0, abs(r - 396.0));
+float line = (1.0 - smoothstep(2.0, 8.0, abs(r - 396.0)));
 vec3 col = mix(mist_color.rgb, line_color.rgb, line);
 ALBEDO = col;
 ALPHA = max(t * 0.8, line * 0.95);
@@ -102,14 +103,9 @@ radial_segments = 64
 cap_top = false
 cap_bottom = false
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_snow"]
-albedo_texture = ExtResource("1_snow")
-metallic = 1.0
-metallic_texture = ExtResource("3_mtl")
-normal_enabled = true
-normal_texture = ExtResource("4_nrm")
-uv1_scale = Vector3(0.09, 0.09, 0.09)
-uv1_triplanar = true
+[sub_resource type="ShaderMaterial" id="StandardMaterial3D_snow"]
+shader = ExtResource("36_snow_surface")
+shader_parameter/surface_texture = ExtResource("1_snow")
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
 size = Vector2(800, 800)
@@ -294,7 +290,7 @@ enabled = true
 view_cells = 2
 trees_per_cell = 1
 exclusion_radius = 14.0
-no_spawn_zones = Array[Vector3]([Vector3(-55, -20, 16), Vector3(88, -34, 14), Vector3(10.65, 0, 13)])
+no_spawn_zones = Array[Vector3]([Vector3(-55, -20, 16), Vector3(88, -34, 14), Vector3(10.65, 0, 13), Vector3(10.65, 29, 10), Vector3(10.65, 41, 17), Vector3(19, 64, 24)])
 
 [node name="BoundaryWall" type="StaticBody3D" parent="." unique_id=440164343]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30, 0)
@@ -316,10 +312,19 @@ mesh = SubResource("PlaneMesh_mist")
 [node name="IceCastle" parent="." instance=ExtResource("33_castle")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 0, -155)
 
+[node name="IceCastleMaster" parent="." instance=ExtResource("scr_master")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 116, 0.6, -134)
+
+[node name="KeyPickup" parent="." instance=ExtResource("scr_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, -40)
+
 [node name="MountainRing" parent="." instance=ExtResource("32_ring")]
 
 [node name="House" parent="." instance=ExtResource("10_house")]
 transform = Transform3D(1.42, 0, 0, 0, 1, 0, 0, 0, 1.36, 10.65, 0.75, 0)
+
+[node name="KendeqiChristmasTree" parent="." instance=ExtResource("35_christmas_tree")]
+position = Vector3(23.45, 0, 11.95)
 
 [node name="Dumpling" parent="." instance=ExtResource("13_dum")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.02, 12)
@@ -454,7 +459,7 @@ visible = false
 current = false
 
 [node name="Cart" parent="." instance=ExtResource("18_cart")]
-transform = Transform3D(-0.6815, 0, -1.1653, 0, 1.3500, 0, 1.1653, 0, -0.6815, 15, 0.02, 35)
+transform = Transform3D(-0.6815, 0, -1.1653, 0, 1.3500, 0, 1.1653, 0, -0.6815, 25.5, 0.02, 31.5)
 
 [node name="WorldEnvironment" parent="Cart" index="0"]
 environment = null
@@ -630,7 +635,7 @@ visible = false
 current = false
 
 [node name="Bigbag2" parent="." instance=ExtResource("20_bigbag")]
-transform = Transform3D(1.5191, 0, -0.3079, 0, 1.5500, 0, 0.3079, 0, 1.5191, 0, 0.02, 50)
+transform = Transform3D(1.5191, 0, -0.3079, 0, 1.5500, 0, 0.3079, 0, 1.5191, -9, 0.02, 54)
 
 [node name="WorldEnvironment" parent="Bigbag2" index="0"]
 environment = null
@@ -740,12 +745,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 135, 1.0, -55)
 
 [node name="Stele" parent="." instance=ExtResource("31_stele")]
 transform = Transform3D(0.969, 0, -0.247, 0, 1, 0, 0.247, 0, 0.969, 139, 0, -12.5)
-
-[node name="Tunnel" parent="." instance=ExtResource("34_tunnel")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 38, 0.02, -120)
-
-[node name="ChristmasTownGate" type="Marker3D" parent="."]
-position = Vector3(38, 0.15, -120)
-
-[node name="Arrival" type="Marker3D" parent="ChristmasTownGate"]
-position = Vector3(0, 0.08, 5)

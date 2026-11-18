@@ -265,11 +265,7 @@ func _physics_process(delta: float) -> void:
 			_play_pan_swing()
 			var wave := FIRE_RING_WAVE.instantiate()
 			get_tree().current_scene.add_child(wave)
-			wave.configure(global_position, 0.0, 4.25, 0.45, true)
-			var power := meal_power()
-			for enemy in get_tree().get_nodes_in_group("enemies"):
-				if enemy.global_position.distance_to(global_position) <= 4.25:
-					enemy.take_damage(basic_damage * power, Vector3.ZERO)
+			wave.configure(global_position, basic_damage * meal_power(), 4.25, 0.45)
 		elif not staff_mode and Input.is_action_just_pressed("main_skill"):
 			attack_dish_missing.emit("fire_ring")
 
@@ -292,10 +288,9 @@ func configure_build(modifiers: Dictionary, recipes: Array[String]) -> void:
 
 const FIRE_RING_WAVE: PackedScene = preload("res://scenes/fire_ring_effect.tscn")
 
-var _shield_aura: MeshInstance3D = null
-var _shield_mat: StandardMaterial3D = null
-var _shield_tween: Tween = null
-var _shield_time := 0.0
+# 酥皮护盾视觉：用 nojoule-energy-shield 的能量护盾球替换朴素球泡
+const ENERGY_SHIELD_SCENE: PackedScene = preload("res://addons/nojoule-energy-shield/shield_sphere.tscn")
+var _energy_shield: Node3D = null
 
 
 func take_damage(amount: float) -> void:
@@ -322,28 +317,24 @@ func take_damage(amount: float) -> void:
 		pan_heat.adjust(6.0)
 
 
-## 酥皮护盾（面粉+奶油）：围绕角色的金色护盾罩
-## 面粉等级越高（减伤越强），护盾越明显；受击时闪光提示抵伤生效
+## 酥皮护盾（面粉+奶油）：围绕角色的金色能量护盾球
+## 面粉等级越高（减伤越强），护盾越明显；受击时命中点激起涟漪提示抵伤生效
 func _build_shield_aura() -> void:
-	_shield_aura = MeshInstance3D.new()
-	_shield_aura.name = "PastryShield"
-	var sphere := SphereMesh.new()
-	sphere.radius = 1.15
-	sphere.height = 2.3
-	sphere.radial_segments = 24
-	sphere.rings = 12
-	_shield_aura.mesh = sphere
-	_shield_mat = StandardMaterial3D.new()
-	_shield_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_shield_mat.albedo_color = Color(0.98, 0.82, 0.45, 0.15)
-	_shield_mat.emission_enabled = true
-	_shield_mat.emission = Color(0.95, 0.62, 0.18)
-	_shield_mat.emission_energy_multiplier = 0.6
-	_shield_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_shield_mat.cull_mode = BaseMaterial3D.CULL_DISABLED  # 双面可见，形成包裹感
-	_shield_aura.material_override = _shield_mat
-	_shield_aura.position = Vector3(0.0, 0.95, 0.0)
-	add_child(_shield_aura)
+	_energy_shield = ENERGY_SHIELD_SCENE.instantiate()
+	_energy_shield.name = "PastryShield"
+	# 关掉鼠标交互，避免护盾的 Area3D 抢走玩家开火/瞄准的输入
+	_energy_shield.set("handle_input_events", false)
+	_energy_shield.position = Vector3(0.0, 0.95, 0.0)
+	# 护盾网格默认半径只有 0.5m，放大 2.3 倍（半径≈1.15m）才能包裹全身；
+	# 插件会按节点缩放自动修正波纹尺度（object_scale），无需改 shader
+	_energy_shield.scale = Vector3(2.3, 2.3, 2.3)
+	add_child(_energy_shield)
+	# 护盾 _ready 之后才能拿到 material，这里再调色：暖金色呼应「酥皮」，强度随减伤等级变化
+	if _energy_shield.has_method("update_material"):
+		var k := _shield_strength()
+		_energy_shield.call("update_material", "_color_shield", Color(1.0, 0.82, 0.42))
+		_energy_shield.call("update_material", "_color_brightness_shield", lerpf(10.0, 18.0, k))
+		_energy_shield.call("update_material", "_intensity_shield", lerpf(2.0, 4.0, k))
 
 
 func _shield_strength() -> float:
@@ -351,31 +342,25 @@ func _shield_strength() -> float:
 
 
 func _update_shield_visual() -> void:
-	var active := active_recipes.has("pastry_shield")
-	if active and _shield_aura == null:
+	# 护盾与减伤一致：只有把「酥皮护盾」装备进守卫栏才生效（与 _tick_kitchen 的减伤来源一致）
+	var active := RunState.guards.has("pastry_shield")
+	if active and _energy_shield == null:
 		_build_shield_aura()
-	if _shield_aura == null:
+	if _energy_shield == null:
 		return
-	_shield_aura.visible = active
-	var k := _shield_strength()
-	_shield_mat.albedo_color.a = lerpf(0.10, 0.20, k)
-	_shield_mat.emission_energy_multiplier = lerpf(0.45, 0.95, k)
+	_energy_shield.visible = active
+	if active and _energy_shield.has_method("update_material"):
+		var k := _shield_strength()
+		_energy_shield.call("update_material", "_color_brightness_shield", lerpf(10.0, 18.0, k))
+		_energy_shield.call("update_material", "_intensity_shield", lerpf(2.0, 4.0, k))
 
 
-## 受击瞬间护盾罩亮起再回落，让「减伤已生效」看得见
+## 受击瞬间让能量护盾在命中点激起涟漪，直观提示「减伤已生效」
 func _pulse_shield() -> void:
-	if _shield_aura == null or not _shield_aura.visible or _shield_mat == null:
+	if _energy_shield == null or not _energy_shield.visible:
 		return
-	if _shield_tween != null and _shield_tween.is_valid():
-		_shield_tween.kill()
-	var k := _shield_strength()
-	var base_energy := lerpf(0.45, 0.95, k)
-	var base_alpha := lerpf(0.10, 0.20, k)
-	_shield_mat.emission_energy_multiplier = base_energy * 3.0
-	_shield_mat.albedo_color.a = minf(base_alpha * 3.0, 0.6)
-	_shield_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_shield_tween.tween_property(_shield_mat, "emission_energy_multiplier", base_energy, 0.28)
-	_shield_tween.parallel().tween_property(_shield_mat, "albedo_color:a", base_alpha, 0.28)
+	if _energy_shield.has_method("impact"):
+		_energy_shield.call("impact", global_position)
 
 
 func heal(amount: float) -> void:
@@ -414,16 +399,13 @@ func _basic_attack() -> void:
 			enemy.take_damage(basic_damage * damage_multiplier * heat_damage, offset.normalized() * 5.5)
 			hit_targets[enemy] = true
 	if not travel_combat and not pan_heat.is_cold() and active_recipes.has("fire_ring"):
-		for enemy in get_tree().get_nodes_in_group("enemies"):
-			if is_instance_valid(enemy) and enemy.global_position.distance_to(global_position) <= 4.25:
-				var push: Vector3 = enemy.global_position - global_position
-				push.y = 0.0
-				enemy.take_damage(basic_damage * 0.42 * damage_multiplier * heat_damage, push.normalized() * 2.5)
-				hit_targets[enemy] = true
-		# 视觉：脚下释放一圈向外扩散的火环（纯视觉，伤害由上方 AoE 结算）
+		# 火环伤害交给波前逐个结算：扫到敌人才弹开并炸出冲击环
 		var wave := FIRE_RING_WAVE.instantiate()
 		get_tree().current_scene.add_child(wave)
-		wave.configure(global_position, 0.0, 6.5, 0.45, true)
+		wave.enemy_hit.connect(func(_enemy):
+			pan_heat.stir(1)
+			camera_shake_requested.emit(0.12, 0.1))
+		wave.configure(global_position, basic_damage * 0.42 * damage_multiplier * heat_damage, 6.5, 0.45)
 	var hit_count := hit_targets.size()
 	pan_heat.stir(hit_count)
 	if hit_count > 0:
@@ -453,20 +435,63 @@ func _fire_projectile() -> void:
 	_spawn_action_flash(Color(0.44, 0.82, 1.0, 0.42), 0.52, 0.16)
 	var projectile := PROJECTILE_SCENE.instantiate()
 	get_tree().current_scene.add_child(projectile)
+	var muzzle := global_position + Vector3.UP * 0.75
 	var forward := -global_transform.basis.z
-	if travel_combat and camera != null:
-		var aim := camera.global_position - camera.global_basis.z * 40.0
-		forward = (aim - global_position - Vector3.UP * 0.75).normalized()
+	if travel_combat:
+		forward = _aim_direction()
 	var recipe_slow := 0.4 if travel_combat else slow_strength
 	if can_trigger_recipe and active_recipes.has("ice_shot"):
 		recipe_slow = maxf(recipe_slow, 0.4)
 	projectile.configure(
-		global_position + forward * 1.0 + Vector3.UP * 0.75,
+		muzzle + forward * 1.0,
 		forward,
 		projectile_damage * damage_multiplier * ember_power * heat_damage,
 		recipe_slow,
 		wok_breath
 	)
+
+
+## 远程攻击方向：准星附近有敌人就直接打它胸口（8° 内轻微吸附），
+## 否则以准星射出的射线命中的地形/墙体为准，打空则沿视线飞出。
+## 旧写法把“相机前方 40 米处”当作瞄准点，相机带俯角时该点已在地下，
+## 冰矛出膛即下扎，飞出几米就钻到地底，于是只剩贴脸才打得到。
+func _aim_direction() -> Vector3:
+	var muzzle := global_position + Vector3.UP * 0.75
+	var flat := -global_transform.basis.z
+	flat.y = 0.0
+	flat = flat.normalized() if flat.length_squared() > 0.001 else Vector3.FORWARD
+	if camera == null:
+		return flat
+	var view_dir := -camera.global_basis.z
+	var best_point := Vector3.ZERO
+	var best_angle := deg_to_rad(8.0)
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var body := node as Node3D
+		if body == null or not is_instance_valid(body):
+			continue
+		var chest := body.global_position + Vector3.UP * 0.75 * body.global_basis.get_scale().y
+		var to_chest := chest - camera.global_position
+		if to_chest.length() > 45.0 or to_chest.length_squared() < 0.01:
+			continue
+		var angle := view_dir.angle_to(to_chest.normalized())
+		if angle < best_angle:
+			best_angle = angle
+			best_point = chest
+	if best_angle < deg_to_rad(8.0):
+		return (best_point - muzzle).normalized()
+	var aim := camera.global_position - camera.global_basis.z * 60.0
+	var space := get_world_3d().direct_space_state
+	if space != null:
+		var query := PhysicsRayQueryParameters3D.create(camera.global_position, aim, 3, [get_rid()])
+		var hit: Dictionary = space.intersect_ray(query)
+		if not hit.is_empty():
+			var hit_point: Vector3 = hit.get("position", aim)
+			aim = hit_point
+	var direction := aim - muzzle
+	var planar := Vector3(direction.x, 0.0, direction.z)
+	if planar.length() < 2.0:
+		return flat
+	return direction.normalized()
 
 
 func _update_facing(movement: Vector3, delta: float) -> void:
@@ -859,3 +884,4 @@ func _tick_kitchen(delta: float) -> void:
 		hero_motion.wardrobe.update(hero_motion.current, false)
 	if camera != null:
 		camera.fov = lerpf(camera.fov, 50.0 if staff_mode and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) else 65.0, minf(1.0,delta*12.0))
+	_update_shield_visual()

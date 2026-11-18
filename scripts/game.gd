@@ -22,9 +22,16 @@ const MAX_ENEMIES := 24
 const TERRAIN_SIZE := 220.0
 const TERRAIN_RESOLUTION := 110
 
-var snow_town := preload("res://scripts/snow_town_link.gd").new()
+const SnowRoute := preload("res://scripts/snow_town_link.gd")
+var snow_town := SnowRoute.new()
+var ground_arrows: Node3D = preload("res://scripts/ground_arrows.gd").new()
 var kitchen = preload("res://scripts/travel_kitchen.gd").new()
 var recipe_arrival_active := false
+## 卖火柴小姑娘的「食谱合成料理」入口打开期间，屏蔽食堂页面对 Tab/F1 的抢占
+var recipe_compose_active := false
+var recipe_cook_ui: CanvasLayer = null
+var _quest_hint_layer: CanvasLayer
+var _quest_hint_label: Label
 var recipe_book: CanvasLayer
 var recipe_book_was_paused := false
 var recipe_book_mouse_mode := Input.MOUSE_MODE_CAPTURED
@@ -46,6 +53,7 @@ var rng := RandomNumberGenerator.new()
 var terrain_noise := FastNoiseLite.new()
 var terrain_detail_noise := FastNoiseLite.new()
 var debug_report_position := false
+var debug_pass_access := false
 var snow_world_active := false
 var last_result_won := false
 var returning_to_title := false
@@ -62,6 +70,7 @@ var _riding := false
 var map_open := false
 var map_mini: Control
 var map_large: Control
+var holiday_presents: Node3D
 
 
 func _ready() -> void:
@@ -82,6 +91,8 @@ func _ready() -> void:
 	furnace_encounter.configure(self)
 	add_child(furnace_encounter)
 	add_child(snow_town)
+	ground_arrows.setup(self)
+	add_child(ground_arrows)
 	_apply_debug_arguments()
 	if cinematic_entry:
 		_finish_cinematic_entry.call_deferred()
@@ -116,7 +127,8 @@ func _process(delta: float) -> void:
 				var heading := atan2(-local_dir.x, -local_dir.z)
 				player.rotation.y = lerp_angle(player.rotation.y, heading, 1.0 - exp(-14.0 * delta))
 	_update_camera(delta)
-	if snow_town.in_town or snow_town.transitioning:
+	_update_quest_hint()
+	if snow_town.in_town:
 		return
 	if cinematic_entry or get_tree().paused or finished or aftermath_active or shelter_active or player.has_meta("opening_combat"):
 		return
@@ -146,7 +158,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if cinematic_entry or recipe_arrival_active:
 		return
-	if kitchen.page != "" or snow_town.in_town or snow_town.transitioning: return
+	if kitchen.page != "": return
 	# M 键：开/收雪原布局图（关闭在暂停态由地图自身处理）
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (event.keycode == KEY_M or event.physical_keycode == KEY_M) \
@@ -192,6 +204,7 @@ func _build_map_ui() -> void:
 	map_mini.offset_right = -26.0
 	map_mini.offset_top = 22.0
 	map_mini.offset_bottom = 308.0
+	map_mini.visible = RunState.snow_route_unlocked
 	layer.add_child(map_mini)
 	map_large = SnowMapView.new()
 	map_large.game = self
@@ -207,10 +220,17 @@ func _build_map_ui() -> void:
 	add_child(layer)
 
 
+func open_snow_route_map() -> void:
+	if not map_open:
+		_toggle_map()
+
 func _toggle_map() -> void:
+	if not RunState.snow_route_unlocked and not map_open:
+		hud.show_notice("在雪原礼堂抄下路线后，可按 M 查看地图")
+		return
 	map_open = not map_open
 	map_large.visible = map_open
-	map_mini.visible = not map_open
+	map_mini.visible = RunState.snow_route_unlocked and not map_open
 	get_tree().paused = map_open
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if map_open else Input.MOUSE_MODE_CAPTURED
 
@@ -221,12 +241,16 @@ func _close_recipe_book() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if snow_town.transitioning or shelter_dialogue_active:
+	if shelter_dialogue_active:
 		return
 	if is_instance_valid(aftermath_ui) and aftermath_ui.is_open():
 		return
 	if cinematic_entry or recipe_arrival_active:
 		return
+	if is_holiday_interaction_available() and event.is_action_pressed("interact"):
+		if holiday_presents.open_nearest(player.global_position, hud):
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("pause") and not finished and not hud.is_upgrade_open():
 		if event is InputEventKey and event.echo:
 			return
@@ -234,6 +258,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		if get_tree().paused and hud.cancel_return_confirmation():
 			return
 		_set_game_paused(not get_tree().paused)
+
+
+func is_holiday_interaction_available() -> bool:
+	return is_instance_valid(holiday_presents) and is_instance_valid(player) and is_instance_valid(hud) \
+		and not get_tree().paused and not finished and not _riding and not cinematic_entry \
+		and not recipe_arrival_active and not shelter_dialogue_active and not map_open \
+		and not snow_town.in_town and kitchen.page == "" \
+		and not hud.is_upgrade_open() and not recipe_book.is_open() \
+		and not (is_instance_valid(aftermath_ui) and aftermath_ui.is_open())
 
 
 func _set_game_paused(paused: bool) -> void:
@@ -458,7 +491,7 @@ func _update_wave() -> void:
 
 
 func _on_spawn_timer() -> void:
-	if shelter_active or snow_town.in_town or snow_town.transitioning:
+	if shelter_active or snow_town.in_town:
 		return
 	if is_instance_valid(furnace_encounter) and (furnace_encounter.observed or furnace_encounter.started):
 		return
@@ -474,9 +507,9 @@ func _on_spawn_timer() -> void:
 		return
 	var pool: Array[String] = ["slime", "swelling_dough", "swelling_dough"]
 	if current_wave >= 2:
-		pool.append_array(["cargo_loader", "cargo_loader"])
+		pool.append_array(["cargo_loader", "cargo_loader", "fork_imp"])
 	if current_wave >= 3:
-		pool.append_array(["toast", "mushroom"])
+		pool.append_array(["toast", "toast", "mushroom", "fork_imp"])
 	if current_wave >= 4:
 		pool.append_array(["cargo_loader", "swelling_dough", "mushroom"])
 	var spawn_count := 1
@@ -571,7 +604,12 @@ func _begin_furnace_aftermath() -> void:
 	_on_camera_shake_requested(0.5, 0.45)
 	aftermath_ui = FurnaceAftermath.new()
 	aftermath_ui.configure(player, remains)
-	aftermath_ui.completed.connect(func(): _finish_run(true))
+	aftermath_ui.completed.connect(func():
+		if RunState.chapter_mode and RunState.chapter_id == "snow":
+			last_result_won = true
+			_return_to_route_map()
+		else:
+			_finish_run(true))
 	add_child(aftermath_ui)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -587,8 +625,56 @@ func _on_level_up_requested() -> void:
 
 func _on_upgrade_chosen(id: String) -> void:
 	RunState.cooking_inventory.add_ingredient(id)
-	map_mini.visible = not map_open
+	map_mini.visible = RunState.snow_route_unlocked and not map_open
 	get_tree().paused = false
+
+func _update_quest_hint() -> void:
+	var text := ""
+	if not finished and not aftermath_active and not cinematic_entry:
+		if RunState.snow_portrait_seen and not RunState.snow_route_unlocked:
+			text = "主线 · 在礼堂查看旧运输路线图"
+		elif RunState.snow_route_unlocked:
+			text = "主线 · 沿旧运输路线前往山口（M 查看地图）"
+			match RunState.match_girl_stage:
+				1: text += "    |    支线 · 去广场买火柴"
+				2: text += "    |    支线 · 把火柴带回礼堂门房"
+			if is_instance_valid(snow_town):
+				var lights_task: String = snow_town.lights_task_text()
+				if not lights_task.is_empty():
+					text += "\n支线 · 今年还能亮灯吗 · " + lights_task
+	if text.is_empty():
+		if is_instance_valid(_quest_hint_layer):
+			_quest_hint_layer.queue_free()
+			_quest_hint_layer = null
+		return
+	if not is_instance_valid(_quest_hint_layer):
+		_quest_hint_layer = CanvasLayer.new()
+		_quest_hint_layer.layer = 30
+		add_child(_quest_hint_layer)
+		_quest_hint_label = Label.new()
+		_quest_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_quest_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_quest_hint_layer.add_child(_quest_hint_label)
+		_quest_hint_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		_quest_hint_label.position = Vector2(-400, -114)
+		_quest_hint_label.size = Vector2(800, 35)
+		_quest_hint_label.add_theme_font_size_override("font_size", 16)
+		_quest_hint_label.add_theme_constant_override("outline_size", 6)
+	_quest_hint_layer.visible = not get_tree().paused
+	_quest_hint_label.text = text
+
+
+func open_recipe_cook() -> void:
+	if not (RunState.magic_recipe_received or RunState.snow_pass_recipe_taught) or recipe_compose_active:
+		return
+	recipe_compose_active = true
+	recipe_cook_ui = preload("res://scripts/recipe_cook_ui.gd").new()
+	add_child(recipe_cook_ui)
+	recipe_cook_ui.closed.connect(func():
+		recipe_compose_active = false
+		recipe_cook_ui = null)
+	recipe_cook_ui.open()
+
 
 func _show_recipe_arrival(discovered: Array[String]) -> void:
 	recipe_arrival_active = true
@@ -670,6 +756,8 @@ func _build_world() -> void:
 	snow_world.name = "SnowWorld"
 	add_child(snow_world)
 	snow_world_active = true
+	holiday_presents = snow_world.get_node("KendeqiChristmasTree/HolidayPresents")
+	holiday_presents.host = self
 	var embedded_camera := snow_world.get_node_or_null("Camera3D") as Camera3D
 	if embedded_camera != null:
 		embedded_camera.current = false
@@ -748,9 +836,9 @@ func _setup_lamps() -> void:
 	var placements := [
 		{"pos": Vector3(6, 0, 8), "rot": 0.0},
 		{"pos": Vector3(-10, 0, -7), "rot": 1.5708},
-		{"pos": Vector3(30, 0, -12), "rot": 0.0},
-		{"pos": Vector3(60, 0, -25), "rot": 3.1416},
-		{"pos": Vector3(85, 0, -20), "rot": -1.5708},
+		{"pos": Vector3(29, 0, -13), "rot": 0.0},
+		{"pos": Vector3(16, 0, -43), "rot": 3.1416},
+		{"pos": Vector3(65, 0, -46), "rot": -1.5708},
 	]
 	for p in placements:
 		var lamp := LAMP_POST.instantiate() as Node3D
@@ -803,7 +891,7 @@ func _terrain_height(x: float, z: float) -> float:
 
 ## 雪原地标：雪花摩天轮（装饰，无碰撞），轮面朝向出生点，方便一眼看到
 func _build_ferris_wheel() -> void:
-	var base := Vector2(38.0, -160.0)   # 雪山(0,-170) 东侧山脚旁，不压山体
+	var base := Vector2(SnowRoute.WHEEL.x, SnowRoute.WHEEL.z)
 	var wheel := FERRIS_WHEEL.instantiate() as Node3D
 	if wheel == null:
 		return
@@ -1107,6 +1195,7 @@ func _apply_debug_arguments() -> void:
 			time_left = run_duration - float(wave - 1) * maxf(14.0, (run_duration - boss_time) / 4.0) - 1.0
 			_update_wave()
 		elif argument == "--boss-now":
+			debug_pass_access = true
 			# Preview enters at observation distance; it still shows the work loop.
 			player.position = FurnaceEncounter.PASS + Vector3(0, 0.35, 22)
 			game_camera.yaw = 0.0

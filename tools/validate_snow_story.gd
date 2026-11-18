@@ -92,8 +92,9 @@ func run():
 	check(shots.size() > 0 and is_equal_approx(shots.back().damage, game.player.projectile_damage * game.player.damage_multiplier * 2.0), "empowered shot really deals double damage")
 	game.player._fire_projectile()
 	check(rs.ember_cooking_charges == 0, "later shots cannot consume a second charge")
+	var pass_position: Vector3 = game.furnace_encounter.PASS
 	story.set_process(false)
-	game.player.global_position = Vector3(0, 0.4, -63)
+	game.player.global_position = pass_position + Vector3(0, 0.4, -5)
 	for step in 65:
 		await physics_frame
 		game.player.velocity = Vector3(0, -1.8, -4.5)
@@ -102,18 +103,20 @@ func run():
 	for i in game.player.get_slide_collision_count():
 		var hit = game.player.get_slide_collision(i)
 		print("WALK_COLLIDER ", hit.get_collider().get_path(), " normal=", hit.get_normal())
-	check(game.player.global_position.z < -66, "player physically crosses tunnel entrance without obstruction")
+	check(game.player.global_position.z < pass_position.z - 8, "player physically crosses tunnel entrance without obstruction")
 	var streamer = game.get_node("SnowWorld/TreeStreamer")
 	var clear = true
 	for tree in streamer.get_children():
-		var p = tree.global_position
-		if absf(p.x) < 6 and p.z < -65 and p.z > -90: clear = false
+		var p = tree.global_position - pass_position
+		if absf(p.x) < 6 and p.z < -7 and p.z > -32: clear = false
 	check(clear, "dynamic forest leaves transport corridor clear")
 	story.set_process(true)
-	game.player.global_position = Vector3(0, 0.4, -66.5)
-	story._start_ending()
+	game.player.global_position = pass_position + Vector3(0, 0.4, -12)
+	await process_frame
+	await process_frame
 	check(story.ending, "walkable transport passage triggers ending")
 	await shot("05_运输道城市标记")
+	story._advance_ending()
 	story._advance_ending()
 	story._advance_ending()
 	await shot("06_火山红光章末")

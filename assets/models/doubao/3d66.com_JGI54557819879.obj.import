@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://wvav1lbbsblo"
+path="res://.godot/imported/3d66.com_JGI54557819879.obj-988673c2c96e0f0c682515641e0445aa.mesh"
+
+[deps]
+
+files=["res://.godot/imported/3d66.com_JGI54557819879.obj-988673c2c96e0f0c682515641e0445aa.mesh"]
+
+source_file="res://assets/models/doubao/3d66.com_JGI54557819879.obj"
+dest_files=["res://.godot/imported/3d66.com_JGI54557819879.obj-988673c2c96e0f0c682515641e0445aa.mesh", "res://.godot/imported/3d66.com_JGI54557819879.obj-988673c2c96e0f0c682515641e0445aa.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

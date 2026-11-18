@@ -17,6 +17,7 @@ var _split_point: Node3D
 var _boots: Node
 var _fuel_point: Node3D
 var _fuel_enabled := false
+@export var compact_floor := false
 
 
 func setup(world_center: Vector3) -> void:
@@ -38,11 +39,9 @@ func _build() -> void:
 
 # ------------------------------------------------------------------ 地面
 func _build_floor() -> void:
-	_slab(Vector3(14.0, 0.4, 12.0), center + Vector3(0, -0.2, 0), _stone())
-	# 往南接运输站走廊（中间不能留缝，否则玩家会掉下去）
-	_slab(Vector3(3.6, 0.4, 5.4), center + Vector3(0, -0.2, 7.0), _stone())
-	# 往北接原料仓库
-	_slab(Vector3(3.6, 0.4, 1.8), center + Vector3(0, -0.2, -5.0), _stone())
+	# 不做桥拱了：厨房放大到 28×20，西侧与中央广场直接搭接。
+	var floor_size := Vector3(26.0, 0.4, 16.0) if compact_floor else Vector3(28.0, 0.4, 20.0)
+	_slab(floor_size, center + Vector3(0, -0.21, 0), _stone())
 
 
 # ------------------------------------------------------------------ 灶台
@@ -187,8 +186,12 @@ func on_split_interact() -> void:
 	if _choice == null:
 		return
 	_choice.call("present", "稀缺能源只有一份。接在哪边？", [
-		{"id": "pot", "title": "注入奶蛙的锅", "desc": "料理强化。灶台会全部熄灭。"},
-		{"id": "stove", "title": "接入备用小灶", "desc": "放弃强化。居民会搬锅过来。"},
+		{"id": "pot", "name": "注入奶蛙的锅",
+			"battle": "近战获得冰雾强化，命中会减速。",
+			"world": "灶台会全部熄灭，居民不会把锅搬过来。"},
+		{"id": "stove", "name": "接入备用小灶",
+			"battle": "放弃这次战斗强化。",
+			"world": "灶台亮起，居民把锅搬过来；火山备用供餐恢复。"},
 	])
 
 

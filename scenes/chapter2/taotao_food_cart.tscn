@@ -1,0 +1,526 @@
+[gd_scene load_steps=42 format=3]
+
+[sub_resource type="StandardMaterial3D" id="iron"]
+albedo_color = Color(0.17, 0.21, 0.22, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="tire"]
+albedo_color = Color(0.07, 0.085, 0.09, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="rust"]
+albedo_color = Color(0.45, 0.21, 0.12, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="teal"]
+albedo_color = Color(0.18, 0.39, 0.37, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="wood"]
+albedo_color = Color(0.42, 0.25, 0.13, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="brass"]
+albedo_color = Color(0.68, 0.43, 0.22, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="enamel"]
+albedo_color = Color(0.8, 0.73, 0.56, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="cloth"]
+albedo_color = Color(0.55, 0.23, 0.15, 1)
+roughness = 0.82
+
+[sub_resource type="BoxMesh" id="floor"]
+material = SubResource("wood")
+size = Vector3(1.54, 0.095, 0.79)
+
+[sub_resource type="BoxMesh" id="wall"]
+material = SubResource("teal")
+size = Vector3(1.56, 0.4, 0.055)
+
+[sub_resource type="BoxMesh" id="sill"]
+material = SubResource("iron")
+size = Vector3(1.64, 0.065, 0.075)
+
+[sub_resource type="BoxMesh" id="brace"]
+material = SubResource("rust")
+size = Vector3(0.09, 0.41, 0.073)
+
+[sub_resource type="BoxMesh" id="end"]
+material = SubResource("wood")
+size = Vector3(0.065, 0.41, 0.78)
+
+[sub_resource type="BoxMesh" id="patch"]
+material = SubResource("rust")
+size = Vector3(0.35, 0.24, 0.035)
+
+[sub_resource type="CylinderMesh" id="rivet"]
+material = SubResource("brass")
+top_radius = 0.023
+bottom_radius = 0.023
+height = 0.026
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="tire0_25"]
+material = SubResource("tire")
+top_radius = 0.25
+bottom_radius = 0.25
+height = 0.12
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="rim0_25"]
+material = SubResource("iron")
+top_radius = 0.1975
+bottom_radius = 0.1975
+height = 0.126
+radial_segments = 16
+
+[sub_resource type="BoxMesh" id="spoke0_25"]
+material = SubResource("rust")
+size = Vector3(0.3, 0.039, 0.022)
+
+[sub_resource type="CylinderMesh" id="hub"]
+material = SubResource("brass")
+top_radius = 0.066
+bottom_radius = 0.066
+height = 0.17
+radial_segments = 10
+
+[sub_resource type="BoxMesh" id="fork0_25"]
+material = SubResource("iron")
+size = Vector3(0.09, 0.22999999999999998, 0.085)
+
+[sub_resource type="CylinderMesh" id="tire0_22"]
+material = SubResource("tire")
+top_radius = 0.22
+bottom_radius = 0.22
+height = 0.12
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="rim0_22"]
+material = SubResource("rust")
+top_radius = 0.1738
+bottom_radius = 0.1738
+height = 0.126
+radial_segments = 16
+
+[sub_resource type="BoxMesh" id="spoke0_22"]
+material = SubResource("rust")
+size = Vector3(0.264, 0.039, 0.022)
+
+[sub_resource type="BoxMesh" id="fork0_22"]
+material = SubResource("iron")
+size = Vector3(0.09, 0.26, 0.085)
+
+[sub_resource type="CylinderMesh" id="tire0_19"]
+material = SubResource("tire")
+top_radius = 0.19
+bottom_radius = 0.19
+height = 0.12
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="rim0_19"]
+material = SubResource("iron")
+top_radius = 0.1501
+bottom_radius = 0.1501
+height = 0.126
+radial_segments = 16
+
+[sub_resource type="BoxMesh" id="spoke0_19"]
+material = SubResource("rust")
+size = Vector3(0.22799999999999998, 0.039, 0.022)
+
+[sub_resource type="BoxMesh" id="fork0_19"]
+material = SubResource("iron")
+size = Vector3(0.09, 0.29, 0.085)
+
+[sub_resource type="CylinderMesh" id="arm"]
+material = SubResource("iron")
+top_radius = 0.034
+bottom_radius = 0.034
+height = 0.53
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="grip"]
+material = SubResource("wood")
+top_radius = 0.045
+bottom_radius = 0.045
+height = 0.72
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="tin"]
+material = SubResource("enamel")
+top_radius = 0.136
+bottom_radius = 0.114
+height = 0.16
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="tinlid"]
+material = SubResource("teal")
+top_radius = 0.144
+bottom_radius = 0.144
+height = 0.033
+radial_segments = 16
+
+[sub_resource type="BoxMesh" id="tinhandle"]
+material = SubResource("brass")
+size = Vector3(0.068, 0.03, 0.028)
+
+[sub_resource type="BoxMesh" id="lid"]
+material = SubResource("iron")
+size = Vector3(1.49, 0.055, 0.79)
+
+[sub_resource type="BoxMesh" id="lidInset"]
+material = SubResource("rust")
+size = Vector3(0.96, 0.034, 0.43)
+
+[sub_resource type="BoxMesh" id="latch"]
+material = SubResource("brass")
+size = Vector3(0.32, 0.07, 0.07)
+
+[sub_resource type="CylinderMesh" id="hinge"]
+material = SubResource("rust")
+top_radius = 0.045
+bottom_radius = 0.045
+height = 0.17
+radial_segments = 16
+
+[sub_resource type="BoxMesh" id="tray"]
+material = SubResource("iron")
+size = Vector3(0.44, 0.16, 0.21)
+
+[sub_resource type="BoxMesh" id="wrench"]
+material = SubResource("brass")
+size = Vector3(0.045, 0.26, 0.028)
+
+[sub_resource type="CylinderMesh" id="wrhead"]
+material = SubResource("brass")
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.034
+radial_segments = 8
+
+[sub_resource type="BoxMesh" id="rag"]
+material = SubResource("cloth")
+size = Vector3(0.2, 0.038, 0.3)
+
+[node name="TaotaoFoodCart" type="Node3D"]
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.48, 0)
+mesh = SubResource("floor")
+
+[node name="FrontPanel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 0.41)
+mesh = SubResource("wall")
+
+[node name="FrontSill" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0.41)
+mesh = SubResource("sill")
+
+[node name="FrontRim" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.89, 0.41)
+mesh = SubResource("sill")
+
+[node name="FrontBrace0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.74, 0.7, 0.41)
+mesh = SubResource("brace")
+
+[node name="FrontBrace1" type="MeshInstance3D" parent="."]
+position = Vector3(0.73, 0.7, 0.41)
+mesh = SubResource("brace")
+
+[node name="BackPanel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, -0.41)
+mesh = SubResource("wall")
+
+[node name="BackSill" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, -0.41)
+mesh = SubResource("sill")
+
+[node name="BackRim" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.89, -0.41)
+mesh = SubResource("sill")
+
+[node name="BackBrace0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.74, 0.7, -0.41)
+mesh = SubResource("brace")
+
+[node name="BackBrace1" type="MeshInstance3D" parent="."]
+position = Vector3(0.73, 0.7, -0.41)
+mesh = SubResource("brace")
+
+[node name="End0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.76, 0.7, 0)
+mesh = SubResource("end")
+
+[node name="End1" type="MeshInstance3D" parent="."]
+position = Vector3(0.76, 0.7, 0)
+mesh = SubResource("end")
+
+[node name="PatchPlate" type="MeshInstance3D" parent="."]
+position = Vector3(0.13, 0.7, 0.45)
+rotation_degrees = Vector3(0, 0, -7)
+mesh = SubResource("patch")
+
+[node name="Rivet0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.01, 0.62, 0.477)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rivet")
+
+[node name="Rivet1" type="MeshInstance3D" parent="."]
+position = Vector3(0.27, 0.78, 0.477)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rivet")
+
+[node name="Rivet2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.68, 0.8, 0.477)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rivet")
+
+[node name="Rivet3" type="MeshInstance3D" parent="."]
+position = Vector3(0.67, 0.8, 0.477)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rivet")
+
+[node name="Tire0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.25, 0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("tire0_25")
+
+[node name="Rim0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.25, 0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rim0_25")
+
+[node name="Spoke0_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.25, 0.528)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("spoke0_25")
+
+[node name="Spoke0_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.25, 0.528)
+rotation_degrees = Vector3(0, 0, 60)
+mesh = SubResource("spoke0_25")
+
+[node name="Spoke0_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.25, 0.528)
+rotation_degrees = Vector3(0, 0, 120)
+mesh = SubResource("spoke0_25")
+
+[node name="Hub0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.25, 0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("hub")
+
+[node name="Fork0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.365, 0.39)
+mesh = SubResource("fork0_25")
+
+[node name="Tire1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.22, -0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("tire0_22")
+
+[node name="Rim1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.22, -0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rim0_22")
+
+[node name="Spoke1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.22, -0.528)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("spoke0_22")
+
+[node name="Spoke1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.22, -0.528)
+rotation_degrees = Vector3(0, 0, 60)
+mesh = SubResource("spoke0_22")
+
+[node name="Spoke1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.22, -0.528)
+rotation_degrees = Vector3(0, 0, 120)
+mesh = SubResource("spoke0_22")
+
+[node name="Hub1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.22, -0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("hub")
+
+[node name="Fork1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.49, 0.35, -0.39)
+mesh = SubResource("fork0_22")
+
+[node name="Tire2" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, 0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("tire0_19")
+
+[node name="Rim2" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, 0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rim0_19")
+
+[node name="Spoke2_0" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, 0.528)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("spoke0_19")
+
+[node name="Spoke2_1" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, 0.528)
+rotation_degrees = Vector3(0, 0, 60)
+mesh = SubResource("spoke0_19")
+
+[node name="Spoke2_2" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, 0.528)
+rotation_degrees = Vector3(0, 0, 120)
+mesh = SubResource("spoke0_19")
+
+[node name="Hub2" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, 0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("hub")
+
+[node name="Fork2" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.33499999999999996, 0.39)
+mesh = SubResource("fork0_19")
+
+[node name="Tire3" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, -0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("tire0_19")
+
+[node name="Rim3" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, -0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("rim0_19")
+
+[node name="Spoke3_0" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, -0.528)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("spoke0_19")
+
+[node name="Spoke3_1" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, -0.528)
+rotation_degrees = Vector3(0, 0, 60)
+mesh = SubResource("spoke0_19")
+
+[node name="Spoke3_2" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, -0.528)
+rotation_degrees = Vector3(0, 0, 120)
+mesh = SubResource("spoke0_19")
+
+[node name="Hub3" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.19, -0.46)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("hub")
+
+[node name="Fork3" type="MeshInstance3D" parent="."]
+position = Vector3(0.52, 0.33499999999999996, -0.39)
+mesh = SubResource("fork0_19")
+
+[node name="HandleArm0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.96, 0.98, -0.32)
+rotation_degrees = Vector3(0, 0, 64)
+mesh = SubResource("arm")
+
+[node name="HandleArm1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.96, 0.98, 0.32)
+rotation_degrees = Vector3(0, 0, 64)
+mesh = SubResource("arm")
+
+[node name="HandleGrip" type="MeshInstance3D" parent="."]
+position = Vector3(-1.19, 1.1, 0)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("grip")
+
+[node name="Tin0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 0.98, 0)
+mesh = SubResource("tin")
+
+[node name="TinLid0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 1.066, 0)
+mesh = SubResource("tinlid")
+
+[node name="TinHandle0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 1.09, 0)
+mesh = SubResource("tinhandle")
+
+[node name="Tin1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.19, 0.98, 0.19)
+mesh = SubResource("tin")
+
+[node name="TinLid1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.19, 1.066, 0.19)
+mesh = SubResource("tinlid")
+
+[node name="TinHandle1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.19, 1.09, 0.19)
+mesh = SubResource("tinhandle")
+
+[node name="Tin2" type="MeshInstance3D" parent="."]
+position = Vector3(0.13, 0.98, -0.15)
+mesh = SubResource("tin")
+
+[node name="TinLid2" type="MeshInstance3D" parent="."]
+position = Vector3(0.13, 1.066, -0.15)
+mesh = SubResource("tinlid")
+
+[node name="TinHandle2" type="MeshInstance3D" parent="."]
+position = Vector3(0.13, 1.09, -0.15)
+mesh = SubResource("tinhandle")
+
+[node name="SalvagedOvenDoor" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.19, -0.29)
+rotation_degrees = Vector3(-54, 0, 0)
+mesh = SubResource("lid")
+
+[node name="StoveDoorInset" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.22, -0.25)
+rotation_degrees = Vector3(-54, 0, 0)
+mesh = SubResource("lidInset")
+
+[node name="OvenLatch" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.51, -0.03)
+mesh = SubResource("latch")
+
+[node name="Hinge0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.53, 0.9, -0.51)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("hinge")
+
+[node name="Hinge1" type="MeshInstance3D" parent="."]
+position = Vector3(0.53, 0.9, -0.51)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("hinge")
+
+[node name="ToolTray" type="MeshInstance3D" parent="."]
+position = Vector3(0.56, 0.6, 0.5)
+mesh = SubResource("tray")
+
+[node name="WrenchHandle0" type="MeshInstance3D" parent="."]
+position = Vector3(0.56, 0.67, 0.623)
+rotation_degrees = Vector3(0, 0, -32)
+mesh = SubResource("wrench")
+
+[node name="WrenchHead0" type="MeshInstance3D" parent="."]
+position = Vector3(0.6288895043503167, 0.7802462525003354, 0.623)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("wrhead")
+
+[node name="WrenchHandle1" type="MeshInstance3D" parent="."]
+position = Vector3(0.68, 0.63, 0.623)
+rotation_degrees = Vector3(0, 0, 26)
+mesh = SubResource("wrench")
+
+[node name="WrenchHead1" type="MeshInstance3D" parent="."]
+position = Vector3(0.62301175091742, 0.7468432260188917, 0.623)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("wrhead")
+
+[node name="FoldedRag" type="MeshInstance3D" parent="."]
+position = Vector3(-0.45, 0.92, 0.25)
+rotation_degrees = Vector3(0, -13, -6)
+mesh = SubResource("rag")

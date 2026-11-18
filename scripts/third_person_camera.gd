@@ -50,6 +50,8 @@ func follow(target: CharacterBody3D, delta: float, shake: Vector3) -> void:
 	var follow_distance := minf(distance, 3.6) if indoors else distance
 	var follow_pitch := clampf(pitch, -0.55, -0.18) if indoors else pitch
 	var desired := focus + Vector3(0, 0, follow_distance).rotated(Vector3.RIGHT, follow_pitch).rotated(Vector3.UP, yaw)
+	if indoors:
+		desired = shelter.constrain_ground_camera(desired, focus)
 	var query := PhysicsRayQueryParameters3D.create(focus, desired, 1, [target.get_rid()])
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
@@ -57,4 +59,6 @@ func follow(target: CharacterBody3D, delta: float, shake: Vector3) -> void:
 	global_position = desired if not initialized or not hit.is_empty() else global_position.lerp(desired, 1.0 - exp(-12.0 * delta))
 	initialized = true
 	global_position += shake
+	if indoors:
+		global_position = shelter.constrain_ground_camera(global_position, focus)
 	look_at(focus - backward * (0.2 if indoors else 1.4), Vector3.UP)

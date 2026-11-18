@@ -1,18 +1,15 @@
 @tool
 extends Node3D
-## 远山环 v2：整圈连续网格山脉（每圈一条无接缝的闭环网格，山与山绝对连续）。
-## 着色用高度渐变着色器：低处岩石色 → 中部山体色 → 雪线以上积雪白，叠加噪声扰动雪线，
-## 再按远近混入大气雾色（越远越朦胧），营造真实连绵雪山远景。
-## 纯装饰、无碰撞；双面渲染，玩家走到环外也不会看穿。
+## 雪原远景。每圈从山脚升到山脊，摄像机移动时保持在地平线附近。
 
 const RING_SAMPLES := 288   # 整圈采样数（越大山脊越细腻）
 const BASE_Y := -2.0        # 山体底部埋进地面，避免与地面接缝露缝
 
 ## 每圈：半径 / 最低高 / 最高高 / 基色 / 雾化强度（越远越朦胧）
 const RINGS := [
-	{"radius": 470.0, "hmin": 30.0, "hmax": 58.0, "color": Color(0.36, 0.48, 0.68), "haze": 0.60},
-	{"radius": 408.0, "hmin": 20.0, "hmax": 40.0, "color": Color(0.45, 0.58, 0.78), "haze": 0.42},
-	{"radius": 346.0, "hmin": 12.0, "hmax": 26.0, "color": Color(0.56, 0.68, 0.86), "haze": 0.22},
+	{"radius": 385.0, "hmin": 19.0, "hmax": 61.0, "color": Color("64778d"), "haze": 0.48},
+	{"radius": 338.0, "hmin": 10.0, "hmax": 48.0, "color": Color("586b81"), "haze": 0.30},
+	{"radius": 291.0, "hmin": 5.0, "hmax": 34.0, "color": Color("4e6379"), "haze": 0.18},
 ]
 
 var _mat_cache := {}
@@ -46,24 +43,33 @@ func _build_ring(ring: Dictionary, idx: int) -> void:
 	var phase := float(idx) * 1.7
 
 	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	for i in RING_SAMPLES + 1:
-		var th := TAU * float(i) / float(RING_SAMPLES)
-		var h := _profile(th + phase, hmin, hmax)
-		var r := radius + _radial(th + phase)
-		var dir := Vector3(cos(th), 0.0, sin(th))
-		var nrm := -dir
-		st.set_normal(nrm)
-		st.add_vertex(dir * r + Vector3(0.0, BASE_Y, 0.0))
-		st.set_normal(nrm)
-		st.add_vertex(dir * r + Vector3(0.0, h, 0.0))
-	var mesh := st.commit()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in RING_SAMPLES:
+		var a := _slope_section(radius, hmin, hmax, TAU * float(i) / RING_SAMPLES, phase)
+		var b := _slope_section(radius, hmin, hmax, TAU * float(i + 1) / RING_SAMPLES, phase)
+		for band in range(a.size() - 1):
+			for point in [a[band], b[band], a[band + 1], a[band + 1], b[band], b[band + 1]]:
+				st.add_vertex(point)
+	st.generate_normals()
 
-	var mi := MeshInstance3D.new()
-	mi.name = "Range%d" % (idx + 1)
-	mi.mesh = mesh
-	mi.material_override = _range_mat(ring, hmax)
-	add_child(mi)
+	var instance := MeshInstance3D.new()
+	instance.name = "Range%d" % (idx + 1)
+	instance.mesh = st.commit()
+	instance.material_override = _range_mat(ring, hmax)
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(instance)
+
+
+func _slope_section(radius: float, hmin: float, hmax: float, angle: float, phase: float) -> PackedVector3Array:
+	var direction := Vector3(cos(angle), 0, sin(angle))
+	var height := _profile(angle + phase, hmin, hmax)
+	var ridge := radius + _radial(angle + phase)
+	var shoulder := 20.0 + 9.0 * sin(angle * 9.0 + phase)
+	return PackedVector3Array([
+		direction * (ridge - 52.0) + Vector3.UP * BASE_Y,
+		direction * (ridge - shoulder) + Vector3.UP * height * 0.5,
+		direction * ridge + Vector3.UP * height,
+	])
 
 
 ## 环绕整圈的连续山脊高度：多组正弦叠加（整数频率 → 首尾无缝），高频项带来锯齿峰感
@@ -93,8 +99,8 @@ func _range_mat(ring: Dictionary, hmax: float) -> ShaderMaterial:
 		m.shader = _get_shader()
 		m.set_shader_parameter("rock_color", base.darkened(0.45))
 		m.set_shader_parameter("mid_color", base)
-		m.set_shader_parameter("snow_color", base.lerp(Color(0.95, 0.97, 1.0), 0.8))
-		m.set_shader_parameter("haze_color", Color(0.78, 0.85, 0.93))
+		m.set_shader_parameter("snow_color", base.lerp(Color("dbe3ed"), 0.55))
+		m.set_shader_parameter("haze_color", Color("9facbd"))
 		m.set_shader_parameter("max_h", hmax)
 		m.set_shader_parameter("haze_amount", ring.haze)
 		_mat_cache[key] = m
@@ -111,7 +117,7 @@ render_mode cull_disabled;
 uniform vec3 rock_color : source_color;
 uniform vec3 mid_color : source_color;
 uniform vec3 snow_color : source_color;
-uniform vec3 haze_color : source_color = vec3(0.78, 0.85, 0.93);
+uniform vec3 haze_color : source_color = vec3(0.62, 0.67, 0.74);
 uniform float max_h = 60.0;
 uniform float haze_amount = 0.2;
 
@@ -128,7 +134,7 @@ void vertex() {
 void fragment() {
 	float t = clamp(wpos.y / max_h, 0.0, 1.0);
 	// 世界坐标噪声扰动雪线，避免雪线齐得像一条直线
-	float n = vhash(floor(wpos.xz * 0.35)) * 0.6 + vhash(floor(wpos.xz * 0.11)) * 0.4;
+	float n = vhash(floor(wpos.xz * 0.08));
 	float tt = clamp(t + (n - 0.5) * 0.12, 0.0, 1.0);
 	vec3 col = mix(rock_color, mid_color, smoothstep(0.02, 0.45, tt));
 	col = mix(col, snow_color, smoothstep(0.5, 0.8, tt));
@@ -136,6 +142,7 @@ void fragment() {
 	col = mix(col, haze_color, haze_amount * (1.0 - t * 0.5));
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
+	SPECULAR = 0.0;
 }
 """
 	return _shader_res

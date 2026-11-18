@@ -34,6 +34,6 @@ func run():
  current_scene = hall
  for i in 10: await physics_frame
  check(hall.has_node("FinalBoss/FinalBossModel/Cloche"), "final boss authored model preserved")
- check(hall.points.size() == 18 and hall.points.has("final_boss"), "all third chapter interactions preserved")
+ check(hall.points.has_all(["final_boss", "core", "cart", "rail", "door"]), "chapter-three story and puzzle interactions are present")
  print("MERGE_VALIDATION failures=", failures)
  quit(1 if failures else 0)

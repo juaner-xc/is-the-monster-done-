@@ -340,11 +340,12 @@ func _fire_projectile() -> void:
 	_spawn_action_flash(Color(0.44, 0.82, 1.0, 0.42), 0.52, 0.16)
 	var projectile := PROJECTILE_SCENE.instantiate()
 	get_tree().current_scene.add_child(projectile)
+	var muzzle := global_position + Vector3.UP * 0.75
 	var forward := -global_transform.basis.z
-	if travel_combat and camera != null:
-		forward = (camera.global_position-camera.global_basis.z*40.0-global_position-Vector3.UP*0.75).normalized()
+	if travel_combat:
+		forward = _aim_direction()
 	projectile.configure(
-		global_position + forward * 1.0 + Vector3.UP * 0.75,
+		muzzle + forward * 1.0,
 		forward,
 		projectile_damage * heat_damage,
 		0.4 if travel_combat else slow_strength,
@@ -352,7 +353,50 @@ func _fire_projectile() -> void:
 	)
 
 
-# ------------------------------------------------------------------ 朝向
+# ------------------------------------------------------------------ 瞄准
+## 远程攻击方向：准星附近有敌人就直接打它胸口（8° 内轻微吸附），
+## 否则以准星射出的射线命中的地形/墙体为准，打空则沿视线飞出。
+## 旧写法取“相机前方 40 米处”，相机俯角会把该点算到地下，
+## 冰矛飞几米就钻进地底，只剩贴脸能打中。
+func _aim_direction() -> Vector3:
+	var muzzle := global_position + Vector3.UP * 0.75
+	var flat := -global_transform.basis.z
+	flat.y = 0.0
+	flat = flat.normalized() if flat.length_squared() > 0.001 else Vector3.FORWARD
+	if camera == null:
+		return flat
+	var view_dir := -camera.global_basis.z
+	var best_point := Vector3.ZERO
+	var best_angle := deg_to_rad(8.0)
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var body := node as Node3D
+		if body == null or not is_instance_valid(body):
+			continue
+		var chest := body.global_position + Vector3.UP * 0.75 * body.global_basis.get_scale().y
+		var to_chest := chest - camera.global_position
+		if to_chest.length() > 45.0 or to_chest.length_squared() < 0.01:
+			continue
+		var angle := view_dir.angle_to(to_chest.normalized())
+		if angle < best_angle:
+			best_angle = angle
+			best_point = chest
+	if best_angle < deg_to_rad(8.0):
+		return (best_point - muzzle).normalized()
+	var aim := camera.global_position - camera.global_basis.z * 60.0
+	var space := get_world_3d().direct_space_state
+	if space != null:
+		var query := PhysicsRayQueryParameters3D.create(camera.global_position, aim, 3, [get_rid()])
+		var hit: Dictionary = space.intersect_ray(query)
+		if not hit.is_empty():
+			var hit_point: Vector3 = hit.get("position", aim)
+			aim = hit_point
+	var direction := aim - muzzle
+	var planar := Vector3(direction.x, 0.0, direction.z)
+	if planar.length() < 2.0:
+		return flat
+	return direction.normalized()
+
+
 ## 移动时朝移动方向转身；攻击或投掷时立刻对准镜头前方
 func _update_facing(movement: Vector3, delta: float) -> void:
 	var direction := movement

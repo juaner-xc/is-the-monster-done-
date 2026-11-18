@@ -69,6 +69,10 @@ func apply_slow(_strength: float, _duration: float) -> void:
 	pass
 
 
+func is_phase_two() -> bool:
+	return state != State.DEAD and hp <= max_hp * 0.5
+
+
 ## 阀门被按下：任意一个中断蓄力，两个都给更长的硬直
 func on_valve_turned() -> void:
 	if state != State.OVERLOAD:

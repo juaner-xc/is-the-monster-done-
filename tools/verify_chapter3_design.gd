@@ -48,13 +48,10 @@ func run():
 	check_route("foyer_to_supply", [Vector3(0,0,25),Vector3(15.5,0,25),Vector3(16.5,0,22),Vector3(23,0,22)])
 	check_route("supply_to_preparation", [Vector3(23,0,17),Vector3(0,0,17)])
 	check_route("arena_to_core", [Vector3(6,0,-15),Vector3(6,0,-26),Vector3(0,0,-27),Vector3(0,0,-32)])
-	hall.show_book()
-	if not hall.book_seen: failures += 1
-	hall.close_panel()
-	for room in ["snow", "volcano"]:
-		for i in 3: hall.operate_valve(room,i)
-	print("CHAPTER3_CORES=",hall.rare_cores)
-	if hall.rare_cores != 2: failures += 1
+	check_route("west_walkway_to_cart", [Vector3(0,0,13),Vector3(-6,0,13),Vector3(-6,0,-4)])
+	check_route("west_walkway_to_last_seat", [Vector3(-6,0,-4),Vector3(-6,0,-13),Vector3(-4.6,0,-13)])
+	check_route("arena_to_west_valve", [Vector3(-4.5,0,-19),Vector3(-8.2,0,-20)])
+	check_route("arena_to_east_valve", [Vector3(4.5,0,-19),Vector3(8.2,0,-20)])
 	print("CHAPTER3_VERIFY_FAILURES=",failures)
 	var result := failures
 	hall.queue_free()

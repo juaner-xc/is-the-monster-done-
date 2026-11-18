@@ -4,9 +4,13 @@ extends Control
 ## 注意：LANDMARKS/ROUTES 是无类型数组，取值必须显式 as 转换，否则 Godot 无法推断类型（报 Parse Error）
 var game
 var font: Font
+var board_display := false
 var accepts_input := false   # 只有大图响应 M/Esc 关闭（暂停中 game._input 收不到输入）
 signal close_requested
-const EXTENT := 185.0   # 世界半径：雪山 z=-170、冰湖 x≈174 都要装进图里
+const PassLandscape = preload("res://scripts/snow_pass_landscape.gd")
+const SnowRoute := preload("res://scripts/snow_town_link.gd")
+const PASS_POINT := Vector2(PassLandscape.PASS.x, PassLandscape.PASS.z)
+const EXTENT := 280.0
 var _obj_pts: Array = []   # 元素为 {"type": String, "pos": Vector2}
 var _objs_done := false
 var _lake_center: Vector2 = Vector2.ZERO
@@ -16,23 +20,16 @@ var _t := 0.0
 
 # [世界中心, 世界尺寸, 类型]  类型决定图形符号（不标名字）
 const LANDMARKS: Array = [
-	[Vector2(10.65, 0), Vector2(19, 16), "house"],   # 肯德齐食堂
+	[PASS_POINT, Vector2(12, 9), "cave"],
+	[Vector2(SnowRoute.DINING_HALL.x, SnowRoute.DINING_HALL.z), Vector2(19, 16), "house"],   # 肯德齐食堂
 	[Vector2(3, 12), Vector2(7, 6), "stall"],    # 包子摊
 	[Vector2(-55, -20), Vector2(13, 9), "berm"], # 雪障·绳梯
 	[Vector2(-55, -50), Vector2(13, 13), "cave"],# 冰洞
 	[Vector2(88, -34), Vector2(9, 9), "tower"],  # 灯塔
 	[Vector2(24, 6), Vector2(6, 6), "rock"],
-	[Vector2(38, -120), Vector2(13, 9), "town"],     # 巨石
-]
-# 连接主要地点的小径
-const ROUTES: Array = [
-	[Vector2(0, 0), Vector2(8, 0)],
-	[Vector2(8, 0), Vector2(3, 12)],
-	[Vector2(0, 0), Vector2(-55, -20)],
-	[Vector2(-55, -20), Vector2(-55, -50)],
-	[Vector2(8, 0), Vector2(88, -34)],
-	[Vector2(0, 0), Vector2(38, -160)],
-	[Vector2(38, -160), Vector2(0, -170)],
+	[Vector2(SnowRoute.TOWN_CENTER.x, SnowRoute.TOWN_CENTER.z), Vector2(26, 17), "town"],
+	[Vector2(SnowRoute.HALL.x, SnowRoute.HALL.z), Vector2(15, 13), "hall"],
+	[Vector2(SnowRoute.WHEEL.x, SnowRoute.WHEEL.z), Vector2(12, 12), "wheel"],
 ]
 const C_HOUSE := Color("b5793f")
 const C_STALL := Color("e0a040")
@@ -50,7 +47,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	font = SystemFont.new()
 	font.font_names = PackedStringArray(["Microsoft YaHei"])
-	set_process(true)
+	set_process(not board_display)
 
 
 func _process(delta: float) -> void:
@@ -70,7 +67,7 @@ func _input(event: InputEvent) -> void:
 
 func project(p: Vector2) -> Vector2:
 	var scale_ := minf((size.x - 30.0) / (EXTENT * 2.0), (size.y - 52.0) / (EXTENT * 2.0))
-	return Vector2(size.x / 2.0, size.y / 2.0 + 8.0) + p * scale_
+	return Vector2(size.x / 2.0, size.y / 2.0 + 8.0) + Vector2(p.x, -p.y) * scale_
 
 
 func _scale() -> float:
@@ -157,7 +154,7 @@ func _draw() -> void:
 
 	# 雪地风面板：半透明浅蓝白雪色 + 冰蓝描边（降低对视野的遮挡）
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.918, 0.949, 0.984, 0.42)
+	sb.bg_color = Color(0.918, 0.949, 0.984, 0.96 if accepts_input or board_display else 0.42)
 	sb.set_border_width_all(2)
 	sb.border_color = Color(0.663, 0.796, 0.902, 0.55)
 	sb.set_corner_radius_all(10)
@@ -173,18 +170,22 @@ func _draw() -> void:
 		var gb := project(Vector2(185.0, float(gz)))
 		draw_line(ga, gb, Color(0.55, 0.72, 0.88, 0.12), 1)
 
-	# 可活动范围（边界墙）：冰蓝细圈
-	draw_arc(project(Vector2.ZERO), 94.6 * s, 0, TAU, 80, Color(0.45, 0.62, 0.78, 0.5), 1)
-
-	# 雪山等高线
-	for cr in [35.0, 60.0, 85.0]:
-		draw_arc(project(Vector2(0, -170)), cr * s, 0, TAU, 48, Color(0.7, 0.8, 0.9, 0.18), 1)
-
-	# 小径路网
-	for rt in ROUTES:
-		var ra := project(rt[0] as Vector2)
-		var rb := project(rt[1] as Vector2)
-		draw_line(ra, rb, C_PATH, 2)
+	for path in [SnowRoute.MAIN_PATH, SnowRoute.PASS_PATH, SnowRoute.TOWN_PATH, SnowRoute.DINING_TOWN_PATH]:
+		var side_route: bool = path == SnowRoute.TOWN_PATH or path == SnowRoute.DINING_TOWN_PATH
+		var color := Color("3f9387") if side_route else Color("4b82bb")
+		for i in range(path.size() - 1):
+			var a: Vector3 = path[i]
+			var b: Vector3 = path[i + 1]
+			var pa := project(Vector2(a.x, a.z))
+			var pb := project(Vector2(b.x, b.z))
+			if side_route:
+				draw_dashed_line(pa, pb, color, 2.3, 5.0)
+			else:
+				draw_line(pa, pb, color, 3.0, true)
+	if not small:
+		draw_string(font, Vector2(size.x - 54, 38), "北 ↑", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, C_CAVE)
+	if board_display:
+		draw_string(font, Vector2(24, 48), "雪原路线图", HORIZONTAL_ALIGNMENT_LEFT, -1, 28, C_CAVE)
 
 	# 冰湖（按 WaterZone 从真实水面网格算出的径向轮廓绘制，形状与实际一致）
 	if _lake_radii.size() > 0:
@@ -273,8 +274,14 @@ func _draw() -> void:
 			"town":
 				draw_circle(c, 5.0, Color("d6a85a"))
 				draw_arc(c, 7.0, 0.0, TAU, 20, C_CAVE, 1.5, true)
-				if accepts_input and font != null:
+				if accepts_input or board_display:
 					draw_string(font, c + Vector2(10, 4), "圣诞小镇", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, C_CAVE)
+			"hall":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-8, 6), c + Vector2(8, 6), c + Vector2(0, -12)]), Color("4d81ad"))
+			"wheel":
+				draw_arc(c, 7, 0.0, TAU, 20, Color("8a6249"), 2, true)
+				draw_line(c + Vector2(-5, 9), c, Color("8a6249"), 2.0)
+				draw_line(c + Vector2(5, 9), c, Color("8a6249"), 2.0)
 			"cave":
 				draw_arc(c, dim.x * 0.5, PI, TAU, 18, C_CAVE, 5)
 			"tower":
@@ -283,8 +290,18 @@ func _draw() -> void:
 			"rock":
 				draw_colored_polygon(PackedVector2Array([c + Vector2(-dim.x * 0.5, dim.y * 0.4), c + Vector2(-dim.x * 0.1, -dim.y * 0.5), c + Vector2(dim.x * 0.5, dim.y * 0.4)]), C_ROCK)
 
+	if not small:
+		_draw_name(Vector2(SnowRoute.DINING_HALL.x, SnowRoute.DINING_HALL.z), "肯德齐食堂")
+		_draw_name(Vector2(SnowRoute.HALL.x, SnowRoute.HALL.z), "雪原礼堂", Vector2(-86, 4))
+		_draw_name(Vector2(SnowRoute.WHEEL.x, SnowRoute.WHEEL.z), "摩天轮")
+		_draw_name(PASS_POINT, "山口 · 旧运输道", Vector2(12, 4))
+		draw_string(font, Vector2(18, size.y - 20), "蓝线 主线    绿线 圣诞小镇支线", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, C_CAVE)
+
 	# 出生点：白环
 	draw_arc(project(Vector2.ZERO), 5.0 * s, 0, TAU, 18, Color("ffffff"), 2)
+
+	if board_display:
+		return
 
 	# 飘雪动画
 	var sn := 70 if not small else 34
@@ -301,3 +318,7 @@ func _draw() -> void:
 		var at := project(Vector2(pos.x, pos.z))
 		draw_circle(at, 4.5 if small else 6.5, Color("1f9bd1"))
 		draw_arc(at, (7 if small else 10), 0, TAU, 20, Color("1f9bd1"), 1)
+
+
+func _draw_name(at: Vector2, text: String, offset := Vector2(10, 4)) -> void:
+	draw_string(font, project(at) + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, C_CAVE)

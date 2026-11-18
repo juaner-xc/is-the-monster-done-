@@ -141,7 +141,7 @@ func _refresh() -> void:
 func get_prompt() -> String:
 	if not _unlocked:
 		return "升降台锁着"
-	return "按 [F] 乘升降台上楼"
+	return "按 [F] 穿过时空裂隙 · 重启魔力 %d / 3" % RunState.final_banquet_magic()
 
 
 func interact(_who: Node) -> void:

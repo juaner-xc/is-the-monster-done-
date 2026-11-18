@@ -52,11 +52,42 @@ var pause_description: Label
 var pause_resume_button: Button
 var pause_title_button: Button
 var confirming_return := false
+var _debug_label: Label
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_interface()
+	_build_debug_label()
+
+
+func _build_debug_label() -> void:
+	_debug_label = Label.new()
+	_debug_label.text = ""
+	_debug_label.position = Vector2(12, 8)
+	_debug_label.size = Vector2(380, 30)
+	_debug_label.add_theme_font_size_override("font_size", 14)
+	_debug_label.add_theme_color_override("font_color", Color("9fe8ff"))
+	_debug_label.add_theme_color_override("font_outline_color", Color("101820"))
+	_debug_label.add_theme_constant_override("outline_size", 4)
+	_debug_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_debug_label.visible = false
+	add_child(_debug_label)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var ek := event as InputEventKey
+		if ek.pressed and not ek.echo and ek.keycode == KEY_F3 and _debug_label != null:
+			_debug_label.visible = not _debug_label.visible
+
+
+func _process(_delta: float) -> void:
+	if _debug_label == null or not _debug_label.visible:
+		return
+	var p := get_tree().get_first_node_in_group("Player") as Node3D
+	if p != null:
+		_debug_label.text = "坐标 %.2f, %.2f, %.2f" % [p.global_position.x, p.global_position.y, p.global_position.z]
 
 
 func update_status(player: Node, recipe_system: Node, time_left: float, wave: int, enemy_count: int) -> void:
@@ -294,7 +325,8 @@ func _build_recipe_card(root: Control) -> void:
 
 
 func _build_help_bar(root: Control) -> void:
-	help_label=Label.new();root.add_child(help_label);help_label.hide()
+	# 右下角按键提示常驻（含重生后），暂停时由 set_paused_hint 切换文案
+	help_label=Label.new();root.add_child(help_label)
 	help_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	help_label.offset_left=-330;help_label.offset_right=-30;help_label.offset_top=-66;help_label.offset_bottom=-25
 	help_label.text="左键 挥锅  ·  右键 调味  ·  Shift 闪避 · 空格 跳跃\nV 挥手  /  Tab 背包  /  Esc 暂停"

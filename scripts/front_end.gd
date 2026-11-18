@@ -556,8 +556,16 @@ func _poll_chapter_load() -> void:
 		chapter_loading_label.text = "%s · %d%%" % [loading_chapter_title,roundi(chapter_loading_bar.value)]
 
 func _show_chapter_error(message: String) -> void:
+	if Ch02State.has("ch03.resume_after_battle"):
+		Ch02State.set_flag("ch03.resume_after_battle", false)
 	loading_chapter = false
 	chapter_loading_overlay.hide()
 	for b in chapter_buttons:
 		if is_instance_valid(b): b.disabled = false
 	if is_instance_valid(chapter_info): chapter_info.text = message
+
+func _resume_final_banquet() -> void:
+	if transitioning or loading_chapter or recipe_book.is_open():
+		return
+	Ch02State.set_flag("ch03.resume_after_battle", true)
+	_open_debug_chapter("third")

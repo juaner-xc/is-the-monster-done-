@@ -1,0 +1,113 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/winter_greenery.gd" id="1_greenery"]
+
+[sub_resource type="StandardMaterial3D" id="Glass"]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.68, 0.86, 0.94, 0.14)
+roughness = 0.24
+
+[sub_resource type="StandardMaterial3D" id="Oak"]
+albedo_color = Color(0.39, 0.24, 0.13, 1)
+roughness = 0.87
+
+[sub_resource type="StandardMaterial3D" id="Brass"]
+albedo_color = Color(0.78, 0.51, 0.19, 1)
+metallic = 0.38
+roughness = 0.45
+
+[sub_resource type="QuadMesh" id="Pane"]
+size = Vector2(2.45, 2.16)
+
+[sub_resource type="BoxShape3D" id="PaneCollision"]
+size = Vector3(2.45, 2.16, 0.18)
+
+[sub_resource type="BoxMesh" id="TallFrame"]
+size = Vector3(0.115, 2.26, 0.25)
+
+[sub_resource type="BoxMesh" id="CrossFrame"]
+size = Vector3(2.50, 0.105, 0.23)
+
+[sub_resource type="BoxMesh" id="Sill"]
+size = Vector3(2.62, 0.10, 0.37)
+
+[sub_resource type="CylinderMesh" id="BellCord"]
+top_radius = 0.009
+bottom_radius = 0.009
+height = 0.25
+radial_segments = 6
+
+[sub_resource type="CylinderMesh" id="Bell"]
+top_radius = 0.035
+bottom_radius = 0.092
+height = 0.13
+radial_segments = 12
+
+[node name="PictureWindow" type="Node3D"]
+
+[node name="Pane" type="MeshInstance3D" parent="."]
+mesh = SubResource("Pane")
+material_override = SubResource("Glass")
+cast_shadow = 0
+
+[node name="PaneBody" type="StaticBody3D" parent="."]
+
+[node name="Shape" type="CollisionShape3D" parent="PaneBody"]
+shape = SubResource("PaneCollision")
+
+[node name="LeftJamb" type="MeshInstance3D" parent="."]
+position = Vector3(-1.225, 0, 0)
+mesh = SubResource("TallFrame")
+material_override = SubResource("Oak")
+
+[node name="RightJamb" type="MeshInstance3D" parent="."]
+position = Vector3(1.225, 0, 0)
+mesh = SubResource("TallFrame")
+material_override = SubResource("Oak")
+
+[node name="Mullion" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0)
+mesh = SubResource("TallFrame")
+material_override = SubResource("Oak")
+
+[node name="Header" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.1, 0)
+mesh = SubResource("CrossFrame")
+material_override = SubResource("Oak")
+
+[node name="Transom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.29, 0)
+mesh = SubResource("CrossFrame")
+material_override = SubResource("Oak")
+
+[node name="Sill" type="MeshInstance3D" parent="."]
+position = Vector3(0, -1.08, 0)
+mesh = SubResource("Sill")
+material_override = SubResource("Oak")
+
+[node name="HolidayGarland" type="Node3D" parent="."]
+position = Vector3(0, 1.1, -0.22)
+rotation = Vector3(0, 3.141593, 0)
+scale = Vector3(1.17, 1.0, 1.0)
+script = ExtResource("1_greenery")
+
+[node name="LeftCord" type="MeshInstance3D" parent="."]
+position = Vector3(-0.76, 0.86, -0.29)
+mesh = SubResource("BellCord")
+material_override = SubResource("Brass")
+
+[node name="LeftBell" type="MeshInstance3D" parent="."]
+position = Vector3(-0.76, 0.685, -0.29)
+mesh = SubResource("Bell")
+material_override = SubResource("Brass")
+
+[node name="RightCord" type="MeshInstance3D" parent="."]
+position = Vector3(0.76, 0.76, -0.29)
+mesh = SubResource("BellCord")
+material_override = SubResource("Brass")
+
+[node name="RightBell" type="MeshInstance3D" parent="."]
+position = Vector3(0.76, 0.585, -0.29)
+mesh = SubResource("Bell")
+material_override = SubResource("Brass")

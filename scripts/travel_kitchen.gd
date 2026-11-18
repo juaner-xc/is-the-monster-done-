@@ -13,6 +13,7 @@ var shell := ColorRect.new()
 var body := VBoxContainer.new()
 var scroll := ScrollContainer.new()
 var first := ""
+var try_note := ""
 var job: Array = []
 var remaining := 0.0
 var full_time := 0.0
@@ -70,6 +71,8 @@ func apply_settings() -> void:
 func handle(event: InputEvent) -> bool:
 	if chapter == 1 and (host.finished or host.map_open or host.hud.is_upgrade_open() or host.recipe_book.is_open()):
 		return false
+	if chapter == 1 and host.recipe_compose_active:
+		return false
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F1 or event.physical_keycode == KEY_F1:
 			if page == GUIDE_PAGE:
@@ -83,7 +86,11 @@ func handle(event: InputEvent) -> bool:
 			if page == "备餐":
 				close()
 				return true
-			if page == "" and not get_tree().paused and not hero.cooking and not hero.has_meta("opening_combat") and (chapter != 2 or not hero.movement_locked):
+			# 从空状态或任意已开面板都能直接切到备餐（不再要求 page == ""）
+			var can_open: bool = not hero.cooking and not hero.has_meta("opening_combat") and (chapter != 2 or not hero.movement_locked)
+			if page == "":
+				can_open = can_open and not get_tree().paused
+			if can_open:
 				show_page("备餐")
 				return true
 		var key: Key = event.keycode if event.keycode != KEY_NONE else event.physical_keycode
@@ -139,9 +146,17 @@ func show_page(which: String) -> void:
 			if from_settings:
 				button("返回设置", func(): show_page("设置"))
 		"背包":
+			line("金币　%d" % RunState.coins)
 			var stock := PackedStringArray()
 			for id in inv.ingredient_ids(): stock.append("%s ×%d" % [FoodData.ingredient_name(id),inv.ingredient_count(id)])
 			line("食材　"+"　".join(stock) if stock.size() else "食材　空")
+			# 任务物品（如冰堡钥匙）显示在背包里
+			var _qnames := {"ice_castle_keys": "冰堡钥匙", "coins": "豆奶给的零钱", "matches": "干燥的火柴", "old_recipe_book": "旧食谱"}
+			var _quest := RunState.quest_items
+			if _quest.size() > 0:
+				var _qs := PackedStringArray()
+				for _qid in _quest: _qs.append("%s ×%d" % [_qnames.get(_qid, _qid), _quest[_qid]])
+				line("任务物品　" + "　".join(_qs))
 			if chapter == 1 and hero.has_meta("opening_combat"):
 				var opening = hero.get_meta("opening_combat")
 				if opening.stage == opening.ARM_SOUP and inv.dish_count(opening.HOT_SOUP) > 0:
@@ -155,7 +170,7 @@ func show_page(which: String) -> void:
 				elif opening.stage in [opening.DELIVERY, opening.FIGHT, opening.HAND_OVER]:
 					line("任务物品　给旅人的热汤 ×1")
 			button("备餐",func(): show_page("备餐"))
-			if at_station(): button("食堂灶台 · 试做",func(): first="";show_page("试做"))
+			if at_station(): button("食堂灶台 · 试做",func(): first="";try_note="";show_page("试做"))
 			for id in inv.dish_ids():
 				if id == "snow_tutorial_hot_soup":
 					continue
@@ -169,9 +184,14 @@ func show_page(which: String) -> void:
 					b.disabled = not inv.has_ingredient(data[2]) or not inv.has_ingredient(data[3]) or hero.pan_heat.value > PanHeat.OVERHEAT_LIMIT or hero.pan_heat.wash_left > 0.0
 			if RunState.cooking_journal.is_empty(): line("先到食堂灶台试做一道料理。")
 		"试做":
-			line("选两种食材" if first == "" else "已选　"+FoodData.ingredient_name(first))
+			if try_note != "":
+				body.add_child(Book.label(try_note,19,Color("e8b34b")))
+				try_note = ""
+			line("选两种食材" if first == "" else "已选　"+FoodData.ingredient_name(first)+"　（再点一个即开始烹饪）")
 			for id in inv.ingredient_ids():
 				if id != first: button(FoodData.ingredient_name(id),select_ingredient.bind(id))
+			if first != "":
+				button("重选（清空已选）", func(): first=""; try_note=""; show_page.call_deferred("试做"))
 		"装备":
 			line(("平底锅" if hero.hero_motion == null or hero.hero_motion.wardrobe.pan_received else "平底锅在二楼桌上") + ("　红果木杖 · 叶子披肩 · 雪叶头盔" if RunState.has_gear("snowleaf") else ""))
 			for id in GUARDS:
@@ -271,18 +291,49 @@ func dish_name(id: String) -> String:
 	return FoodData.dish_name(id)
 
 func select_ingredient(id: String) -> void:
-	if first=="": first=id;show_page("试做");return
+	if first=="":
+		first=id
+		show_page.call_deferred("试做")
+		return
+	# 开火前先查拦截原因，直接写在试做页里（HUD 提示容易被忽略）
+	var blocker := _cook_block_reason()
+	if blocker != "":
+		try_note = blocker
+		show_page.call_deferred("试做")
+		return
 	for data in recipes():
 		if [first,id].has(data[2]) and [first,id].has(data[3]):
 			start(data)
 			return
 	start(["","","%s" % first,id])
 
+func _cook_block_reason() -> String:
+	if hero.has_meta("opening_combat"): return "送汤教学还没完成，教学期间无法备餐（先按提示完成教学）"
+	if hero.hero_motion != null and not hero.hero_motion.wardrobe.pan_received: return "还没拿到平底锅，无法备餐"
+	if not job.is_empty(): return "正在烹饪中，稍等"
+	if hero.pan_heat.wash_left > 0.0: return "锅正在洗（%.1f 秒），洗完再试" % hero.pan_heat.wash_left
+	if not at_station() and hero.pan_heat.value > PanHeat.OVERHEAT_LIMIT: return "锅过热，先闪避降温再备餐"
+	return ""
+
 func start(data: Array) -> void:
-	if hero.has_meta("opening_combat") or (hero.hero_motion != null and not hero.hero_motion.wardrobe.pan_received): return
-	if not job.is_empty() or not inv.has_ingredient(data[2]) or not inv.has_ingredient(data[3]): return
+	if hero.has_meta("opening_combat"):
+		notice("战斗中无法备餐")
+		return
+	if hero.hero_motion != null and not hero.hero_motion.wardrobe.pan_received:
+		notice("先把锅从桌上拿起来")
+		return
+	if not job.is_empty():
+		notice("正在烹饪中")
+		return
+	if not inv.has_ingredient(data[2]) or not inv.has_ingredient(data[3]):
+		notice("食材不足")
+		return
 	var station := at_station()
-	if hero.pan_heat.wash_left > 0.0 or (not station and hero.pan_heat.value > PanHeat.OVERHEAT_LIMIT):
+	if hero.pan_heat.wash_left > 0.0:
+		notice("锅正在洗，稍等")
+		return
+	if not station and hero.pan_heat.value > PanHeat.OVERHEAT_LIMIT:
+		notice("锅过热，先降温或闪避")
 		return
 	job=data
 	full_time=2.0 if station or hero.pan_heat.has_wok_breath() else (4.0 if hero.pan_heat.is_cold() else 3.0)
@@ -383,7 +434,6 @@ func leave_game() -> void:
 
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(hero): return
-	if chapter == 1 and host.snow_town.transitioning: return
 	if chapter == 3 and page=="" and (host.panel.visible or host.map_open or host.design_view): return
 	if chapter == 1 and page=="" and (host.cinematic_entry or host.recipe_arrival_active): return
 	if chapter == 1 and page == "" and host.shelter_dialogue_active and not event.is_action_pressed("pause"):

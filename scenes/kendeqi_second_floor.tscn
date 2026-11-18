@@ -2215,13 +2215,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.11359999, 3.9100003, 0)
 material_override = SubResource("StandardMaterial3D_aqoar")
 mesh = SubResource("BoxMesh_8lf2q")
 
-[node name="@Node3D@419" type="Node3D" parent="." unique_id=209504566]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2375998, 3.9100003, 0)
-
-[node name="@MeshInstance3D@420" type="MeshInstance3D" parent="@Node3D@419" unique_id=971475362]
-material_override = SubResource("StandardMaterial3D_3u6ba")
-mesh = SubResource("BoxMesh_maa6y")
-
 [node name="TravelChest" type="Node3D" parent="." unique_id=1217984056]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.9864, 0.2500001, -1.7272)
 

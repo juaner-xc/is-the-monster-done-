@@ -484,6 +484,7 @@ func _build_scroll() -> void:
 	var row_highlight := StyleBoxFlat.new()
 	row_highlight.bg_color = Color(0.33, 0.24, 0.12, 0.16)
 	row_highlight.set_corner_radius_all(5)
+	var can_resume := Ch02State.has("ch03.after_battle_unlocked")
 	for i in range(3):
 		var id := String(RunState.CHAPTERS[i]["id"])
 		var b := Button.new()
@@ -492,7 +493,7 @@ func _build_scroll() -> void:
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		b.tooltip_text = "直接试玩 · %s" % chapter_names[i]
-		b.custom_minimum_size = Vector2(196,52)
+		b.custom_minimum_size = Vector2(196,42 if can_resume else 52)
 		b.add_theme_font_size_override("font_size",19)
 		b.add_theme_color_override("font_color",Color("4b3925"))
 		b.add_theme_color_override("font_hover_color",Color("332410"))
@@ -504,6 +505,15 @@ func _build_scroll() -> void:
 		b.pressed.connect(_open_debug_chapter.bind(id))
 		col.add_child(b)
 		chapter_buttons.append(b)
+	if can_resume:
+		var resume := (chapter_buttons.back() as Button).duplicate(0) as Button
+		resume.name = "ChapterButton_third_aftermath"
+		resume.text = "继续 · 欠一味"
+		resume.tooltip_text = "回到末席停手以后"
+		resume.remove_meta("chapter_id")
+		resume.pressed.connect(_resume_final_banquet)
+		col.add_child(resume)
+		chapter_buttons.append(resume)
 	clip.hide()
 
 func _toggle_chapters() -> void:

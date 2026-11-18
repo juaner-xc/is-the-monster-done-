@@ -14,20 +14,24 @@ signal boss_defeated
 const ENEMY_SCRIPT := preload("res://scripts/chapter2/ch02_enemy.gd")
 const VALVE_SCRIPT := preload("res://scripts/chapter2/ch02_valve.gd")
 const BOSS_SCRIPT := preload("res://scripts/chapter2/ch02_boss.gd")
+const LAVA_SCRIPT := preload("res://scripts/chapter2/ch02_lava_zone.gd")
 
 const STONE_MAT := "res://assets/chapter2/materials/mat_stone.tres"
+## 临时预览：Boss 门直接抬起，便于查看圆厅；确认后改回 false。
+const REVIEW_OPEN_BOSS_GATE := true
 const METAL_MAT := "res://assets/chapter2/materials/mat_metal.tres"
 const CHARCOAL_MAT := "res://assets/chapter2/materials/mat_charred_tree.tres"
 const EMBER_MAT := "res://assets/chapter2/materials/mat_ember.tres"
 
 # 三个功能区抬到与石台地层相同的高度（3.6 / 7.4 / 11.2 米），
 # 中间用斜廊连接。数值是相对生活区地面（0.58 米）的抬升量。
-## 三层拓扑（概念图口径）：L0 营地 0.58 → L1 运输站 5.23 → L2 主炉广场 9.88
-## 层高 4.65 m（18 级 × 0.26），总高差 9.30 m。
+## 四层拓扑（概念图口径）：L0 营地 0.58 → L1 仓库/厨房 5.23
+## → L2 运输站 9.88 → L3 主炉控制区 14.53。
+## 层高 4.65 m（18 级 × 0.26）。
 ## 千席宴炉与控制区同层，用平台接缝连通，不再单独抬高一层。
-const TRANSPORT_OFFSET := 4.65
-const CORE_OFFSET := 9.30
-const BOSS_OFFSET := 9.30
+const TRANSPORT_OFFSET := 9.26
+const CORE_OFFSET := 13.91
+const BOSS_OFFSET := 13.93
 
 var origin := Vector3.ZERO
 var player: Node3D
@@ -56,6 +60,7 @@ var _shortcut_door: StaticBody3D
 var _upgrade: Node3D
 var _boss_gate: StaticBody3D
 var _boss
+var _boss_lava: Area3D
 var _console
 var _elevator
 var _minecart: Node3D
@@ -218,16 +223,22 @@ func _build_transport() -> void:
 
 	# 运输线：轨道转 90°，沿南北向贯通整个运输站（与全场轴线同向）。
 	# 轨距收到 1.9 m 对上矿车轮距，双轨 + 枕木 + 两端缓冲器。
+	# 轨道只做视觉：主路上要允许玩家直接跨过去，不再用 0.5m 高的枕木挡路。
 	for side in [-1.0, 1.0]:
-		_box(Vector3(0.16, 0.12, 34.0), hall + Vector3(0.95 * side, 0.26, 0.0), _metal)
+		var rail := _box(Vector3(0.16, 0.12, 34.0), hall + Vector3(0.95 * side, 0.26, 0.0), _metal)
+		rail.collision_layer = 0
 	for i in 9:
 		var zt := -15.0 + 3.75 * float(i)
-		_box(Vector3(3.2, 0.5, 0.5), hall + Vector3(0.0, 0.25, zt), _charcoal)
+		var sleeper := _box(Vector3(3.2, 0.5, 0.5), hall + Vector3(0.0, 0.25, zt), _charcoal)
+		sleeper.collision_layer = 0
 	# 两端缓冲器：铸铁块 + 横梁，轨道「贯通」到站口读得出来
 	for end_z in [-17.2, 17.2]:
-		_box(Vector3(2.6, 0.7, 0.5), hall + Vector3(0.0, 0.6, end_z), _metal)
-		_box(Vector3(0.4, 1.4, 0.4), hall + Vector3(-1.4, 0.7, end_z), _charcoal)
-		_box(Vector3(0.4, 1.4, 0.4), hall + Vector3(1.4, 0.7, end_z), _charcoal)
+		var stop := _box(Vector3(2.6, 0.7, 0.5), hall + Vector3(0.0, 0.6, end_z), _metal)
+		stop.collision_layer = 0
+		var post_a := _box(Vector3(0.4, 1.4, 0.4), hall + Vector3(-1.4, 0.7, end_z), _charcoal)
+		post_a.collision_layer = 0
+		var post_b := _box(Vector3(0.4, 1.4, 0.4), hall + Vector3(1.4, 0.7, end_z), _charcoal)
+		post_b.collision_layer = 0
 
 	# 三个喷口 + 三个阀门：关掉喷口才能安全穿过轨道区。
 	# 喷口沿轨道两侧交替布置，不占轨道本体。
@@ -326,6 +337,7 @@ func _build_steam_machinery(hall: Vector3) -> void:
 		pump.name = "SteamPump_%d" % k
 		pump.position = hall + Vector3(12.5, 0.0, -4.0 + 11.0 * float(k))
 		_container.add_child(pump)
+		_make_non_blocking(pump)
 		var base := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(2.6, 0.7, 1.8)
@@ -440,10 +452,11 @@ func _make_upgrade(pos: Vector3) -> Node3D:
 	light.omni_range = 5.0
 	node.add_child(light)
 	var pickup := Ch02Pickup.new()
+	pickup.name = "IngredientPickup"
 	pickup.interact_range = 2.6
 	pickup.prompt_text = "按 [F] 取走强化食材"
 	pickup.flag_key = "ch02.upgrade"
-	pickup.message = "拿到一份强化食材。"
+	pickup.message = "获得巧克力、糖各一份。用料理台做成熔岩硬糖，可提升攻击。"
 	node.add_child(pickup)
 	return node
 
@@ -470,7 +483,10 @@ func _build_core_gate() -> void:
 	_console.turned.connect(_on_console_used)
 
 	# 通往 Boss 的门：北墙（-Z 侧，z-78）正中，正对千席宴炉
-	_boss_gate = _box(Vector3(6.0, 4.2, 0.6), room + Vector3(0, 2.1, -11.0), _panel)
+	_boss_gate = _box(Vector3(6.0, 2.4, 0.6), room + Vector3(0, 1.2, -11.0), _panel)
+	_boss_gate.name = "BossGate"
+	if REVIEW_OPEN_BOSS_GATE:
+		_boss_gate.position.y += 4.6
 	_light(room + Vector3(0, 4.0, 0), Color(0.9, 0.6, 0.3), 1.6, 16.0)
 	_add_checkpoint("Checkpoint_Core", Vector3(origin.x + 54.0, 1.0, origin.z), "主炉控制区")
 
@@ -507,7 +523,7 @@ func _build_boss_arena() -> void:
 	slab.radial_segments = 40
 	var floor_mesh := MeshInstance3D.new()
 	floor_mesh.mesh = slab
-	floor_mesh.scale = Vector3(17.0, 1.0, 17.0)
+	floor_mesh.scale = Vector3(18.5, 1.0, 18.5)
 	floor_mesh.position = center + Vector3(0, -0.14, 0)
 	floor_mesh.material_override = _plank
 	_container.add_child(floor_mesh)
@@ -515,7 +531,7 @@ func _build_boss_arena() -> void:
 	var collider := StaticBody3D.new()
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(32.0, 0.4, 32.0)
+	box.size = Vector3(37.0, 0.4, 37.0)
 	shape.shape = box
 	collider.position = center + Vector3(0, -0.16, 0)
 	collider.add_child(shape)
@@ -544,7 +560,7 @@ func _build_boss_arena() -> void:
 	disc.height = 0.02
 	disc.radial_segments = 40
 	arena_floor.mesh = disc
-	arena_floor.scale = Vector3(16.0, 1.0, 16.0)
+	arena_floor.scale = Vector3(18.0, 1.0, 18.0)
 	arena_floor.position = center + Vector3(0, 0.08, 0)
 	var warm := StandardMaterial3D.new()
 	warm.albedo_color = Color(0.18, 0.165, 0.155)
@@ -568,13 +584,27 @@ func _build_boss_arena() -> void:
 	var play_center := center + Vector3(0, BOSS_OFFSET, 0)
 	_boss.setup_arena(play_center, _arena_vent_points(play_center))
 
+	# 二阶段熔岩沟伤害区：初始关闭，Boss 血量过半后开启
+	_boss_lava = LAVA_SCRIPT.new()
+	_boss_lava.name = "BossLavaTrench"
+	_boss_lava.position = center + Vector3(0, 0.55, 0)
+	_boss_lava.set("damage_per_tick", 10.0)
+	_boss_lava.set("tick_interval", 0.7)
+	var lava_shape := CollisionShape3D.new()
+	var lava_box := BoxShape3D.new()
+	lava_box.size = Vector3(1.8, 1.0, 28.0)
+	lava_shape.shape = lava_box
+	_boss_lava.add_child(lava_shape)
+	_container.add_child(_boss_lava)
+	_boss_lava.set_physics_process(false)
+
 	# 场边三台手动蒸汽阀门：任意一台都能中断蓄力，关得越多硬直越长。
 	# 规范要求「不依赖冰沙弹料理也能通关」，所以这里只靠跑位 + 关阀。
 	# 故事大纲：「一个固定炉体、三种招式、两个场边阀门」。
 	# 想改回三台，只改这个数组即可，Boss 的打断逻辑按「关了几个」算，与数量无关。
 	var valve_spots := [
-		Vector3(-6.0, 0, -12.0),
-		Vector3(-6.0, 0, 12.0),
+		Vector3(-10.0, 0, 4.0),
+		Vector3(10.0, 0, 4.0),
 	]
 	var valve_index := 0
 	for spot in valve_spots:
@@ -599,7 +629,7 @@ func _build_elevator(center: Vector3) -> void:
 		return
 	_elevator = script.new()
 	_elevator.name = "Elevator"
-	_elevator.position = center + Vector3(-13.0, 0.0, 0.0)
+	_elevator.position = center + Vector3(12.0, 0.0, 10.0)
 	_container.add_child(_elevator)
 
 
@@ -609,6 +639,15 @@ func _arena_vent_points(center: Vector3) -> Array:
 		var angle := TAU * float(i) / 5.0
 		points.append(center + Vector3(cos(angle) * 8.0, 0.0, sin(angle) * 8.0))
 	return points
+
+
+func _process(_delta: float) -> void:
+	if _boss_lava == null or not is_instance_valid(_boss_lava):
+		return
+	var phase_two: bool = _boss != null and is_instance_valid(_boss) \
+			and _boss.has_method("is_phase_two") and bool(_boss.call("is_phase_two"))
+	if phase_two != _boss_lava.is_physics_processing():
+		_boss_lava.set_physics_process(phase_two)
 
 
 func _on_boss_defeated() -> void:
@@ -662,9 +701,10 @@ func _try_open_shortcut() -> void:
 		var tween := create_tween()
 		tween.tween_property(_shortcut_door, "position:y",
 				_shortcut_door.position.y + 4.4, 1.4).set_trans(Tween.TRANS_SINE)
-	if _upgrade != null:
-		_upgrade.visible = true
-	_announce("阀门关完、运输线清干净——捷径门开了。回生活区补给一下再往里走。")
+	if _upgrade != null and not Ch02State.has("ch02.upgrade"):
+		_upgrade.show()
+		_upgrade.get_node("IngredientPickup").add_to_group("interactable")
+	_announce("三个喷气阀已关闭，运输线清理完毕。捷径打开，记得领取站台上的食材。")
 	_start_minecart()
 	transport_cleared.emit()
 
@@ -713,6 +753,13 @@ func _floor(center: Vector3, size: Vector3, surface: Material = null) -> void:
 	# 旧白模那层 5 米厚黑底座已经不需要了：
 	# 现在由 volcano_terraces 的功能区承重台体接住地板，保留 0.6 米只做边缘厚度。
 	_box(Vector3(size.x - 0.4, 0.6, size.z - 0.4), center + Vector3(0, -0.6, 0), _charcoal)
+
+
+func _make_non_blocking(node: Node) -> void:
+	if node is CollisionObject3D:
+		(node as CollisionObject3D).collision_layer = 0
+	for c in node.find_children("*", "CollisionObject3D", true, false):
+		(c as CollisionObject3D).collision_layer = 0
 
 
 func _box(size: Vector3, center: Vector3, material: Material) -> StaticBody3D:
@@ -767,20 +814,22 @@ class Ch02Pickup extends Node3D:
 	var flag_key := ""
 	var message := ""
 
-	func _ready() -> void:
-		add_to_group("interactable")
-
 	func get_prompt() -> String:
+		if not is_visible_in_tree() or Ch02State.has(flag_key):
+			return ""
 		return prompt_text
 
 	func interact(_who: Node) -> void:
-		if flag_key != "":
-			Ch02State.set_flag(flag_key, true)
+		if get_prompt().is_empty():
+			return
+		Ch02State.set_flag(flag_key, true)
+		RunState.cooking_inventory.add_ingredient("chocolate")
+		RunState.cooking_inventory.add_ingredient("sugar")
 		if message != "":
 			var host := get_tree().current_scene
 			if host != null and host.has_method("_notice"):
 				host.call("_notice", message)
-		queue_free()
+		get_parent().queue_free()
 
 
 ## 通用模型摆放：按包围盒缩放到目标高度、底面落地。
@@ -839,8 +888,9 @@ func _start_minecart() -> void:
 	var hall: Vector3 = origin + Vector3(28.0, 0.0, 0.0)
 	_minecart = Node3D.new()
 	_minecart.name = "Minecart"
-	_minecart.position = hall + Vector3(0.0, 0.62, -16.0)
+	_minecart.position = hall + Vector3(0.0, 0.62, -8.0)
 	_transport_section.add_child(_minecart)
+	_make_non_blocking(_minecart)
 
 	var body_mat := StandardMaterial3D.new()
 	body_mat.albedo_color = Color(0.30, 0.22, 0.16)
@@ -888,7 +938,7 @@ func _start_minecart() -> void:
 	# 来回跑：沿南北轨道往返（轨道已转 90°，与全场轴线同向）
 	var tween := create_tween().set_loops()
 	tween.tween_property(_minecart, "position:x", _minecart.position.x, 0.01)
-	tween.tween_property(_minecart, "position:z", hall.z + 16.0, 7.0) \
+	tween.tween_property(_minecart, "position:z", hall.z + 8.0, 6.0) \
 			.set_trans(Tween.TRANS_SINE)
-	tween.tween_property(_minecart, "position:z", hall.z - 16.0, 7.0) \
+	tween.tween_property(_minecart, "position:z", hall.z - 8.0, 6.0) \
 			.set_trans(Tween.TRANS_SINE)

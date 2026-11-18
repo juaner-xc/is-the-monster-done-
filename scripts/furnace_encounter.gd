@@ -1,6 +1,7 @@
 extends Node3D
 ## Snow-pass encounter: visible work loop, deliberate engagement, readable boss HUD.
-const PASS := Vector3(0, 0, -58)
+const PassLandscape = preload("res://scripts/snow_pass_landscape.gd")
+const PASS := PassLandscape.PASS
 var game: Node
 var boss: Node
 var observed := false
@@ -39,6 +40,7 @@ func _ready() -> void:
 	_build_overlay()
 	boss = game._spawn_furnace(PASS + Vector3.UP * 0.2)
 	boss.rotation.y = PI
+	boss.furnace_damage_gate = _route_accessible
 	boss.furnace_brain.engaged.connect(_begin_combat)
 	game.boss_spawned = true
 
@@ -53,7 +55,7 @@ func _reserve_arena() -> void:
 			if Vector2(p.x - PASS.x, p.z - PASS.z).length() < 28.0: tree.queue_free()
 
 func _process(delta: float) -> void:
-	if get_tree().paused or game.cinematic_entry or game.recipe_arrival_active or game.finished or game.snow_town.in_town or game.snow_town.transitioning:
+	if get_tree().paused or game.cinematic_entry or game.recipe_arrival_active or game.finished or game.snow_town.in_town:
 		overlay.hide()
 		if intro_running and get_tree().paused:
 			game.hud.show()
@@ -73,6 +75,11 @@ func _process(delta: float) -> void:
 	bell_distance_clock -= delta
 	if not started:
 		_idle_cycle(delta)
+		if not _route_accessible():
+			landmark.visible = distance < 32.0
+			landmark.text = "前往雪原礼堂查看路线图"
+			return
+		landmark.show()
 		if distance < 28 and not observed:
 			observed = true
 			game.spawn_timer.stop()
@@ -105,6 +112,9 @@ func _process(delta: float) -> void:
 			state_age = 0
 		state_text.visible = state_age < 2.8
 		hint.hide()
+
+func _route_accessible() -> bool:
+	return not RunState.chapter_mode or RunState.snow_route_unlocked or game.debug_pass_access
 
 func _begin_combat() -> void:
 	if started:
@@ -172,6 +182,10 @@ func _idle_cycle(delta: float) -> void:
 		idle_bell_cycle = cycle
 		boss.furnace_visual.ring_attack()
 	boss.furnace_visual.encounter_door = 0.95 if t < 3.1 or t > 7.8 else 0.1
+
+func ring_route_bell(distant := false) -> void:
+	if is_instance_valid(boss) and not started:
+		boss.furnace_visual.ring_attack(distant)
 
 func update_hud() -> void:
 	if not is_instance_valid(game.hud) or completed:
@@ -266,7 +280,10 @@ func _build_pass() -> void:
 	var timber := _material(Color("71523a"))
 	var metal := _material(Color("343b3f"))
 	var snow := _material(Color("c9dbe2"))
-	# A visible entrance with a narrow rail line provides a fixed destination.
+	var cliff := PassLandscape.make_pass_cliff()
+	add_child(cliff)
+	cliff.position = PASS
+	cliff.create_trimesh_collision()
 	for side in [-1, 1]:
 		_rock(PASS + Vector3(side * 7.4, 2.3, -7), Vector3(8, 6.2, 7), stone)
 		_rock(PASS + Vector3(side * 11.8, 1.2, -5), Vector3(6.5, 3.8, 5.8), stone)
@@ -284,8 +301,8 @@ func _build_pass() -> void:
 	collision.shape = shape
 	gate.add_child(collision)
 	for side in [-1, 1]:
-		_box("Rail", PASS + Vector3(side * 0.8, 0.045, -2), Vector3(0.11, 0.09, 19), metal)
-	for i in 12:
+		_box("Rail", PASS + Vector3(side * 0.8, 0.045, 9), Vector3(0.11, 0.09, 41), metal)
+	for i in 27:
 		_box("Sleeper", PASS + Vector3(0, 0.022, -10 + i * 1.5), Vector3(2.3, 0.04, 0.24), timber)
 	for i in 5:
 		var crate := _box("DiscardedCargo", PASS + Vector3(-5 + i * 1.2, 0.5, 4 + (i % 2) * 1.2), Vector3(0.9, 1, 0.8), timber)
@@ -309,7 +326,7 @@ func _build_pass() -> void:
 	closed_sign.pixel_size = 0.007
 	closed_sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(closed_sign)
-	closed_sign.position = PASS + Vector3(0, 4.0, -6)
+	closed_sign.position = PASS + Vector3(0, 5.6, -5)
 	tunnel_light = OmniLight3D.new()
 	tunnel_light.light_color = Color("ff8c42")
 	tunnel_light.light_energy = 0.45
@@ -346,6 +363,11 @@ func _build_pass() -> void:
 	add_child(smoke)
 	smoke.position = PASS + Vector3(0.85, 10.7, 0.46)
 	smoke.add_to_group("furnace_chimney_smoke")
+	var landscape := PassLandscape.new()
+	landscape.name = "SnowPassLandscape"
+	landscape.position.z = -100.0
+	add_child(landscape)
+	landscape.build(smoke_material)
 
 func _material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

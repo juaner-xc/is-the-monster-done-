@@ -136,6 +136,11 @@ func set_wok_lesson_preview(enabled: bool) -> void:
 	player.pan_heat.set_wok_preview(enabled)
 
 func next_after_dialogue() -> void:
+	# 只有冰堡指路这段对话结束后才开启“去路标取钥匙”，
+	# 教学期的其它对话不能覆盖原有阶段提示
+	if ice_hint_pending:
+		key_hint_pending = true
+	ice_hint_pending = false
 	match stage:
 		WAKE:
 			_get_up()
@@ -323,6 +328,7 @@ func _claim_supplies() -> void:
 	marker.hide()
 	game.hud.show_notice("补给已入背包 · 爆炒火圈 ×%d / 冰沙弹 ×%d" % [STARTER_SUPPLIES["fire_ring"], STARTER_SUPPLIES["ice_shot"]])
 	game.spawn_timer.start()
+	ice_hint_pending = true
 
 func _near_supply_chest() -> bool:
 	var offset: Vector3 = player.global_position - house.supply_chest.global_position
@@ -338,6 +344,10 @@ func _near_traveler() -> bool:
 
 
 func objective_hint() -> String:
+	if ice_hint_pending:
+		return "回去找肯德齐，听听他要说什么"
+	if key_hint_pending and not RunState.has_item("ice_castle_keys") and not RunState.ice_castle_keys_returned:
+		return "去路标取钥匙"
 	match stage:
 		TAKE_PAN:
 			return "[F] 从桌上拿锅" if _near_pan() else "走到桌边，拿上自己的锅"
@@ -378,7 +388,44 @@ func objective_hint() -> String:
 	return ""
 
 
+## 当前教学阶段的世界坐标任务点；Vector3.INF 表示该步无需位置指引（对话/背包/纯按键）。
+## 战斗阶段指向战斗发生的任务点（路灯/搬运机），不追踪移动中的敌人。
+func task_target() -> Vector3:
+	if ice_hint_pending and house != null:
+		return house.elder.global_position
+	if key_hint_pending and not RunState.has_item("ice_castle_keys") and not RunState.ice_castle_keys_returned:
+		var key := game.get_node_or_null("SnowWorld/KeyPickup") if game != null else null
+		if key != null:
+			return key.global_position
+	match stage:
+		TAKE_PAN:
+			return resting_pot.global_position if is_instance_valid(resting_pot) else _bedroom_point("PotStand")
+		WINDOW:
+			return _bedroom_point("WindowLook")
+		DELIVERY, FIGHT, HAND_OVER:
+			return lamp_position
+		LOADER_ROUTE, LOADER_FIGHT, DISCOVER_CONDENSATE:
+			return loader_position
+		RETURN_ELDER, WEAPON_GUIDE:
+			return house.elder.global_position if house != null else Vector3.INF
+		RACK:
+			return house.gift_display.global_position if house != null else Vector3.INF
+		SUPPLY_CHEST:
+			return house.supply_chest.global_position if house != null else Vector3.INF
+	return Vector3.INF
+
+
+var ice_hint_pending := false
+var key_hint_pending := false
+
 func interact() -> bool:
+	if ice_hint_pending and house.can_talk():
+		_say([
+			["肯德齐", "你要找出去的路，就去雪原礼堂看看。"],
+			["肯德齐", "（指了指窗外）那儿以前是个运输站，里头还挂着一张路线图。"],
+			["肯德齐", "沿路牌走，看见摩天轮，旁边那座冰堡就是。"],
+		])
+		return true
 	if stage == TAKE_PAN and _near_pan():
 		_pick_up_pan()
 		return true

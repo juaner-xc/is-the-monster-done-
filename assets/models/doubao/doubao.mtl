@@ -1,0 +1,15 @@
+# Exported from Nomad Sculpt
+
+newmtl ZBrush_defualt_group
+ Kd 1.000000 1.000000 1.000000
+ Pr 0.250000
+ Pm 0.000000
+ map_Kd ZBrush_defualt_group_color_1.png
+ map_roughness ZBrush_defualt_group_roughness_1.png
+ map_Pr ZBrush_defualt_group_roughness_1.png
+ map_metallic ZBrush_defualt_group_metalness_1.png
+ map_Pm ZBrush_defualt_group_metalness_1.png
+ map_tangentSpaceNormal ZBrush_defualt_group_normal_1.png
+ map_bump ZBrush_defualt_group_normal_1.png
+ norm ZBrush_defualt_group_normal_1.png
+ bump ZBrush_defualt_group_normal_1.png

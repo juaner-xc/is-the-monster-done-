@@ -110,6 +110,10 @@ func _check_no_ceilings() -> void:
 				continue
 			if path.contains("Chandelier"):
 				continue
+			if path.contains("BrickWall"):
+				continue
+			if path.contains("RackCrown"):
+				continue
 			var aabb: AABB = mi.global_transform * mi.get_aabb()
 			if aabb.end.y < 7.5 or aabb.position.y > 9.6:
 				continue

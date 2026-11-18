@@ -80,6 +80,24 @@ static func brass(tint := Color(0.55, 0.40, 0.16)) -> StandardMaterial3D:
 	return m
 
 
+static func wood(tint := Color(0.42, 0.25, 0.13)) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = tint
+	m.albedo_texture = SPECKLE_TEX
+	m.roughness = 0.82
+	m.metallic = 0.0
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(0.9, 0.9, 0.9)
+	return m
+
+
+static func dark_wood(tint := Color(0.24, 0.13, 0.07)) -> StandardMaterial3D:
+	var m := wood(tint)
+	m.roughness = 0.9
+	return m
+
+
 static func rust() -> StandardMaterial3D:
 	var m := iron(Color(0.45, 0.16, 0.06))
 	m.roughness = 0.98

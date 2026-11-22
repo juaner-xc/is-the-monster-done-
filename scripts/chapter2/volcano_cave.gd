@@ -1053,6 +1053,8 @@ func _brighten_cave() -> void:
 		env.ambient_light_energy = 0.38
 		env.tonemap_exposure = 1.0
 		env.glow_intensity = 1.15
+		env.glow_enabled = true
+		env.glow_bloom = 0.45
 		env.glow_hdr_threshold = 1.0
 		env.fog_light_color = Color(0.055, 0.05, 0.062)
 		env.fog_density = 0.0072

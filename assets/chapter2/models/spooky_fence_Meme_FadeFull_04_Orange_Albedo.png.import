@@ -3,7 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://v3xff3m14wxu"
-valid=false
+path.s3tc="res://.godot/imported/spooky_fence_Meme_FadeFull_04_Orange_Albedo.png-ad0ab941cce7fb1efc127cd45f719870.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
 generator_parameters={
 "md5": "b3401538b928d52282d67b961a9e7821"
 }
@@ -11,6 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/chapter2/models/spooky_fence_Meme_FadeFull_04_Orange_Albedo.png"
+dest_files=["res://.godot/imported/spooky_fence_Meme_FadeFull_04_Orange_Albedo.png-ad0ab941cce7fb1efc127cd45f719870.s3tc.ctex"]
 
 [params]
 

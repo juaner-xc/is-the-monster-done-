@@ -11,15 +11,19 @@ const STORY_MODELS := {
 	"cargo_loader": ["res://assets/story_enemies/cargo_loader.glb", 0.418],
 	"swelling_dough": ["res://assets/story_enemies/swelling_dough.glb", 0.723],
 	"mushroom": ["res://assets/story_enemies/spore_mushroom.glb", 0.88],
+	"slime": ["res://assets/story_enemies/burnt_rice_bowl.glb", 0.838],
+	"toast": ["res://assets/story_enemies/burnt_toast.glb", 0.95],
+	"fork_imp": ["res://assets/story_enemies/fork_imp.glb", 0.80],
+	"elite_cooker": ["res://assets/story_enemies/pressure_cooker.glb", 0.95],
 }
 const TYPE_DATA := {
 	"cargo_loader": {"color": "b78e48", "damage": 13.0, "range": 1.7, "experience": 16, "scale": 1.7},
 	"swelling_dough": {"color": "dbc482", "damage": 11.0, "range": 1.4, "experience": 12, "scale": 1.0},
-	"slime": {"color": "82c95b", "damage": 9.0, "range": 1.35, "experience": 10, "scale": 1.0},
-	"fork_imp": {"color": "d9685a", "damage": 13.0, "range": 1.25, "experience": 14, "scale": 0.9},
-	"toast": {"color": "9a5b35", "damage": 10.0, "range": 8.0, "experience": 16, "scale": 1.08},
+	"slime": {"color": "82c95b", "damage": 9.0, "range": 1.35, "experience": 10, "scale": 0.7},
+	"fork_imp": {"color": "d9685a", "damage": 13.0, "range": 1.25, "experience": 14, "scale": 0.85},
+	"toast": {"color": "9a5b35", "damage": 10.0, "range": 8.0, "experience": 16, "scale": 0.62},
 	"mushroom": {"color": "8f69b8", "damage": 8.0, "range": 4.2, "experience": 18, "scale": 1.08},
-	"elite_cooker": {"color": "627b91", "damage": 19.0, "range": 1.7, "experience": 48, "scale": 1.48},
+	"elite_cooker": {"color": "627b91", "damage": 19.0, "range": 1.7, "experience": 48, "scale": 0.95},
 	"boss_furnace": {"color": "d83b2d", "damage": 20.0, "range": 2.25, "experience": 120, "scale": 3.9},
 }
 
@@ -45,6 +49,9 @@ var body_mesh: MeshInstance3D
 var telegraph: MeshInstance3D
 var gravity := 24.0
 var furnace_visual: Node3D
+var story_model: Node3D
+var story_model_base_y := 0.0
+var _wobble_time := 0.0
 var dead := false
 var tutorial_toast := false
 var furnace_collision: CollisionShape3D
@@ -87,6 +94,24 @@ func setup(player_target: Node3D, health_value: float, speed_value: float, kind:
 		furnace_brain = FurnaceCombat.new()
 		add_child(furnace_brain)
 		furnace_brain.initialize(self, target)
+
+
+func _process(delta: float) -> void:
+	# The rice bowl has no legs: while moving it scoots on its rounded foot,
+	# rocking side to side, bobbing slightly and leaning into its run.
+	if enemy_type != "slime" or not is_instance_valid(story_model) or dead:
+		return
+	var speed := Vector2(velocity.x, velocity.z).length()
+	if speed > 0.15:
+		_wobble_time += delta * (7.0 + speed * 1.6)
+		var roll := clampf(0.03 + speed * 0.012, 0.0, 0.085)
+		story_model.rotation.z = sin(_wobble_time) * roll
+		story_model.rotation.x = -clampf(speed * 0.035, 0.0, 0.09) + sin(_wobble_time * 2.0) * roll * 0.35
+		story_model.position.y = story_model_base_y + absf(sin(_wobble_time)) * 0.035
+	else:
+		story_model.rotation.z = lerpf(story_model.rotation.z, 0.0, delta * 10.0)
+		story_model.rotation.x = lerpf(story_model.rotation.x, 0.0, delta * 10.0)
+		story_model.position.y = lerpf(story_model.position.y, story_model_base_y, delta * 10.0)
 
 
 func _physics_process(delta: float) -> void:
@@ -242,8 +267,11 @@ func _fire_projectile(direction: Vector3, damage: float, color: Color, speed: fl
 	projectile.configure(global_position + Vector3.UP * 0.8, direction, damage, speed, color)
 
 
+var furnace_damage_gate := Callable()
+
+
 func take_damage(amount: float, knockback: Vector3 = Vector3.ZERO) -> void:
-	if dead:
+	if dead or (furnace_damage_gate.is_valid() and not furnace_damage_gate.call()):
 		return
 	if is_boss and is_instance_valid(furnace_brain):
 		furnace_brain.begin()
@@ -262,6 +290,11 @@ func take_damage(amount: float, knockback: Vector3 = Vector3.ZERO) -> void:
 		body_material.emission_enabled = true
 		body_material.emission = Color.WHITE
 		tween.tween_property(body_material, "emission", body_material.albedo_color * 0.12, 0.12)
+	if is_instance_valid(story_model):
+		# Story models hide the capsule body, so the white flash is invisible; pulse the model instead.
+		var model_hit := create_tween()
+		story_model.scale = Vector3.ONE * 1.07
+		model_hit.tween_property(story_model, "scale", Vector3.ONE, 0.12)
 	if health <= 0.0:
 		dead = true
 		if tutorial_toast:
@@ -375,11 +408,39 @@ func _install_story_model(data: Array) -> void:
 	model.name = "StoryEnemyModel"
 	add_child(model)
 	model.position.y = float(data[1])
+	story_model = model
+	story_model_base_y = model.position.y
 	if enemy_type == "cargo_loader":
 		var bounds := BoxShape3D.new()
 		bounds.size = Vector3(1.55, 0.84, 1.05)
 		furnace_collision.shape = bounds
 		furnace_collision.position.y = 0.42
+	elif enemy_type == "slime":
+		# The bowl is much wider than the default capsule, so widen the hit volume to match.
+		var bowl := CapsuleShape3D.new()
+		bowl.radius = 0.85
+		bowl.height = 1.5
+		furnace_collision.shape = bowl
+		furnace_collision.position.y = 0.75
+	elif enemy_type == "toast":
+		# A thin upright plate: a box reads far better than a capsule here.
+		var plate := BoxShape3D.new()
+		plate.size = Vector3(1.55, 1.85, 0.75)
+		furnace_collision.shape = plate
+		furnace_collision.position.y = 0.93
+	elif enemy_type == "fork_imp":
+		var imp := CapsuleShape3D.new()
+		imp.radius = 0.62
+		imp.height = 1.4
+		furnace_collision.shape = imp
+		furnace_collision.position.y = 0.65
+	elif enemy_type == "elite_cooker":
+		# The pot is a wide round belly; give it a matching fat capsule.
+		var pot := CapsuleShape3D.new()
+		pot.radius = 0.8
+		pot.height = 1.9
+		furnace_collision.shape = pot
+		furnace_collision.position.y = 0.9
 
 
 func _install_furnace_visual() -> void:

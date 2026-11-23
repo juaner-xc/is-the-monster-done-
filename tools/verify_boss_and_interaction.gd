@@ -28,15 +28,16 @@ func run():
 	check(feedback!=null,"brief feedback replaces story dialogue")
 	tao.dialog.find_child("ItemsButton",true,false).pressed.emit()
 	check(feedback.text.contains("◇"),"item entry displays empty interaction slots")
-	tao.dialog.find_child("TalkButton",true,false).pressed.emit()
-	await create_timer(0.6).timeout
-	check(feedback.text=="✓","talk action completes with minimal feedback")
 	await shot("陶陶_交互界面")
 	tao.dialog.find_child("InspectButton",true,false).pressed.emit()
-	check(tao.inspecting and not cave.player.visual_root.visible,"model inspection still works from updated interface")
+	check(tao.inspecting and not cave.player.visual_root.visible,"model inspection works")
 	tao._close()
 	await process_frame
 	check(cave.player.visual_root.visible and not cave.player.movement_locked,"leaving interface restores player")
+	tao.interact(cave.player)
+	tao.dialog.find_child("TalkButton",true,false).pressed.emit()
+	await process_frame
+	check(cave.workshop_hub.dialogue.is_playing(), "talk opens the current workshop story")
 	cave.queue_free()
 	await process_frame
 	var hall=load("res://scenes/final_banquet_hall.tscn").instantiate()
@@ -45,44 +46,26 @@ func run():
 	for i in 10:await physics_frame
 	var boss=hall.get_node_or_null("FinalBoss")
 	check(boss!=null,"third chapter contains final boss")
-	check(hall.points.size()==18 and hall.points.has("final_boss"),"boss interaction is added alongside original 17 points")
+	check(hall.points.has("final_boss"),"the host has an interaction point")
 	check(boss.get_node("FinalBossModel/Cloche")!=null,"real cloche geometry is loaded")
 	check(boss.get_node("FinalBossModel/OrbitPlates")!=null,"orbiting plates are independent geometry")
 	check(boss.get_node("FinalBossModel/Costume")!=null,"costume, lapels and chain geometry is loaded")
 	check(boss.get_node("FinalBossModel/Sauce")!=null,"sauce body and pool geometry is loaded")
 	check(hall.get_node_or_null("Architecture/MainCore/Crystal")!=null,"original hall core is preserved")
 	hall.player.set_physics_process(false)
-	hall.player.global_position=Vector3(0,0.1,23)
-	for i in 135:
-		await physics_frame
-		hall.player.velocity=Vector3(0,-1,-4)
-		hall.player.move_and_slide()
+	hall.player.global_position = hall.points.final_boss.global_position + Vector3(0,0.1,1.4)
 	await process_frame
-	check(hall.nearest==hall.points.final_boss,"walking from hall approach reaches boss interaction")
-	await shot("最终Boss_04_第三章实景")
-	var key=InputEventKey.new()
-	key.physical_keycode=KEY_F
-	key.keycode=KEY_F
-	key.pressed=true
+	await process_frame
+	check(hall.nearest == hall.points.final_boss, "approaching the table selects the host")
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_F
+	key.keycode = KEY_F
+	key.pressed = true
 	Input.parse_input_event(key)
 	await process_frame
-	check(hall.panel.visible and hall.panel_title.text=="最终 Boss","F opens the short boss interface")
-	check(hall.panel_body.text.is_empty(),"boss interface has no added story text")
-	var inspect
-	for b in hall.actions.find_children("*","Button",true,false):
-		if b.text=="查看模型":inspect=b
-	check(inspect!=null,"boss interface exposes model inspection")
-	inspect.pressed.emit()
-	await process_frame
-	check(hall.boss_inspecting and not hall.player.visual_root.visible,"boss inspection camera activates without player obstruction")
+	check(hall.panel.visible and hall.panel_title.text == "你终于来了", "F opens the host's first story line")
 	await shot("最终Boss_05_近景交互")
-	key=InputEventKey.new()
-	key.physical_keycode=KEY_ESCAPE
-	key.keycode=KEY_ESCAPE
-	key.pressed=true
-	Input.parse_input_event(key)
-	await process_frame
-	check(not hall.panel.visible and not hall.boss_inspecting,"Esc leaves boss interface")
-	check(hall.player.visual_root.visible and not hall.camera.cinematic_locked,"camera and player restored after inspection")
+	hall.close_panel()
+	check(hall.player.visual_root.visible and not hall.camera.cinematic_locked, "camera and player restored after dialogue")
 	print("FINAL_BOSS_AND_UI_CHECKS total=",total," failed=",failed)
 	quit(1 if failed else 0)

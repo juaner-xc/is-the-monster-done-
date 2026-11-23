@@ -67,25 +67,25 @@ func bevel(size, amount):
    var n = Vector3.ZERO; n[a] = sign_
    var pts = []
    for sk in [-1.0,1.0]:
-	for sl in [-1.0,1.0]:
-	 var p = Vector3.ZERO; p[a]=h[a]*sign_;p[k]=inner[k]*sk;p[l]=inner[l]*sl;pts.append(p)
+    for sl in [-1.0,1.0]:
+     var p = Vector3.ZERO; p[a]=h[a]*sign_;p[k]=inner[k]*sk;p[l]=inner[l]*sl;pts.append(p)
    face(st,pts,n)
  for a in 3:
   for k in range(a+1,3):
    var l = 3-a-k
    for sa in [-1.0,1.0]:
-	for sk in [-1.0,1.0]:
-	 var n = Vector3.ZERO;n[a]=sa;n[k]=sk
-	 var pts = []
-	 for sl in [-1.0,1.0]:
-	  var p = Vector3.ZERO;p[a]=h[a]*sa;p[k]=inner[k]*sk;p[l]=inner[l]*sl;pts.append(p)
-	  p=Vector3.ZERO;p[a]=inner[a]*sa;p[k]=h[k]*sk;p[l]=inner[l]*sl;pts.append(p)
-	 face(st,pts,n.normalized())
+    for sk in [-1.0,1.0]:
+     var n = Vector3.ZERO;n[a]=sa;n[k]=sk
+     var pts = []
+     for sl in [-1.0,1.0]:
+      var p = Vector3.ZERO;p[a]=h[a]*sa;p[k]=inner[k]*sk;p[l]=inner[l]*sl;pts.append(p)
+      p=Vector3.ZERO;p[a]=inner[a]*sa;p[k]=h[k]*sk;p[l]=inner[l]*sl;pts.append(p)
+     face(st,pts,n.normalized())
  for sx in [-1.0,1.0]:
   for sy in [-1.0,1.0]:
    for sz in [-1.0,1.0]:
-	var s = Vector3(sx,sy,sz)
-	face(st,[Vector3(h.x,inner.y,inner.z)*s,Vector3(inner.x,h.y,inner.z)*s,Vector3(inner.x,inner.y,h.z)*s],s.normalized())
+    var s = Vector3(sx,sy,sz)
+    face(st,[Vector3(h.x,inner.y,inner.z)*s,Vector3(inner.x,h.y,inner.z)*s,Vector3(inner.x,inner.y,h.z)*s],s.normalized())
  return st.commit()
 
 func box(parent,name_,size,pos,mat,b=0.025):

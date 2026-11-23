@@ -77,6 +77,8 @@ var water_zone: Node = null
 var in_water := false
 var water_depth := 0.0
 var ripple_timer := 0.0
+var footstep_timer := 0.0
+var footstep_player: AudioStreamPlayer
 var water_column: MeshInstance3D
 var water_col_h := 0.0
 var climbing := false
@@ -101,6 +103,7 @@ func _ready() -> void:
 	pan_heat.bind_pan(hero_motion.wardrobe.pan if hero_motion != null else pan_root)
 	pan_heat.burned.connect(_on_pan_burned)
 	add_child(pan_heat)
+	footstep_player = UiSfx.create_footstep_player(self)
 	health = max_health
 	health_changed.emit(health, max_health)
 	experience_changed.emit(experience, experience_needed, level)
@@ -287,6 +290,7 @@ func configure_build(modifiers: Dictionary, recipes: Array[String]) -> void:
 
 
 const FIRE_RING_WAVE: PackedScene = preload("res://scenes/fire_ring_effect.tscn")
+const UiSfx := preload("res://scripts/ui_sfx.gd")
 
 # 酥皮护盾视觉：用 nojoule-energy-shield 的能量护盾球替换朴素球泡
 const ENERGY_SHIELD_SCENE: PackedScene = preload("res://addons/nojoule-energy-shield/shield_sphere.tscn")
@@ -305,6 +309,7 @@ func take_damage(amount: float) -> void:
 		amount *= 0.7
 		crust_hits -= 1
 	play_hero_action(&"Hurt")
+	UiSfx.play_enemy_hit(self)
 	invulnerable_time = 0.32
 	health -= amount * (1.0 - damage_reduction)
 	_pulse_shield()
@@ -506,6 +511,17 @@ func _update_facing(movement: Vector3, delta: float) -> void:
 
 
 func _update_locomotion() -> void:
+	# 脚步声：着地且水平移动时按步频播放，速度越快间隔越短。
+	var hs := Vector2(velocity.x, velocity.z).length()
+	if is_on_floor() and hs > 0.5 and not climbing and dodge_time <= 0.0:
+		footstep_timer -= get_process_delta_time()
+		if footstep_timer <= 0.0:
+			footstep_timer = lerpf(0.52, 0.30, clampf(hs / maxf(move_speed, 0.01), 0.0, 1.0))
+			if footstep_player != null and not footstep_player.playing:
+				footstep_player.pitch_scale = 1.0 + randf_range(-0.12, 0.12)
+				footstep_player.play()
+	else:
+		footstep_timer = 0.0
 	if hero_motion != null:
 		var vertical := 0.0 if is_on_floor() else velocity.y
 		hero_motion.update(Vector2(velocity.x, velocity.z).length(), move_speed, vertical, climbing)
@@ -694,6 +710,7 @@ func _configure_skin_materials(model: Node) -> void:
 
 
 func _play_pan_swing() -> void:
+	UiSfx.play_pan_swing(self)
 	if hero_motion != null:
 		play_hero_action(&"PanSwing")
 		return

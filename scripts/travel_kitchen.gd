@@ -71,15 +71,6 @@ func apply_settings() -> void:
 func handle(event: InputEvent) -> bool:
 	if chapter == 1 and (host.finished or host.map_open or host.hud.is_upgrade_open() or host.recipe_book.is_open()):
 		return false
-	# 食谱合成料理入口：确认食谱阶段(4/5)时 Tab 交给剧情打开合成台，
-	# 不再被这里的「背包/关页」抢占（否则玩家按了 Tab 提示却不消失）
-	if chapter == 1 and RunState.match_girl_stage >= 4 and not RunState.recipe_hint_dismissed \
-			and event is InputEventKey and event.pressed and not event.echo:
-		var k: Key = event.keycode if event.keycode != KEY_NONE else event.physical_keycode
-		if k == KEY_TAB:
-			if host.has_method("open_recipe_cook"):
-				host.open_recipe_cook()
-			return true
 	if chapter == 1 and host.recipe_compose_active:
 		return false
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -155,14 +146,12 @@ func show_page(which: String) -> void:
 			if from_settings:
 				button("返回设置", func(): show_page("设置"))
 		"背包":
+			line("金币　%d" % RunState.coins)
 			var stock := PackedStringArray()
 			for id in inv.ingredient_ids(): stock.append("%s ×%d" % [FoodData.ingredient_name(id),inv.ingredient_count(id)])
 			line("食材　"+"　".join(stock) if stock.size() else "食材　空")
-			# 拿到魔法食谱后：背包里常驻「食谱合成料理」入口，不用回小镇找小女孩
-			if RunState.magic_recipe_received:
-				button("食谱合成料理 · 选食材合成", open_recipe_cook)
 			# 任务物品（如冰堡钥匙）显示在背包里
-			var _qnames := {"ice_castle_keys": "冰堡钥匙"}
+			var _qnames := {"ice_castle_keys": "冰堡钥匙", "coins": "豆奶给的零钱", "matches": "干燥的火柴", "old_recipe_book": "旧食谱"}
 			var _quest := RunState.quest_items
 			if _quest.size() > 0:
 				var _qs := PackedStringArray()
@@ -438,14 +427,6 @@ func notice(message: String) -> void:
 	elif host.has_method("_show_notice"): host._show_notice(message)
 	elif host.has_method("_notice"): host._notice(message)
 
-## 背包「食谱合成料理」入口：打开 game 持有的随身合成台，雪原/小镇都能用。
-func open_recipe_cook() -> void:
-	if host == null or not host.has_method("open_recipe_cook"):
-		return
-	close()
-	host.open_recipe_cook()
-
-
 func leave_game() -> void:
 	get_tree().paused=false
 	if host.has_method("_return_to_title"): host._return_to_title()
@@ -453,7 +434,6 @@ func leave_game() -> void:
 
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(hero): return
-	if chapter == 1 and host.snow_town.transitioning: return
 	if chapter == 3 and page=="" and (host.panel.visible or host.map_open or host.design_view): return
 	if chapter == 1 and page=="" and (host.cinematic_entry or host.recipe_arrival_active): return
 	if chapter == 1 and page == "" and host.shelter_dialogue_active and not event.is_action_pressed("pause"):

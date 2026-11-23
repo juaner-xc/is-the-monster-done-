@@ -1,0 +1,43 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/kendeqi_christmas_tree.gd" id="1_tree"]
+[ext_resource type="Script" path="res://scripts/kendeqi_holiday_props.gd" id="2_holiday_props"]
+
+[sub_resource type="StandardMaterial3D" id="Bark"]
+albedo_color = Color(0.27, 0.17, 0.11, 1)
+roughness = 0.95
+
+[sub_resource type="CylinderMesh" id="Trunk"]
+top_radius = 0.32
+bottom_radius = 0.56
+height = 5.0
+radial_segments = 9
+
+[sub_resource type="CylinderShape3D" id="TrunkShape"]
+radius = 0.56
+height = 2.5
+
+[node name="KendeqiChristmasTree" type="Node3D"]
+script = ExtResource("1_tree")
+
+[node name="Trunk" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.5, 0)
+mesh = SubResource("Trunk")
+material_override = SubResource("Bark")
+
+[node name="TrunkBody" type="StaticBody3D" parent="."]
+
+[node name="Shape" type="CollisionShape3D" parent="TrunkBody"]
+position = Vector3(0, 1.25, 0)
+shape = SubResource("TrunkShape")
+
+[node name="TreeLights" type="OmniLight3D" parent="."]
+position = Vector3(0, 2.85, 0.3)
+light_color = Color(1, 0.74, 0.39, 1)
+light_energy = 0.68
+omni_range = 6.2
+
+[node name="HolidayPresents" type="Node3D" parent="."]
+position = Vector3(0, 0.025, 0)
+script = ExtResource("2_holiday_props")
+placement = 2

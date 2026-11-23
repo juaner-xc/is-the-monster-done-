@@ -3,6 +3,8 @@ extends Node3D
 ## 通用阀门：运输站的喷气阀、Boss 战的两个场边阀都用它。
 ## 只负责「被按 F 关闭」和发信号，具体后果交给场景。
 
+const MAT := preload("res://scripts/chapter2/ch02_materials.gd")
+
 signal turned
 
 @export var interact_range := 2.8
@@ -74,6 +76,27 @@ func _build() -> void:
 	base_node.position.y = 0.08
 	base_node.material_override = _metal()
 	add_child(base_node)
+	# 底座法兰与一圈螺栓
+	var flange := MeshInstance3D.new()
+	var fmesh := CylinderMesh.new()
+	fmesh.top_radius = 0.58
+	fmesh.bottom_radius = 0.58
+	fmesh.height = 0.1
+	fmesh.radial_segments = 20
+	flange.mesh = fmesh
+	flange.position.y = 0.18
+	flange.material_override = MAT.brass()
+	add_child(flange)
+	for i in 6:
+		var a := TAU * float(i) / 6.0
+		var bolt := MeshInstance3D.new()
+		var bs := SphereMesh.new()
+		bs.radius = 0.075
+		bs.height = 0.13
+		bolt.mesh = bs
+		bolt.position = Vector3(cos(a) * 0.47, 0.25, sin(a) * 0.47)
+		bolt.material_override = MAT.iron()
+		add_child(bolt)
 	# 阀体：中间一段加粗的管身
 	var body := CylinderMesh.new()
 	body.top_radius = 0.22
@@ -111,32 +134,32 @@ func _build() -> void:
 	_wheel.add_child(hub_node)
 	# 轮缘 + 五根辐条 + 一根握把，比四根方条更像手轮
 	var rim := TorusMesh.new()
-	rim.inner_radius = 0.4
-	rim.outer_radius = 0.48
+	rim.inner_radius = 0.62
+	rim.outer_radius = 0.74
 	var rim_node := MeshInstance3D.new()
 	rim_node.mesh = rim
 	rim_node.rotation.x = PI * 0.5
-	rim_node.material_override = _metal()
+	rim_node.material_override = MAT.brass()
 	_wheel.add_child(rim_node)
 	for i in 5:
 		var angle := TAU * float(i) / 5.0
 		var spoke := BoxMesh.new()
-		spoke.size = Vector3(0.44, 0.05, 0.05)
+		spoke.size = Vector3(0.66, 0.06, 0.06)
 		var spoke_node := MeshInstance3D.new()
 		spoke_node.mesh = spoke
-		spoke_node.position = Vector3(cos(angle) * 0.22, sin(angle) * 0.22, 0)
+		spoke_node.position = Vector3(cos(angle) * 0.33, sin(angle) * 0.33, 0)
 		spoke_node.rotation.z = angle
-		spoke_node.material_override = _metal()
+		spoke_node.material_override = MAT.brass()
 		_wheel.add_child(spoke_node)
 	var handle := CylinderMesh.new()
-	handle.top_radius = 0.045
-	handle.bottom_radius = 0.045
-	handle.height = 0.18
+	handle.top_radius = 0.065
+	handle.bottom_radius = 0.065
+	handle.height = 0.22
 	var handle_node := MeshInstance3D.new()
 	handle_node.mesh = handle
-	handle_node.position = Vector3(0.5, 0, 0)
+	handle_node.position = Vector3(0.76, 0, 0)
 	handle_node.rotation.z = PI * 0.5
-	handle_node.material_override = _metal()
+	handle_node.material_override = MAT.brass()
 	_wheel.add_child(handle_node)
 
 	# 压力表：一块小圆盘，关阀时会亮

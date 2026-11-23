@@ -1,5 +1,5 @@
 extends CanvasLayer
-## 「食谱合成料理」页：拿到魔法食谱后随时可用的随身合成台。
+## 雪原公共灶台的料理合成界面。
 ## 复用食堂「试做」页的外观与机制（选两种食材→合成→写入烹饪日志），
 ## 但不依赖食堂场景、锅具、火候、灶台位置。
 ## 调用：new → add_child(host) → open()；关闭发 closed 信号。
@@ -81,7 +81,7 @@ func _refresh() -> void:
 		_body.remove_child(child)
 		child.queue_free()
 	_body.add_child(Book.label("食谱合成料理", 32, Book.GOLD))
-	_body.add_child(Book.paragraph("随意搭配现有食材，像在食堂灶台试做一样。", 18, Book.MUTED))
+	_body.add_child(Book.paragraph("在公共灶台挑两种食材试做。", 18, Book.MUTED))
 	if _first == "":
 		_body.add_child(Book.label("选两种食材", 19))
 	else:

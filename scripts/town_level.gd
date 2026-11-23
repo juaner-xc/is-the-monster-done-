@@ -2,6 +2,7 @@ extends Node3D
 ## 圣诞小镇的布景、可开门房屋和碰撞。第一章继续使用同一位玩家。
 
 const TownHouseDoorScript = preload("res://scripts/town_house_door.gd")
+const HungerSet := preload("res://scripts/town_hunger_set.gd")
 
 # 小镇里所有带原生门的房屋（贴图 033~043，逐个四面实拍确认门所在面）。
 # town_house_door.gd 会把 GLB 自己的门面片裁成可旋转门板、挖出真门洞，
@@ -27,13 +28,62 @@ const OPENABLE_HOUSES := [
 # 尺寸基准：所有房子的门都要明显高过角色头顶。
 # 0.022 时门与角色等高，0.03 时刚到头顶，0.042 时门约 3m；
 # 整体缩放保留队友实测的房门和角色比例。
-const TOWN_SCALE := 0.052
+const TOWN_SCALE := 0.0624
 const SCALE_REFERENCE := 0.042
 const SCALE_RATIO := TOWN_SCALE / SCALE_REFERENCE
 # GLB 里那块广场空地 (-111, -559, 734)，-559 是广场顶面高度。
 # 把它对齐到世界 (0, 0, 5)：地面贴 y=0，玩家仍站在同一片空地上。
 const TOWN_ANCHOR := Vector3(-111.0, -559.0, 734.0)
 const SPAWN_ANCHOR := Vector3(0.0, 0.0, 5.0)
+
+# 篝火广场里的居民。坐标相对篝火，yaw=0 时朝向食堂来路。
+const RESIDENTS := [
+	{
+		"id": "cocoa", "name": "热可可太太",
+		"path": "res://assets/town_residents/cocoa_mug.glb",
+		"height": 1.62, "sway": 0.016,
+		"pos": Vector3(4.78, 0.0, -2.15), "yaw": 0.32,
+		"lines": [
+			"……要一杯吗？今天的雪比糖霜还细。",
+			"锅里煮的不是可可。你别往下看。",
+			"客人都在等汤。我先替他们暖着手。",
+		],
+	},
+	{
+		"id": "ginger", "name": "姜饼人守夜人",
+		"path": "res://scenes/npcs/residents/gingerbread_watch.tscn",
+		"height": 1.83, "sway": 0.010,
+		"pos": Vector3(4.55, 0.0, 3.60), "yaw": 0.44,
+		"lines": [
+			"夜里别往巷子深处走。灯照不到的地方，路会自己换方向。",
+			"这条胳膊？烤的时候没守住。",
+			"广场的钟不响了，但我还是得提着灯。",
+		],
+	},
+	{
+		"id": "cinnamon", "name": "肉桂卷摊贩",
+		"path": "res://scenes/npcs/residents/cinnamon_vendor.tscn",
+		"height": 1.69, "sway": 0.014,
+		"pos": Vector3(-4.40, 0.0, 2.75), "yaw": -0.38,
+		"lines": [
+			"最后一个肉桂卷了。真的，最后一个。",
+			"面团发得太快，昨天它自己爬出了烤盘。",
+			"你闻到了吗？是黄油。……不，是从山那边飘来的。",
+		],
+	},
+	{
+		"id": "candy", "name": "拐杖糖守夜人",
+		"path": "res://scenes/npcs/residents/candy_cane_watch.tscn",
+		"height": 2.02, "sway": 0.022,
+		"pos": Vector3(-6.90, 0.0, -2.70), "yaw": -0.48,
+		"lines": [
+			"糖做的骨头，敲一下会响。要听吗？",
+			"雪停在半空的时候，别出声。",
+			"广场的灯我点了四十年。今年少了一盏。",
+		],
+	},
+]
+const RESIDENT_SCENE := preload("res://scenes/npcs/town_resident.tscn")
 
 # 碰撞过滤：世界尺寸/高度用米，类型判断用 GLB 局部尺寸（与缩放无关）
 const COLLIDER_MIN_SIZE := 2.0
@@ -88,7 +138,7 @@ const TRANSPARENCY_SCISSOR := 2
 # 早期把整块换成纯白雪贴图，连棕土路也洗成灰色；改用 road_color.png：
 # 青蓝雪 -> 中性白雪，棕土路面/深灰路缘 -> 保留图片里的原色。
 const SNOW_GROUND_MESH := &"bb23ed9e-ac4f-449a-b2b8-c0c7ad930d37"
-const SNOW_WHITE_TEXTURE := "res://preview_asset/road_color.png"
+const PLAZA_CHRISTMAS_TREE := &"4462ae35-93cc-4065-9a26-b232648763ba"
 
 # 小镇 GLB 的图集里青蓝雪像素占比不一，逐张挑会漏，故整体处理：
 # preview_asset/snow_white/ 下放同名白化版（只把青蓝雪像素转成中性白），
@@ -96,7 +146,8 @@ const SNOW_WHITE_TEXTURE := "res://preview_asset/road_color.png"
 # 但有几类图集不能吃整体白化，按贴图名分流（比逐网格名单可靠，不会漏网格）：
 const SNOW_SWAP_DIR := "res://preview_asset/snow_white/"
 const SNOW_SWAP_PREFIX := "model_3d66-export"
-const GREEN_TEX_DIR := "res://preview_asset/tree_green/"
+const VEGETATION_SHADER := preload("res://assets/shaders/town_vegetation.gdshader")
+const GROUND_SHADER := preload("res://assets/shaders/snow_surface.gdshader")
 # 4) 石塔/石墙（017）：整体白化把青蓝砖石洗成粉笔白，看着不自然。
 #    用 stone_natural/ 版只把砖石还原成暖灰砂岩，屋面积雪仍是白雪。
 const STONE_DIR := "res://preview_asset/stone_natural/"
@@ -117,93 +168,118 @@ const SNOWMAN_STEMS := [
 	"model_3d66-export-JCH5455191680-031",
 ]
 
-# 3) 树木/灌木/草（007-008 大树、026-027 灌木）：用 tree_green/ 重着色版。
-#    原图这些植被是青白色（用户截图里发白「失真」），整体白化又会把枝叶刷白，
-#    故逐像素重着色：青绿松针/草 -> 鲜绿、亮青积雪 -> 中性白、红棕等原色保留。
+# 松树和灌木使用同一套降饱和、哑光材质。
 const GREEN_VEGETATION_STEMS := [
 	"model_3d66-export-JCH5455191680-007-3d66-export-JCH5455191680-008",
 	"model_3d66-export-JCH5455191680-026-3d66-export-JCH5455191680-027",
 ]
 
-var environment: Environment
 var _snow_swaps: Dictionary = {}
 var _snow_swap_count := 0
 var _custom_tex_cache: Dictionary = {}
 # 在 _fix_walk 里按「原始贴图名」记下雪人网格名；运行时贴图是 ImageTexture，
 # 没有 resource_path，扶正阶段无法再靠贴图路径判断，故用这份名字集合。
 var _snowman_names: Dictionary = {}
+var _dining_overlook := false
+var _overlook_details: Array[MeshInstance3D] = []
+var _hunger_set: HungerSet
+var lights_errand: Node3D
 
-func build(town: Node3D) -> void:
-	town.name = "Town"
-	var world := town.get_node("WorldEnvironment") as WorldEnvironment
-	environment = world.environment
-	world.free()
-	var model := town.get_node_or_null("model") as Node3D
-	if model != null:
-		model.scale = Vector3.ONE * TOWN_SCALE
-		model.position = SPAWN_ANCHOR - TOWN_ANCHOR * TOWN_SCALE
-	# model.tscn 自带的是远景预览相机，禁用后换成第三人称跟随相机
-	var preview_cam := town.get_node_or_null("Camera3D")
-	if preview_cam != null:
-		preview_cam.free()
-	add_child(town)
-
-	# glTF 的 alphaMode: BLEND 被导入成半透明混合，树叶/花瓣会发虚发透；
-	# 改成 alpha 镂空，让不透明部分实心并正常写深度。
-	if model != null:
-		_fix_materials(model)
-		_whiten_town_snow(model)
-		_straighten_snowmen(model)
-		if HIDE_FLOATING_DECORATIONS:
-			_hide_floating_decorations(model)
-
-	# GLB 不带碰撞体：按三角面给建筑/树木生成静态碰撞，玩家不能穿墙
-	if model != null:
-		_add_building_collisions(model)
-		_setup_openable_houses(model)
-
-	var ground := StaticBody3D.new()
-	ground.name = "TownGround"
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(370.0, 1.0, 370.0)
-	var floor_shape := CollisionShape3D.new()
-	floor_shape.shape = shape
-	floor_shape.position.y = -0.5
-	ground.add_child(floor_shape)
-	add_child(ground)
-
+func build(model: Node3D, plaza_transform: Transform3D, plaza_walk: Array[Vector3]) -> void:
+	model.name = "model"
+	model.scale = Vector3.ONE * TOWN_SCALE
+	model.position = SPAWN_ANCHOR - TOWN_ANCHOR * TOWN_SCALE + Vector3.UP * 0.05
+	for mesh_id in [&"9072a447-85ba-4b8e-ad9e-33c3dbc38183", &"99b8f60e-b312-42ec-95c3-7fb3df4739e2"]:
+		var backdrop := _find_mesh(model, mesh_id)
+		if backdrop != null:
+			backdrop.free()
+	add_child(model)
+	_clear_dining_approach(model, plaza_transform.basis.inverse())
+	_fix_materials(model)
+	_set_plaza_surface(model)
+	_straighten_snowmen(model)
+	if HIDE_FLOATING_DECORATIONS:
+		_hide_floating_decorations(model)
+	_add_building_collisions(model)
+	_setup_openable_houses(model)
 	# 卖火柴的小姑娘：站在广场红色圣诞老人装饰那一排旁边（local 约 (12,3,5)），
 	# 往左错开 3m 避免与装饰重叠；仍离返回门足够远，F 提示不与出口重叠。
 	var girl_scene := load("res://scenes/match_girl.tscn") as PackedScene
 	if girl_scene != null:
 		var girl: Node3D = girl_scene.instantiate()
-		girl.position = Vector3(9.0, 0.0, 5.0)
+		girl.position = Vector3(8.0, 0.0, 10.0)
 		add_child(girl)
+	var plaza := Node3D.new()
+	plaza.name = "EntranceBonfireSquare"
+	plaza.transform = plaza_transform
+	add_child(plaza)
+	_hunger_set = HungerSet.new()
+	_hunger_set.name = "HungerTownProps"
+	_hunger_set.gate_walk = plaza_walk
+	plaza.add_child(_hunger_set)
+	_spawn_residents(plaza)
+
+	for part in find_children("*", "MeshInstance3D", true, false):
+		if part.visible and part.name != SNOW_GROUND_MESH and part.name != PLAZA_CHRISTMAS_TREE:
+			_overlook_details.append(part as MeshInstance3D)
+	lights_errand = preload("res://scripts/snow_town_lights.gd").new()
+	lights_errand.name = "ChristmasLightsErrand"
+	plaza.add_child(lights_errand)
 
 
-func _whiten_town_snow(root: Node3D) -> void:
-	# road_color.png 是新增资源：按绝对路径直接解码，绕开可能缺失/过期的导入缓存
-	var tex := _custom_texture("res://preview_asset/", "road_color.png")
-	if tex == null:
-		push_warning("广场地面贴图缺失: " + SNOW_WHITE_TEXTURE)
-		return
-	var ground := _find_mesh(root, SNOW_GROUND_MESH)
-	if ground == null:
-		return
-	var fixed := 0
-	for s in ground.mesh.get_surface_count():
-		var src := ground.mesh.surface_get_material(s)
-		if not (src is BaseMaterial3D):
+func _clear_dining_approach(model: Node3D, town_basis: Basis) -> void:
+	for mesh_id in [&"e9f09c21-a86d-41b8-89b9-99bcda315246", &"d0b0b000-8be1-4f72-b6ff-f465e7a69a9f"]:
+		var entrance_piece := _find_mesh(model, mesh_id)
+		if entrance_piece != null:
+			entrance_piece.free()
+	var placement := Transform3D(town_basis, global_position)
+	var to_town := global_transform.affine_inverse()
+	for mesh in model.find_children("*", "MeshInstance3D", true, false):
+		if mesh.mesh == null or mesh.name == SNOW_GROUND_MESH:
 			continue
-		# 用实例覆盖而非改共享 mesh 材质，避免波及 GLB 里其它物体
-		var bm := (src as BaseMaterial3D).duplicate() as BaseMaterial3D
-		bm.albedo_texture = tex
-		bm.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-		bm.metallic = 0.0
-		bm.roughness = 0.92
-		ground.set_surface_override_material(s, bm)
-		fixed += 1
-	print("TOWN_SNOW_WHITENED=", fixed)
+		var bounds: AABB = (placement * to_town * mesh.global_transform) * mesh.get_aabb()
+		# 移近小镇后，原模型最外圈的道具可能落到食堂和送汤路线上。
+		if bounds.position.z < 29.0 and bounds.end.y > 0.25:
+			mesh.free()
+
+
+func _spawn_residents(plaza: Node3D) -> void:
+	for data in RESIDENTS:
+		var npc: Node3D = RESIDENT_SCENE.instantiate()
+		npc.resident_id = String(data["id"])
+		npc.name = npc.resident_id
+		npc.display_name = String(data["name"])
+		npc.model_path = String(data["path"])
+		npc.target_height = float(data["height"])
+		npc.sway = float(data["sway"])
+		npc.dialogue = data["lines"]
+		npc.position = data["pos"]
+		npc.rotation.y = float(data["yaw"])
+		plaza.add_child(npc)
+
+
+func set_dining_overlook(active: bool) -> void:
+	if active == _dining_overlook:
+		return
+	_dining_overlook = active
+	for part in _overlook_details:
+		part.visible = not active
+	_hunger_set.set_overlook(active)
+	lights_errand.set_overlook(active)
+
+
+func _set_plaza_surface(root: Node3D) -> void:
+	var ground := _find_mesh(root, SNOW_GROUND_MESH)
+	var texture := _custom_texture("res://preview_asset/", "road_color.png")
+	if ground == null or texture == null:
+		return
+	var material := ShaderMaterial.new()
+	material.shader = GROUND_SHADER
+	material.set_shader_parameter("surface_texture", texture)
+	material.set_shader_parameter("plaza", true)
+	ground.material_override = material
+	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 
 func _find_mesh(n: Node, wanted: StringName) -> MeshInstance3D:
 	if n.name == wanted and n is MeshInstance3D and (n as MeshInstance3D).mesh != null:
@@ -240,66 +316,62 @@ func _collect_snowmen(n: Node) -> void:
 	for c in n.get_children():
 		_collect_snowmen(c)
 
-func _fix_walk(n: Node, seen: Dictionary, counter: Array) -> void:
+func _fix_walk(n: Node, materials: Dictionary, counter: Array) -> void:
 	if n is MeshInstance3D and n.mesh != null:
-		var mi := n as MeshInstance3D
-		for i in mi.mesh.get_surface_count():
-			var mat := mi.mesh.surface_get_material(i)
-			if not (mat is BaseMaterial3D):
+		var mesh_instance := n as MeshInstance3D
+		for i in mesh_instance.mesh.get_surface_count():
+			var source := mesh_instance.mesh.surface_get_material(i) as BaseMaterial3D
+			if source == null:
 				continue
-			var bm := mat as BaseMaterial3D
-			var id := bm.get_instance_id()
-			if not seen.has(id):
-				seen[id] = true
-				# glTF 导入把所有材质都标成 metallic=1.0，雪/木/布被当成金属，
-				# 大面积反射深蓝天空穹顶，整张地图因此泛青蓝。统一改回非金属。
-				bm.metallic = 0.0
-				var src_tex := bm.albedo_texture
-				if src_tex != null and src_tex.resource_path.get_file().begins_with(SNOW_SWAP_PREFIX):
-					var file := src_tex.resource_path.get_file()
-					if _in_list(file, KEEP_ORIGINAL_STEMS):
-						pass  # 花坛：保留原图设计色
-					elif _in_list(file, STONE_STEMS):
-						# 石塔/石墙：天然暖灰砂岩，积雪保持白雪
-						var nt := _custom_texture(STONE_DIR, file.get_basename() + ".png")
-						if nt != null:
-							bm.albedo_texture = nt
-							bm.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-							_snow_swap_count += 1
-					elif _in_list(file, SNOWMAN_STEMS):
-						# 雪人：换成白雪贴图（保留帽子/纽扣深色）
-						var st := _custom_texture(SNOWMAN_WHITE_DIR, file.get_basename() + ".png")
-						if st != null:
-							bm.albedo_texture = st
-							bm.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-							_snow_swap_count += 1
-					elif _in_list(file, GREEN_VEGETATION_STEMS):
-						# 树/草：换成重着色版（绿枝叶 + 白雪）
-						var gt := _custom_texture(GREEN_TEX_DIR, file)
-						if gt != null:
-							bm.albedo_texture = gt
-							bm.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-							_snow_swap_count += 1
-					# 夜空穹顶 001.jpg 不生成白化版，保留深蓝星空
-					elif "-001." not in file:
-						if not _snow_swaps.has(file):
-							_snow_swaps[file] = load(SNOW_SWAP_DIR + file) as Texture2D
-						var swap_tex: Texture2D = _snow_swaps[file]
-						if swap_tex != null:
-							bm.albedo_texture = swap_tex
-							bm.albedo_color = Color(1.0, 1.0, 1.0, 1.0)
-							_snow_swap_count += 1
-				if int(bm.transparency) != 0:
-					bm.transparency = TRANSPARENCY_SCISSOR
-					# 树/灌木图集是半透明贴图：树干区域 alpha 平均只有 93，
-					# 36% 的树干像素 alpha<64，树冠也有一大片低 alpha 区域。
-					# 0.5/0.25 会把这些像素整片裁掉，只剩碎枝和断树干（树「不完整」）。
-					# 0.02 只丢弃真正全透明的背景，半透明的枝叶和树干全部保留。
-					bm.alpha_scissor_threshold = 0.02
-					bm.albedo_color.a = 1.0
-					counter[0] += 1
-	for c in n.get_children():
-		_fix_walk(c, seen, counter)
+			if not materials.has(source):
+				materials[source] = _town_material(source)
+				counter[0] += 1
+			mesh_instance.set_surface_override_material(i, materials[source])
+	for child in n.get_children():
+		_fix_walk(child, materials, counter)
+
+
+func _town_material(source: BaseMaterial3D) -> Material:
+	var material := source.duplicate() as BaseMaterial3D
+	material.metallic = 0.0
+	material.metallic_texture = null
+	material.roughness = maxf(material.roughness, 0.83)
+	material.metallic_specular = 0.18
+	var texture := source.albedo_texture
+	if texture != null:
+		material.vertex_color_use_as_albedo = false
+		var filename := texture.resource_path.get_file()
+		if filename.begins_with(SNOW_SWAP_PREFIX):
+			var replacement := _town_atlas(filename)
+			if replacement != null:
+				texture = replacement
+				material.albedo_texture = texture
+				material.albedo_color = Color.WHITE
+				_snow_swap_count += 1
+			if _in_list(filename, GREEN_VEGETATION_STEMS):
+				var foliage := ShaderMaterial.new()
+				foliage.shader = VEGETATION_SHADER
+				foliage.set_shader_parameter("atlas", texture)
+				return foliage
+	if material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+		material.transparency = TRANSPARENCY_SCISSOR
+		material.alpha_scissor_threshold = 0.12
+		material.albedo_color.a = 1.0
+	return material
+
+
+func _town_atlas(filename: String) -> Texture2D:
+	if _in_list(filename, KEEP_ORIGINAL_STEMS) or "-001." in filename:
+		return null
+	if _in_list(filename, STONE_STEMS):
+		return _custom_texture(STONE_DIR, filename.get_basename() + ".png")
+	if _in_list(filename, SNOWMAN_STEMS):
+		return _custom_texture(SNOWMAN_WHITE_DIR, filename.get_basename() + ".png")
+	if not _snow_swaps.has(filename):
+		var path := SNOW_SWAP_DIR + filename
+		_snow_swaps[filename] = load(path) if ResourceLoader.exists(path, "Texture2D") else null
+	return _snow_swaps[filename]
+
 
 func _in_list(file: String, list: Array) -> bool:
 	for s in list:
@@ -307,25 +379,22 @@ func _in_list(file: String, list: Array) -> bool:
 			return true
 	return false
 
-# tree_green/ 下的 PNG 是新增资源：编辑器会自动把 res://*.png 重定向到
-# 导入缓存 .ctex，直接 load() 可能拿到旧缓存或导入前根本不可用。
-# 故按绝对文件路径用 Image 直接解码，绕开导入系统；导出包内没有独立文件，
-# 再回退到正常资源加载（此时资源已被正常导入）。
 func _custom_texture(dir: String, file: String) -> Texture2D:
-	var key := dir + file
-	if _custom_tex_cache.has(key):
-		return _custom_tex_cache[key] as Texture2D
-	var tex: Texture2D = null
-	var abs_path := ProjectSettings.globalize_path(dir + file)
-	var img := Image.load_from_file(abs_path)
-	if img != null:
-		tex = ImageTexture.create_from_image(img)
-	else:
-		tex = load(dir + file) as Texture2D
-	if tex == null:
-		push_warning("自定义贴图缺失: " + key)
-	_custom_tex_cache[key] = tex
-	return tex
+	var path := dir + file
+	if _custom_tex_cache.has(path):
+		return _custom_tex_cache[path]
+	if not ResourceLoader.exists(path, "Texture2D"):
+		push_warning("自定义贴图缺失: " + path)
+		return null
+	var texture := load(path) as Texture2D
+	var image := texture.get_image()
+	if image != null and not image.is_empty() and not image.has_mipmaps():
+		if not image.is_compressed() or image.decompress() == OK:
+			image.generate_mipmaps()
+			texture = ImageTexture.create_from_image(image)
+	_custom_tex_cache[path] = texture
+	return texture
+
 
 func _hide_floating_decorations(root: Node3D) -> void:
 	var counter := [0]
@@ -501,6 +570,10 @@ func _setup_openable_houses(model: Node3D) -> void:
 		door.configure(house, String(item["side"]), float(item["offset"]),
 				float(item.get("w", 0.0)), float(item.get("h", 0.0)),
 				item.get("uv", []))
+		# 门洞按未旋转的世界坐标切割，建好后让门和碰撞跟随整座小镇。
+		var built_transform := door.global_transform
+		door.top_level = false
+		door.global_transform = built_transform
 		built += 1
 	print("TOWN_OPENABLE_HOUSES=", built)
 

@@ -1,20 +1,10 @@
 extends Node3D
-## 圣诞小镇 · 卖火柴的小姑娘。靠近按 F 对话，对话结束把「火柴」交给玩家。
-## 买完火柴后的延伸剧情：
-##   提示「按 F 划动火柴」→ 播放魔法食谱短片 → 提示获得食谱 → 第二段对话
-##   → 提示「按 Tab 确认食谱」→ 打开「食谱合成料理」页（选两种食材合成，无需去食堂）。
-## 对话 UI 样式同冰堡主人 / 食堂肯德齐，F/Enter 逐句推进，对话期间暂停游戏。
+## 圣诞小镇广场的卖火柴姑娘。
 
 const INTERACT_RANGE := 3.2
 const MODEL_PATH := "res://assets/models/match_girl_nailong.glb"
 ## 模型原始尺寸偏大（比玩家高约 4 倍），统一缩到正常 NPC 身高
 const MODEL_SCALE := 0.25
-const HERO_NAME := "我"
-const MagicRecipeVideo = preload("res://scripts/magic_recipe_video.gd")
-
-## 0=未买火柴 1=已买、待划火柴 2=划完、待看片 3=看完、待第二段对话 4=对话完、待确认食谱 5=已确认
-var stage := 0
-var _game: Node = null
 
 var _player_near := false
 var _prompt: Label3D
@@ -30,18 +20,11 @@ var _speakers: PackedStringArray = PackedStringArray()
 var _index := 0
 var _open := false
 var _saved_mouse := Input.MOUSE_MODE_VISIBLE
-var _sold := false
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("match_girl")
-	# 重生后按存档精确恢复断点；正在播短片(2)时死了就退回「划火柴」重来
-	stage = RunState.match_girl_stage
-	if stage == 2:
-		stage = 1
-	if RunState.has_item("matches") or stage > 0:
-		_sold = true
 	var res := load(MODEL_PATH)
 	if res is PackedScene:
 		_body = (res as PackedScene).instantiate() as Node3D
@@ -132,12 +115,12 @@ func _build_ui() -> void:
 
 
 func _on_body_entered(b: Node3D) -> void:
-	if b.is_in_group("Player") or b is CharacterBody3D:
+	if b.is_in_group("Player"):
 		_player_near = true
 
 
 func _on_body_exited(b: Node3D) -> void:
-	if b.is_in_group("Player") or b is CharacterBody3D:
+	if b.is_in_group("Player"):
 		_player_near = false
 
 
@@ -156,83 +139,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if Engine.is_editor_hint() or not _player_near or get_tree().paused:
 		return
-	if event.is_action_pressed("interact") or (event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_F):
+	if event.is_action_pressed("interact"):
 		get_viewport().set_input_as_handled()
 		_on_interact()
-	elif event.is_action_pressed("tap") or (event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_TAB):
-		get_viewport().set_input_as_handled()
-		_on_tap()
 
 
-## 靠近按 F：第一次买火柴；之后按阶段推进剧情
 func _on_interact() -> void:
-	match stage:
-		0:
-			_talk_intro()
+	match RunState.match_girl_stage:
 		1:
-			_strike_match()
-		3:
-			_talk_after_recipe()
-		4:
-			_hint("按 Tab 确认食谱 · 食谱合成料理马上开启")
-		5:
-			_hint("按 Tab 打开食谱合成料理 · 自由搭配现有食材")
-
-
-## 按 Tab：确认食谱 → 打开「食谱合成料理」页（已拿到食谱后随时可开）
-func _on_tap() -> void:
-	if stage >= 4:
-		_open_cook()
-
-
-## 食堂背包页入口：拿到食谱后随时打开合成页
-func open_recipe_cook_from_kitchen() -> void:
-	if RunState.magic_recipe_received:
-		_set_stage(5)
-	_open_cook()
-
-
-## 推进剧情断点并立即存档（死亡重生后据此精确恢复 / 小字与路标据此指引）
-func _set_stage(value: int) -> void:
-	stage = value
-	RunState.match_girl_stage = value
-	RunState.save_progress()
-
-
-func _hint(text: String) -> void:
-	if _game != null and _game.get("hud") != null:
-		var hud = _game.get("hud")
-		if hud != null and hud.has_method("show_notice"):
-			hud.show_notice(text)
-
-
-func _find_game() -> Node:
-	var node: Node = self
-	while node != null:
-		if node.has_method("_show_recipe_arrival") or node.get("hud") != null:
-			return node
-		node = node.get_parent()
-	return null
-
-
-func _talk_intro() -> void:
-	_lines = PackedStringArray([
-		"你好，你想买根火柴吗，我今天一根火柴没有卖出去。",
-		"我就是来买火柴的。",
-		"谢谢你，这是你的火柴，它每次亮起都会有好运。",
-	])
-	_speakers = PackedStringArray(["小女孩", "奶蛙", "小女孩"])
-	_begin_dialogue()
-
-
-func _talk_after_recipe() -> void:
-	_lines = PackedStringArray([
-		"看，好运发生了。",
-		"这是什么？",
-		"这是一本魔法食谱，我只在奶奶的故事里听说过，那是一百年前留下来的。",
-		"可能是与你有缘吧！它有想象不到的魔力。",
-	])
-	_speakers = PackedStringArray(["小女孩", HERO_NAME, "小女孩", "小女孩"])
+			_lines = PackedStringArray([
+				"给礼堂的豆奶带的？",
+				"小姑娘从围裙兜里掏出一盒干燥的火柴，递给奶蛙。",
+				"你走灶台后面那条巷子。看见摩天轮，就到她门口了。",
+			])
+			_speakers = PackedStringArray(["小女孩", "旁白", "小女孩"])
+		2:
+			_lines = PackedStringArray(["走灶台后面那条巷子。看见摩天轮，就到豆奶门口了。"])
+			_speakers = PackedStringArray(["小女孩"])
+		_:
+			_lines = PackedStringArray(["要买火柴吗？这一盒还是干的。"])
+			_speakers = PackedStringArray(["小女孩"])
 	_begin_dialogue()
 
 
@@ -273,52 +199,13 @@ func _close() -> void:
 	_hint_label.hide()
 	get_tree().paused = false
 	Input.mouse_mode = _saved_mouse
-	if stage == 0:
-		if not _sold:
-			_sold = true
-			RunState.spend_item("coins", 3)
-			RunState.give_item("matches", 1)
-		_set_stage(1)
-		_hint("火柴 ×1 已放入背包 · 按 F 划动火柴")
-	elif stage == 3:
-		_set_stage(4)
-		_hint("按 Tab 确认食谱 · 食谱合成料理即将开启")
-
-
-## 划火柴：播魔法食谱短片，播完进入「获得魔法食谱」提示
-func _strike_match() -> void:
-	_set_stage(2)
-	_saved_mouse = Input.mouse_mode
-	get_tree().paused = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if _game == null:
-		_game = _find_game()
-	if _game != null:
-		_game.recipe_arrival_active = true
-	var video := MagicRecipeVideo.new()
-	add_child(video)
-	video.completed.connect(_on_magic_video_done.bind(video))
-
-
-func _on_magic_video_done(video: Node) -> void:
-	video.queue_free()
-	if _game != null and "recipe_arrival_active" in _game:
-		_game.recipe_arrival_active = false
-	get_tree().paused = false
-	Input.mouse_mode = _saved_mouse
-	RunState.magic_recipe_received = true
-	_set_stage(3)
-	_hint("获得魔法食谱 · 按 F 继续与小女孩对话")
-
-
-# ------------------------------------------------------------------ 食谱合成料理
-## 统一委托给 game 持有的随身合成台（食堂背包按钮也走这里），避免两套 UI。
-func _open_cook() -> void:
-	if _game == null:
-		_game = _find_game()
-	if _game != null and _game.has_method("open_recipe_cook"):
-		_game.open_recipe_cook()
-		_set_stage(5)
+	if RunState.match_girl_stage == 1 and RunState.spend_item("coins", 3):
+		RunState.give_item("matches")
+		RunState.match_girl_stage = 2
+		RunState.save_progress()
+		var game := get_tree().current_scene
+		if game != null and game.get("hud") != null:
+			game.hud.show_notice("火柴 ×1 · 从灶台后的小路回礼堂门房")
 
 
 func _exit_tree() -> void:

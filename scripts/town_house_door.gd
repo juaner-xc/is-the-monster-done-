@@ -153,9 +153,7 @@ func _split_native_door(house: MeshInstance3D, hole: AABB) -> void:
 		var norms: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
 		var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
 		var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-		var mat := am.surface_get_material(s)
-		if mat == null:
-			mat = house.get_active_material(s)
+		var mat := house.get_active_material(s)
 		if wall_mat == null and mat != null:
 			wall_mat = mat
 		var sw := SurfaceTool.new()
@@ -189,6 +187,8 @@ func _split_native_door(house: MeshInstance3D, hole: AABB) -> void:
 					_emit(sw, part, Vector3.ZERO, false)
 			t += 3
 		sw.commit(wall_out)
+	for i in am.get_surface_count():
+		house.set_surface_override_material(i, null)
 	house.mesh = wall_out
 	# 挖空后的网格直接生成贴合碰撞，不再用错位的轴对齐盒墙
 	house.create_trimesh_collision()
@@ -631,7 +631,7 @@ func _player_in_range() -> bool:
 	var p := _find_player()
 	if p == null:
 		return false
-	var v: Vector3 = p.global_position - _center
+	var v: Vector3 = to_local(p.global_position) - _center
 	# 门外与屋内两侧都要能开门：旧版 depth < -1.2 直接返回 false，
 	# 玩家进屋后 _near 变 false，关着的门挡就把人困在屋里出不来。
 	if absf(v.dot(_outward)) > NEAR_DIST:
@@ -703,15 +703,15 @@ func is_open() -> bool:
 
 
 func door_position() -> Vector3:
-	return _center
+	return to_global(_center)
 
 
 func door_outward() -> Vector3:
-	return _outward
+	return global_basis * _outward
 
 
 func door_horiz() -> Vector3:
-	return _horiz
+	return global_basis * _horiz
 
 
 ## 供验证脚本读取内部几何状态，避免 Object.get() 读私有脚本变量的坑。

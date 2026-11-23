@@ -1,6 +1,8 @@
 extends CanvasLayer
 signal completed
 const Book = preload("res://scripts/book_ui.gd")
+const PassLandscape = preload("res://scripts/snow_pass_landscape.gd")
+const TransportTunnel = preload("res://scripts/snow_transport_tunnel.gd")
 const Story = preload("res://scripts/arcane_story_ui.gd")
 var player: Node3D
 var wreck: Node3D
@@ -20,6 +22,7 @@ var ending := false
 var finish_requested := false
 var ready_to_inspect := false
 var rang_bell := false
+var owner_note_read := false
 var lines: Array[String] = []
 var line_index := 0
 var conversation_kind := ""
@@ -100,7 +103,8 @@ func _ready():
 	content.add_child(actions)
 	panel.hide()
 	_build_core()
-	var tunnel = preload("res://scripts/snow_transport_tunnel.gd").new()
+	var tunnel := TransportTunnel.new()
+	tunnel.position = PassLandscape.PASS
 	get_parent().add_child.call_deferred(tunnel)
 	_refresh_quest()
 
@@ -113,12 +117,24 @@ func _process(delta):
 	if is_instance_valid(core_visual):
 		core_visual.visible = ready_to_inspect and not RunState.snow_core_found
 		core_visual.rotation.y += delta * 0.7
-	if panel.visible or talking or get_tree().paused or (is_instance_valid(snow_town) and (snow_town.in_town or snow_town.transitioning)):
+	if panel.visible or talking or get_tree().paused or (is_instance_valid(snow_town) and snow_town.in_town):
 		prompt_text.hide()
 		return
 	prompt_text.show()
+	if _near_owner_note():
+		prompt_text.text = "F 查看炉主留下的便签"
+		return
+	var route_offset := player.global_position - PassLandscape.PASS
+	if absf(route_offset.x) < 2.8 and route_offset.z < -11.0 and route_offset.z > -30.0 and route_offset.y < 4.5:
+		_start_ending()
+		return
 	if not RunState.snow_core_found:
-		prompt_text.text = "F 检视烤炉残骸 · 余温仍在" if ready_to_inspect and _distance(player, wreck) < 4.5 else "走近烤炉残骸，寻找仍在发光的东西"
+		if ready_to_inspect and _distance(player, wreck) < 4.5:
+			prompt_text.text = "F 检视烤炉残骸 · 余温仍在"
+			if not owner_note_read:
+				prompt_text.text += "　·　洞壁上夹着一张旧便签"
+		else:
+			prompt_text.text = "沿旧运输道继续 · 可绕到烤炉后查看便签"
 	elif RunState.snow_core_use.is_empty():
 		if is_instance_valid(elder):
 			var d = _distance(player, elder)
@@ -130,8 +146,8 @@ func _process(delta):
 					near_latched = true
 					_start_elder()
 	else:
-		prompt_text.text = "前往山口的旧运输道 · %d m" % roundi(Vector2(player.global_position.x, player.global_position.z + 65).length())
-		if absf(player.global_position.x) < 2.8 and player.global_position.z < -66: _start_ending()
+		var offset := player.global_position - PassLandscape.PASS
+		prompt_text.text = "前往山口的旧运输道 · %d m" % roundi(Vector2(offset.x, offset.z + 7).length())
 
 func _input(event):
 	if finish_requested or not event is InputEventKey or not event.pressed or event.echo: return
@@ -156,13 +172,18 @@ func _input(event):
 		return
 	if get_tree().paused: return
 	if key == KEY_F:
+		if _near_owner_note():
+			_read_owner_note()
+			get_viewport().set_input_as_handled()
+			return
 		if RunState.snow_core_found and RunState.snow_core_use.is_empty() and is_instance_valid(elder) and house.inside and _distance(player, elder) < 3.25: _start_elder()
 		else:
 			if is_instance_valid(elder) and house.inside and _distance(player, elder) < 3.25 and not RunState.snow_core_use.is_empty():
 				conversation_kind = "result"
 				lines = ["炉火已经稳了。旧取餐铃收好，到了火山工坊，也许还有人认得这个声音。"] if RunState.snow_dining_restored else ["柴火还能用一阵。记着，你锅里的余温只够强化下一发料理弹。路上小心。"]
 				_begin_talk()
-			else: try_inspect()
+			elif not try_inspect():
+				return
 		get_viewport().set_input_as_handled()
 
 func is_open(): return talking or ending or (panel != null and panel.visible)
@@ -183,6 +204,31 @@ func _show_panel(heading: String, text: String):
 	panel.show()
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _near_owner_note() -> bool:
+	if not is_instance_valid(player):
+		return false
+	var point := player.global_position - PassLandscape.PASS
+	var delta := point - TransportTunnel.NOTE_POSITION
+	# Stay on the corridor side of the wall to read the pinned page.
+	return absf(point.x) < 2.9 and absf(delta.y) < 2.2 and Vector2(delta.x, delta.z).length() < 2.6
+
+
+func _read_owner_note() -> void:
+	owner_note_read = true
+	subtitle.text = ""
+	prompt_text.hide()
+	_show_panel("炉主的便签", """给以后替我看炉的人。
+
+砌这座炉的时候，我往炉芯里许了个愿。最后一个来的人，也能吃到热的。
+
+头一炉给早起的伙计。夜班的人回来得晚，给他留一块，搁在炉门前的铁托盘里。没听见铃响，就别把他的那份收走。
+
+—— 山口的炉主
+
+纸上沾了面粉，托盘却早已熏黑。奶蛙想起残骸上那只铃，还可以回去敲一敲。""")
+	_button("收起便签", close, true).grab_focus()
+
 
 func try_inspect():
 	if not is_instance_valid(wreck) or not wreck.wreck_ready or get_tree().paused or _distance(player, wreck) > 4.5: return false
@@ -317,8 +363,8 @@ func _start_ending():
 	old_camera = get_viewport().get_camera_3d()
 	ending_camera = Camera3D.new()
 	get_parent().add_child(ending_camera)
-	ending_camera.global_position = Vector3(1.8, 2.8, -67)
-	ending_camera.look_at(Vector3(-2.4, 2, -71))
+	ending_camera.global_position = PassLandscape.PASS + Vector3(1.8, 2.8, -9)
+	ending_camera.look_at(PassLandscape.PASS + Vector3(-2.4, 2, -13))
 	ending_camera.fov = 53
 	ending_camera.current = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -331,16 +377,21 @@ func _advance_ending():
 	line_index += 1
 	if line_index == 1: subtitle.text = "奶蛙：这里……怎么会有我们那里的东西？"
 	elif line_index == 2:
-		ending_camera.look_at(Vector3(0, 2.2, -85))
+		ending_camera.global_position = Vector3(5, 17, -110)
+		ending_camera.look_at(Vector3(14, 66, -242))
+		subtitle.text = "雪山背后，一座红褐色的山正冒着烟。"
+	elif line_index == 3:
+		ending_camera.global_position = PassLandscape.PASS + Vector3(1.8, 2.8, -9)
+		ending_camera.look_at(PassLandscape.PASS + Vector3(0, 2.2, -27))
 		subtitle.text = "通道深处，透出火山的红光。\n第一章 · 雪原边境 完"
-		prompt_text.text = "F / Enter 记录旅程"
+		prompt_text.text = "F / Enter 前往火山工坊"
 	else:
 		RunState.snow_tunnel_seen = true
 		RunState.save_progress()
 		_complete()
 
 func _complete():
-	if finish_requested or RunState.snow_core_use.is_empty() or not RunState.snow_tunnel_seen: return
+	if finish_requested or not RunState.snow_tunnel_seen: return
 	finish_requested = true
 	RunState.complete_selected()
 	get_parent().hud.show()

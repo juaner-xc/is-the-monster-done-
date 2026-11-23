@@ -5,7 +5,7 @@ const PERSIST_PROGRESS := false
 const CHAPTERS := [
 	{"id": "snow", "title": "第一章 · 雪原边境", "status": "available", "scene": "res://scenes/main.tscn", "debug_hint": "战斗 / 烤炉二阶段 / 炉芯剧情"},
 	{"id": "second", "title": "第二章 · 火山洞窟", "status": "available", "scene": "res://scenes/chapter2/volcano_cave.tscn", "debug_hint": "工坊剧情 / 战斗 / 三层平台"},
-	{"id": "third", "title": "第三章 · 终宴大厅", "status": "available", "scene": "res://scenes/final_banquet_hall.tscn", "debug_hint": "大厅地图 / 补救与剧情交互原型"},
+	{"id": "third", "title": "第三章 · 终宴大厅", "status": "available", "scene": "res://scenes/final_banquet_hall.tscn", "debug_hint": "主核心决战 / 四个结局 / 补席解谜"},
 ]
 
 
@@ -62,12 +62,28 @@ var ember_cooking_charges := 0
 var snow_tunnel_seen := false
 var snow_opening_seen := false
 var snowleaf_rack_claimed := false
-## 卖火柴小姑娘的魔法食谱剧情是否完成（划火柴→短片→对白→Tab 确认合成）
+var holiday_coins_claimed := false
+var coins := 0
+
+func claim_holiday_coins() -> bool:
+	if holiday_coins_claimed:
+		return false
+	holiday_coins_claimed = true
+	coins += 100
+	if save_progress() == OK:
+		return true
+	coins -= 100
+	holiday_coins_claimed = false
+	return false
+## 把火柴带回门房可获得旧食谱。
 var magic_recipe_received := false
-## 玩家已按过 Tab 打开合成页：底部常驻小字提示不再出现
-var recipe_hint_dismissed := false
-## 卖火柴小姑娘剧情断点：0=未买 1=待划火柴 2=播放短片中 3=待第二段对话 4=待确认食谱 5=完成
+var snow_portrait_seen := false
+var snow_route_unlocked := false
+var snow_pass_recipe_taught := false
+## 火柴支线：0=未接 1=待买 2=待送回 3=完成 4=暂缓
 var match_girl_stage := 0
+## 小镇灯串：0=未发现 1=待分流 2=待取灯 3=待挂灯 4=已经亮灯。
+var snow_town_lights_stage := 0
 
 func can_receive_evacuees() -> bool:
 	return snow_dining_restored
@@ -93,8 +109,6 @@ var cooking_journal: Array[String] = []
 # ---- 冰堡支线：任务道具与状态 ----
 var quest_items: Dictionary = {}
 var ice_castle_keys_returned := false
-# 冰堡收尾对话（还钥匙→豆包走到画像→与豆包结束对话）完成后才开放圣诞小镇入口
-var ice_castle_talk_done := false
 
 func give_item(id: String, n := 1) -> void:
 	quest_items[id] = quest_items.get(id, 0) + n
@@ -110,11 +124,10 @@ func take_item(id: String) -> bool:
 		quest_items.erase(id)
 	return true
 
-## 一次扣 n 个；不够则把剩余的都扣掉并返回 false（买火柴用掉全部 3 枚零钱）
+## 数量不足时保留现有道具。
 func spend_item(id: String, n: int) -> bool:
 	var have: int = quest_items.get(id, 0)
-	if have < n:
-		quest_items.erase(id)
+	if n <= 0 or have < n:
 		return false
 	quest_items[id] = have - n
 	if quest_items[id] <= 0:
@@ -197,15 +210,22 @@ func save_progress() -> Error:
 	config.set_value("snow_story", "tunnel_seen", snow_tunnel_seen)
 	config.set_value("snow_story", "table_soup_opening_seen", snow_opening_seen)
 	config.set_value("snow_story", "snowleaf_rack_claimed", snowleaf_rack_claimed)
+	config.set_value("snow_story", "holiday_coins_claimed", holiday_coins_claimed)
 	config.set_value("hero", "name", player_name)
+	config.set_value("hero", "coins", coins)
 	config.set_value("cooking", "journal", cooking_journal)
 	config.set_value("cooking","ingredients",cooking_inventory.ingredients)
 	config.set_value("cooking","dishes",cooking_inventory.dishes)
 	config.set_value("cooking","guards",guards)
 	config.set_value("cinematics", "recipe_arrival_seen", recipe_arrival_seen)
 	config.set_value("snow_story", "magic_recipe_received", magic_recipe_received)
-	config.set_value("snow_story", "recipe_hint_dismissed", recipe_hint_dismissed)
-	config.set_value("snow_story", "match_girl_stage", match_girl_stage)
+	config.set_value("snow_story", "portrait_seen", snow_portrait_seen)
+	config.set_value("snow_story", "route_unlocked", snow_route_unlocked)
+	config.set_value("snow_story", "pass_recipe_taught", snow_pass_recipe_taught)
+	config.set_value("snow_story", "match_errand_stage", match_girl_stage)
+	config.set_value("snow_story", "town_lights_stage", snow_town_lights_stage)
+	config.set_value("snow_story", "quest_items", quest_items)
+	config.set_value("snow_story", "ice_castle_keys_returned", ice_castle_keys_returned)
 	config.set_value("journey", "chapter", chapter_id)
 	config.set_value("journey", "completed_chapters", completed_chapters)
 	config.set_value("journey", "row", current_row)
@@ -242,14 +262,24 @@ func load_progress() -> void:
 	# Re-enter the revised opening once on saves from before the table and soup sequence.
 	snow_opening_seen = bool(config.get_value("snow_story", "table_soup_opening_seen", false))
 	snowleaf_rack_claimed = bool(config.get_value("snow_story", "snowleaf_rack_claimed", false))
+	holiday_coins_claimed = bool(config.get_value("snow_story", "holiday_coins_claimed", false))
+	coins = maxi(0, int(config.get_value("hero", "coins", 0)))
 	magic_recipe_received = bool(config.get_value("snow_story", "magic_recipe_received", false))
-	recipe_hint_dismissed = bool(config.get_value("snow_story", "recipe_hint_dismissed", false))
-	match_girl_stage = int(config.get_value("snow_story", "match_girl_stage", 0))
-	# 旧存档迁移：没有断点字段但有火柴/食谱时，补一个合理阶段
-	if match_girl_stage == 0:
+	snow_portrait_seen = bool(config.get_value("snow_story", "portrait_seen", false))
+	snow_route_unlocked = bool(config.get_value("snow_story", "route_unlocked", false))
+	snow_pass_recipe_taught = bool(config.get_value("snow_story", "pass_recipe_taught", false))
+	var saved_quest_items: Variant = config.get_value("snow_story", "quest_items", {})
+	quest_items = saved_quest_items if saved_quest_items is Dictionary else {}
+	ice_castle_keys_returned = bool(config.get_value("snow_story", "ice_castle_keys_returned", false))
+	match_girl_stage = clampi(int(config.get_value("snow_story", "match_errand_stage", 0)), 0, 4)
+	snow_town_lights_stage = clampi(int(config.get_value("snow_story", "town_lights_stage", 0)), 0, 4)
+	# 旧版火柴流程留下的道具仍可使用。
+	if not config.has_section_key("snow_story", "match_errand_stage"):
 		if magic_recipe_received:
-			match_girl_stage = 5
+			match_girl_stage = 3
 		elif has_item("matches"):
+			match_girl_stage = 2
+		elif has_item("coins"):
 			match_girl_stage = 1
 	recipe_arrival_seen = bool(config.get_value("cinematics", "recipe_arrival_seen", false))
 	player_name = String(config.get_value("hero", "name", "")).strip_edges().substr(0, 18)
@@ -295,9 +325,16 @@ func reset_run() -> void:
 	snow_tunnel_seen = false
 	snow_opening_seen = false
 	snowleaf_rack_claimed = false
+	holiday_coins_claimed = false
+	coins = 0
 	magic_recipe_received = false
-	recipe_hint_dismissed = false
+	snow_portrait_seen = false
+	snow_route_unlocked = false
+	snow_pass_recipe_taught = false
 	match_girl_stage = 0
+	snow_town_lights_stage = 0
+	quest_items.clear()
+	ice_castle_keys_returned = false
 	recipe_arrival_seen = false
 	chapter_mode = false
 	completed_chapters.clear()
@@ -382,3 +419,11 @@ func resolve_non_combat() -> String:
 	last_message = message
 	save_progress()
 	return message
+
+# These are earned capacities. Taking a particular side in an earlier conversation
+# or spending combat ammo does not change the restart requirement.
+func final_banquet_magic() -> int:
+	var chapter_two := get_node_or_null("/root/Ch02State")
+	var furnace_won: bool = chapter_two != null and chapter_two.has("ch02.boss_down")
+	var frost_mastered: bool = chapter_two != null and chapter_two.has("ch02.frost_upgrade")
+	return 1 + int(snow_core_found) + int(furnace_won) + int(frost_mastered)

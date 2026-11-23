@@ -733,6 +733,17 @@ func _banquet_paintings(g: Node3D, _frame: Material, _canvas: Material,
 	_box(big, "MasterPortraitCard", Vector3(3.6, 4.5, 0.12), Vector3.ZERO, paper)
 	_photo_face(big, "MasterPortraitFace", Vector2(3.0, 3.7),
 			Vector3(0.0, 0.30, 0.10), 0.0, _painting_material("p8_master.jpg"))
+	var tag := _box(big, "OldCargoTag", Vector3(0.62, 0.37, 0.022),
+			Vector3(0.84, -2.27, 0.12), _ice_mat(Color("bf9b6b"), 0.05))
+	tag.rotation.z = -0.13
+	var stamp := Label3D.new()
+	stamp.text = "✧"
+	stamp.modulate = Color("704631")
+	stamp.font_size = 54
+	stamp.pixel_size = 0.004
+	stamp.outline_size = 0
+	stamp.position = Vector3(0.08, -0.07, 0.017)
+	tag.add_child(stamp)
 	for t in 2:
 		var btp := _box(big, "MasterPortraitTape%d" % t,
 				Vector3(1.15, 0.62, 0.03),

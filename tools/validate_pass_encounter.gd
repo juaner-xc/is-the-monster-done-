@@ -27,12 +27,12 @@ func run():
 	game.player.invulnerable_time = 0
 	game.player.health = 10000
 	check(get_nodes_in_group("enemies").filter(func(e): return e.is_boss).size() == 1, "one fixed boss, no duplicate")
-	check(boss.global_position.distance_to(Vector3(0, 0, -58)) < 1, "boss placed at mountain pass")
+	check(boss.global_position.distance_to(game.furnace_encounter.PASS) < 1, "boss placed at mountain pass")
 	check(not brain.active, "work loop is non-hostile at a distance")
 	game.time_left = 0.01
 	await create_timer(0.05).timeout
 	check(not game.finished, "old two-minute expiry cannot interrupt this encounter")
-	game.player.global_position = Vector3(0, 0.1, -36)
+	game.player.global_position = game.furnace_encounter.PASS + Vector3(0, 0.1, 22)
 	await process_frame
 	await process_frame
 	check(game.furnace_encounter.observed and not brain.active, "observation distance stops spawning without starting combat")
@@ -43,11 +43,11 @@ func run():
 	check(is_equal_approx(before_clock, game.furnace_encounter.idle_clock), "intro remains frozen while paused")
 	check(not game.furnace_encounter.overlay.visible, "encounter HUD does not cover pause/upgrade panels")
 	paused = false
-	game.player.global_position = Vector3(0, 0.1, -15)
+	game.player.global_position = game.furnace_encounter.PASS + Vector3(0, 0.1, 43)
 	await process_frame
 	await process_frame
 	check(not game.furnace_encounter.observed, "player can back out and prepare")
-	game.player.global_position = Vector3(0, 0.1, -36)
+	game.player.global_position = game.furnace_encounter.PASS + Vector3(0, 0.1, 22)
 	await process_frame
 	boss.take_damage(1.0)
 	check(brain.active and game.furnace_encounter.started, "ranged/early hit starts combat")
@@ -161,7 +161,7 @@ func run():
 	root.add_child(game)
 	current_scene = game
 	game.player.set_physics_process(false)
-	game.player.global_position = Vector3(0, 0.3, -48)
+	game.player.global_position = game.furnace_encounter.PASS + Vector3(0, 0.3, 10)
 	await process_frame
 	await process_frame
 	check(game.furnace_encounter.started, "entering inner radius also starts combat")

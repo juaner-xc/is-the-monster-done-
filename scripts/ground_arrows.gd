@@ -1,10 +1,6 @@
 extends Node3D
 ## 路面指引箭头：贴地蓝色箭头链，随玩家移动动态更新，纯视觉指引（无碰撞、不强制）。
-## 全程任务指引：箭头从玩家脚下指向"当前该做的事"，完成一步自动切下一步：
-##   送汤教学各任务点 → 取钥匙 → 还钥匙 → 画像对话 → 小镇入口 → 卖火柴的小姑娘；
-##   买完火柴后整条指引收工。战斗指任务点（不追敌人），纯背包/对话步骤隐藏。
-## 到达目标附近（ARRIVE_RANGE）或暂停时自动隐藏。
-
+const SnowRoute := preload("res://scripts/snow_town_link.gd")
 const ARROW_COUNT := 10
 const START_OFFSET := 2.0      # 第一支箭头离玩家脚下的距离
 const SPACING := 2.2           # 相邻箭头间距（米）
@@ -95,7 +91,7 @@ func _process(delta: float) -> void:
 
 
 func _update_arrows() -> void:
-	if _game == null or get_tree().paused:
+	if _game == null or get_tree().paused or _game.aftermath_active or _game.finished:
 		_set_all_visible(false)
 		_hint_label.visible = false
 		return
@@ -116,9 +112,9 @@ func _update_arrows() -> void:
 	# 跨楼层：先走楼梯口，分两段指路（阶梯是实体斜坡，玩家沿坡上下）
 	var nav_target := final_target
 	var vertical := false
-	var going_up := final_target.y > FLOOR_SPLIT_Y and pp.y < FLOOR_SPLIT_Y
+	var going_up := final_target.y > FLOOR_SPLIT_Y and pp.y < FLOOR_SPLIT_Y and _flat_dist(final_target, Vector3(10.65, 0, 0)) < 20.0
 	var going_down := final_target.y < FLOOR_SPLIT_Y and pp.y > FLOOR_SPLIT_Y
-	if going_up or going_down:
+	if (going_up or going_down) and _flat_dist(pp, Vector3(10.65, 0, 0)) < 20.0:
 		var first_wp := STAIR_BOTTOM if going_up else STAIR_TOP
 		var second_wp := STAIR_TOP if going_up else STAIR_BOTTOM
 		if not _stair_phase and _flat_dist(pp, first_wp) > WAYPOINT_REACH:
@@ -130,7 +126,9 @@ func _update_arrows() -> void:
 		vertical = true
 
 	# 到达最终目标则隐藏（路点阶段不隐藏，否则会在楼梯口消失）
-	if nav_target == final_target and _flat_dist(pp, final_target) < ARRIVE_RANGE:
+	var entrance_guide := _uses_dining_town_route(pp)
+	var arrive_range := 0.85 if entrance_guide else ARRIVE_RANGE
+	if nav_target == final_target and _flat_dist(pp, final_target) < arrive_range:
 		_set_all_visible(false)
 		_hint_label.visible = false
 		return
@@ -144,9 +142,16 @@ func _update_arrows() -> void:
 		_hint_label.visible = false
 		return
 	var mat: StandardMaterial3D = _vert_material if vertical else _material
+	var guide_town := RunState.snow_route_unlocked and RunState.match_girl_stage in [1, 2]
+	var segment_length := flat_player.distance_to(flat_target)
+	var first_arrow := minf(START_OFFSET, segment_length * 0.63) if entrance_guide else START_OFFSET
 	for i in ARROW_COUNT:
-		var pos := flat_player + dir * (START_OFFSET + SPACING * float(i))
+		var distance := first_arrow + SPACING * float(i)
 		var mi := _arrows[i]
+		if guide_town and distance > segment_length:
+			mi.hide()
+			continue
+		var pos := flat_player + dir * distance
 		mi.position = Vector3(pos.x, foot_y, pos.z)
 		mi.look_at(Vector3(pos.x + dir.x, foot_y, pos.z + dir.z), Vector3.UP)
 		mi.material_override = mat
@@ -164,52 +169,73 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
-## 依据当前任务状态返回指引目标；Vector3.INF 表示不显示。
-## 优先级：教学(含取钥匙/找肯德齐) → 冰堡(还钥匙/画像) → 买火柴 → 划火柴/食谱剧情 → 全部完成则不显示。
-func _current_target() -> Vector3:
-	# 食谱剧情断点 1~4（划火柴/看片/对话/确认食谱）未完成：
-	# 在小镇指小女孩，在雪原指小镇入口（死亡重生后仍能沿路标找回去）
-	if RunState.match_girl_stage >= 1 and RunState.match_girl_stage < 5:
-		if _game.snow_town != null and _game.snow_town.in_town:
-			var town: Node3D = _game.snow_town._town
-			if town != null:
-				var girl := town.get_node_or_null("MatchGirl")
-				if girl != null:
-					return girl.global_position
-		var gate := _game.get_node_or_null("SnowWorld/ChristmasTownGate")
-		if gate != null:
-			return gate.global_position
-		return Vector3.INF
+func _uses_dining_town_route(at: Vector3) -> bool:
+	return (
+		RunState.snow_route_unlocked and RunState.match_girl_stage == 1
+		and at.z > 7.0 and at.z < SnowRoute.TOWN_JUNCTION.z - 3.0 and at.x < 28.0
+	)
 
-	# ① 送汤教学阶段（含刚结束后的"找肯德齐""去路标取钥匙"）：问教学脚本
+
+func _current_target() -> Vector3:
 	var house := _game.get_node_or_null("SnowWorld/House")
 	var opening: Node = house.get("opening") if house != null else null
-	if opening != null and opening.has_method("task_target"):
-		var t: Vector3 = opening.call("task_target")
-		if t != Vector3.INF:
-			return t
+	if opening != null:
+		var lesson_target: Vector3 = opening.task_target()
+		if lesson_target != Vector3.INF:
+			return lesson_target
 
-	# ② 拿到钥匙 / 已还钥匙：问冰堡主人（还钥匙前指门房，进厅后指画像前的她）
-	if RunState.has_item("ice_castle_keys") or RunState.ice_castle_keys_returned:
-		var master := _game.get_node_or_null("SnowWorld/IceCastleMaster")
-		if master != null and master.has_method("task_target"):
-			var mt: Vector3 = master.call("task_target")
-			if mt != Vector3.INF:
-				return mt
+	if not RunState.snow_route_unlocked:
+		if RunState.snow_portrait_seen:
+			return _game.snow_town.route_board_position()
+		if RunState.has_item("ice_castle_keys") or RunState.ice_castle_keys_returned:
+			var at: Vector3 = _game.player.global_position
+			if _flat_dist(at, SnowRoute.HALL_DOOR) > 12.0:
+				return _follow_path(SnowRoute.MAIN_PATH, at)
+			var master := _game.get_node_or_null("SnowWorld/IceCastleMaster") as Node3D
+			return master.global_position if master != null else SnowRoute.HALL_DOOR
+		if RunState.snow_opening_seen:
+			var at: Vector3 = _game.player.global_position
+			return _follow_path(SnowRoute.MAIN_PATH, at, false, SnowRoute.MAIN_PATH.find(SnowRoute.KEY))
+		return Vector3.INF
 
-	# ③ 冰堡对话说完（已给零钱）：去圣诞小镇买火柴
-	if RunState.ice_castle_talk_done or RunState.has_item("coins"):
-		if _game.snow_town != null and _game.snow_town.in_town:
-			var town: Node3D = _game.snow_town._town
-			if town != null:
-				var girl := town.get_node_or_null("MatchGirl")
-				if girl != null:
-					return girl.global_position
-			return Vector3.INF
-		var gate := _game.get_node_or_null("SnowWorld/ChristmasTownGate")
-		if gate != null:
-			return gate.global_position
-	return Vector3.INF
+	if _game.furnace_encounter.started:
+		return Vector3.INF
+	var at: Vector3 = _game.player.global_position
+	if RunState.match_girl_stage == 1:
+		if at.z < SnowRoute.HALL_DOOR.z and _flat_dist(at, SnowRoute.HALL_DOOR) < 28.0:
+			return SnowRoute.TOWN_PATH.front()
+		if _flat_dist(at, SnowRoute.TOWN_PATH.back()) < 4.0:
+			return _game.snow_town.seller_position()
+		if _uses_dining_town_route(at):
+			return _follow_path(SnowRoute.DINING_TOWN_PATH, at)
+		return _follow_path(SnowRoute.TOWN_PATH, at)
+	if RunState.match_girl_stage == 2:
+		if _flat_dist(at, SnowRoute.TOWN_PATH.front()) < 5.0:
+			var master := _game.get_node_or_null("SnowWorld/IceCastleMaster") as Node3D
+			return master.global_position if master != null else SnowRoute.HALL_DOOR
+		return _follow_path(SnowRoute.TOWN_PATH, at, true)
+	return _follow_path(SnowRoute.PASS_PATH, at)
+
+
+func _follow_path(path: Array[Vector3], at: Vector3, reverse := false, stop_at := -1) -> Vector3:
+	at.y = 0.0
+	var segment := 0
+	var nearest := INF
+	var last := stop_at if stop_at >= 0 else path.size() - 1
+	for i in range(last):
+		var point := Geometry3D.get_closest_point_to_segment(at, path[i], path[i + 1])
+		var distance := at.distance_squared_to(point)
+		if distance < nearest:
+			nearest = distance
+			segment = i
+	var index := segment if reverse else segment + 1
+	var step := -1 if reverse else 1
+	var reach := 3.5 if path == SnowRoute.TOWN_PATH else 5.0
+	if path == SnowRoute.DINING_TOWN_PATH:
+		reach = 1.55
+	while index + step >= 0 and index + step <= last and _flat_dist(at, path[index]) < reach:
+		index += step
+	return path[index]
 
 
 func _set_all_visible(v: bool) -> void:

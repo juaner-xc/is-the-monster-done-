@@ -139,6 +139,7 @@ func _render_screen(target: String) -> void:
 	room_stage.add_child(room_status)
 	chapter_info = room_status
 	_fit_room()
+	_bind_click_sounds()
 
 func _fit_room() -> void:
 	if not is_instance_valid(room_stage): return
@@ -289,6 +290,7 @@ func _refresh_recipe_hover() -> void:
 	recipe_still.visible = not active
 	recipe_hover_end.hide()
 	if active:
+		UiSfx.play_page_turn(self)
 		recipe_video.show()
 		recipe_video.play()
 	else:
@@ -351,6 +353,7 @@ func _refresh_archive_hover() -> void:
 	archive_still.visible = not active
 	archive_hover_end.hide()
 	if active:
+		UiSfx.play_switch(self)
 		archive_video.show()
 		archive_video.play()
 	else:
@@ -439,7 +442,13 @@ func _hotspot(id: String, caption: String, rect: Rect2, action: Callable) -> voi
 func _highlight(id: String, caption: String, rect: Rect2) -> void:
 	if transitioning or is_instance_valid(modal) or not is_instance_valid(hover_label): return
 	if is_instance_valid(recipe_book) and recipe_book.is_open(): return
+	var changed := hovered != id
 	hovered = id
+	if changed:
+		if id == "settings":
+			UiSfx.play_scroll(self)
+		elif id == "pot":
+			UiSfx.play_pot_hover(self)
 	hover_label.text = caption
 	hover_label.reset_size()
 	hover_label.position = Vector2(
@@ -484,6 +493,7 @@ func _build_scroll() -> void:
 	var row_highlight := StyleBoxFlat.new()
 	row_highlight.bg_color = Color(0.33, 0.24, 0.12, 0.16)
 	row_highlight.set_corner_radius_all(5)
+	var can_resume := Ch02State.has("ch03.after_battle_unlocked")
 	for i in range(3):
 		var id := String(RunState.CHAPTERS[i]["id"])
 		var b := Button.new()
@@ -492,7 +502,7 @@ func _build_scroll() -> void:
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		b.tooltip_text = "直接试玩 · %s" % chapter_names[i]
-		b.custom_minimum_size = Vector2(196,52)
+		b.custom_minimum_size = Vector2(196,42 if can_resume else 52)
 		b.add_theme_font_size_override("font_size",19)
 		b.add_theme_color_override("font_color",Color("4b3925"))
 		b.add_theme_color_override("font_hover_color",Color("332410"))
@@ -504,12 +514,22 @@ func _build_scroll() -> void:
 		b.pressed.connect(_open_debug_chapter.bind(id))
 		col.add_child(b)
 		chapter_buttons.append(b)
+	if can_resume:
+		var resume := (chapter_buttons.back() as Button).duplicate(0) as Button
+		resume.name = "ChapterButton_third_aftermath"
+		resume.text = "继续 · 欠一味"
+		resume.tooltip_text = "回到末席停手以后"
+		resume.remove_meta("chapter_id")
+		resume.pressed.connect(_resume_final_banquet)
+		col.add_child(resume)
+		chapter_buttons.append(resume)
 	clip.hide()
 
 func _toggle_chapters() -> void:
 	_set_scroll(not scroll_open)
 
 func _set_scroll(opened: bool) -> void:
+	UiSfx.play_page_turn(self)
 	scroll_open = opened
 	if is_instance_valid(scroll_tween): scroll_tween.kill()
 	var clip := chapter_scroll.get_parent() as Control
@@ -569,6 +589,7 @@ func _close_modal() -> void:
 func _modal_button(col: VBoxContainer, caption: String, action: Callable) -> Button:
 	var b := Book.button(caption,false)
 	b.add_theme_font_size_override("font_size",19)
+	b.pressed.connect(_play_click_sound)
 	b.pressed.connect(action)
 	col.add_child(b)
 	return b
@@ -631,6 +652,7 @@ func _open_settings() -> void:
 	_modal_button(col,"返回书屋",_close_modal).grab_focus()
 
 func _confirm_exit() -> void:
+	UiSfx.play_door_open(self)
 	var col := _new_modal("离开书屋？")
 	var message := "已保存的旅程记录会保留。" if RunState.PERSIST_PROGRESS else "退出后，本次试玩进度会清除。"
 	col.add_child(_label(message,18,Color("cbbf9f")))

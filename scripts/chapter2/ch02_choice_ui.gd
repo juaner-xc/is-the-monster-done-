@@ -60,12 +60,12 @@ func _build_card(option: Dictionary) -> Control:
 	card.add_child(column)
 
 	var name_label := Label.new()
-	name_label.text = String(option.get("name", ""))
+	name_label.text = String(option.get("name", option.get("title", "")))
 	name_label.add_theme_font_size_override("font_size", 24)
 	name_label.add_theme_color_override("font_color", ORANGE)
 	column.add_child(name_label)
 
-	column.add_child(_line("战斗中", String(option.get("battle", ""))))
+	column.add_child(_line("战斗中", String(option.get("battle", option.get("desc", "")))))
 	column.add_child(_line("世界里", String(option.get("world", ""))))
 
 	var button := Button.new()

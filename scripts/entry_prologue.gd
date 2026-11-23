@@ -18,6 +18,15 @@ func _ready() -> void:
 	var replay := bool(CinematicFlow.get_meta("replay_exam",false))
 	if CinematicFlow.has_meta("replay_exam"): CinematicFlow.remove_meta("replay_exam")
 	if not force_town and not replay and (RunState.has_profile() or bool(cfg.get_value("intro","exam_seen",false))):
+		# 跳过序章时立刻铺一张书房封面，避免切场期间出现长时间灰屏
+		var cover := TextureRect.new()
+		cover.name = "InstantCover"
+		cover.texture = load("res://assets/ui/study/background.png")
+		cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(cover)
 		_return_home.call_deferred()
 		return
 	var ui_theme := Theme.new()
@@ -103,6 +112,10 @@ func _return_home() -> void:
 		cfg.set_value("intro","exam_seen",true)
 		cfg.save("user://study_ui.cfg")
 	if is_instance_valid(video): video.paused = true
+	# 已有封面图时直接切场，省掉幕布淡入的等待
+	if is_instance_valid(get_node_or_null("InstantCover")):
+		get_tree().change_scene_to_file(HOME)
+		return
 	await CinematicFlow.cover(.55)
 	get_tree().change_scene_to_file(HOME)
 	CinematicFlow.reveal(.9)

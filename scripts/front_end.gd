@@ -8,6 +8,8 @@ const PAPER := Color("efe0bc")
 const COPPER := Color("c9a568")
 const SNOW := Color("c9c7a7")
 const MODEL_PATH := "res://assets/models/nailong_adventure.glb"
+const CLICK_SOUND := preload("res://assets/Audio/ui_click.wav")
+const UiSfx := preload("res://scripts/ui_sfx.gd")
 const HeroMotion = preload("res://scripts/hero_motion.gd")
 
 var recipe_book: CanvasLayer
@@ -25,6 +27,8 @@ var chapter_loading_bar: ProgressBar
 var loading_chapter := false
 var loading_scene_path := ""
 var loading_chapter_title := ""
+var click_player: AudioStreamPlayer
+var typing_player: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -32,6 +36,12 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_backdrop()
+	click_player = AudioStreamPlayer.new()
+	click_player.name = "UiClickPlayer"
+	click_player.stream = CLICK_SOUND
+	click_player.volume_db = -10.0
+	add_child(click_player)
+	typing_player = UiSfx.create_typing_player(self)
 	screen_root = Control.new()
 	screen_root.name = "ScreenContent"
 	screen_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -48,6 +58,17 @@ func _input(event: InputEvent) -> void:
 			if not recipe_book.is_open():
 				get_viewport().set_input_as_handled()
 				recipe_book.open_book()
+		elif event.unicode > 0 and (screen_name == "identity" or screen_name == "rename"):
+			# 输入名字时播放键盘音：只监听可打印字符，不挂 LineEdit 信号，避免干扰输入。
+			if typing_player != null and not typing_player.playing:
+				typing_player.play()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if transitioning:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_play_click_sound()
 
 
 func _open_recipe_book() -> void:
@@ -69,6 +90,7 @@ func _build_backdrop() -> void:
 func _transition_to(target: String) -> void:
 	if transitioning:
 		return
+	UiSfx.play_page_turn(self)
 	transitioning = true
 	var tween := create_tween()
 	tween.tween_property(screen_root, "modulate:a", 0.0, 0.18)
@@ -103,6 +125,19 @@ func _render_screen(target: String) -> void:
 			_build_reveal(column)
 		_:
 			_build_title(column)
+	_bind_click_sounds()
+
+
+func _bind_click_sounds() -> void:
+	for node in screen_root.find_children("*", "Button", true, false):
+		var btn := node as Button
+		if btn != null and not btn.pressed.is_connected(_play_click_sound):
+			btn.pressed.connect(_play_click_sound)
+
+
+func _play_click_sound() -> void:
+	if click_player != null:
+		click_player.play()
 
 
 func _top_line() -> Control:
@@ -556,8 +591,16 @@ func _poll_chapter_load() -> void:
 		chapter_loading_label.text = "%s · %d%%" % [loading_chapter_title,roundi(chapter_loading_bar.value)]
 
 func _show_chapter_error(message: String) -> void:
+	if Ch02State.has("ch03.resume_after_battle"):
+		Ch02State.set_flag("ch03.resume_after_battle", false)
 	loading_chapter = false
 	chapter_loading_overlay.hide()
 	for b in chapter_buttons:
 		if is_instance_valid(b): b.disabled = false
 	if is_instance_valid(chapter_info): chapter_info.text = message
+
+func _resume_final_banquet() -> void:
+	if transitioning or loading_chapter or recipe_book.is_open():
+		return
+	Ch02State.set_flag("ch03.resume_after_battle", true)
+	_open_debug_chapter("third")

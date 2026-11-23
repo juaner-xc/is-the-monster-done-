@@ -1,5 +1,7 @@
 [gd_scene format=4]
 
+[ext_resource type="Script" path="res://scripts/kendeqi_roof_snow.gd" id="1_roof_snow"]
+
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iny7n"]
 cull_mode = 2
 albedo_color = Color(0.3005098, 0.19827452, 0.1332157, 1)
@@ -1410,6 +1412,10 @@ mesh = SubResource("ArrayMesh_njbmy")
 [node name="SettledSnow" type="MeshInstance3D" parent="." unique_id=1099607883]
 material_override = SubResource("StandardMaterial3D_1ycgb")
 mesh = SubResource("ArrayMesh_o4wtn")
+
+[node name="WinterSnowpack" type="MeshInstance3D" parent="BlueSlateCrossGables"]
+script = ExtResource("1_roof_snow")
+depth = 0.39
 
 [node name="CarvedEave" type="MeshInstance3D" parent="." unique_id=2091794149]
 transform = Transform3D(0, 1, 0, 1, 0, 0, 0, 0, -1, -8.861471, 12.21051, -7.41)
@@ -3006,6 +3012,11 @@ mesh = SubResource("ArrayMesh_cvj4l")
 [node name="SmallSlateGable" type="MeshInstance3D" parent="Dormer" unique_id=1826569356]
 material_override = SubResource("ShaderMaterial_do5h8")
 mesh = SubResource("ArrayMesh_dmmle")
+
+[node name="WinterSnowpack" type="MeshInstance3D" parent="Dormer/SmallSlateGable"]
+script = ExtResource("1_roof_snow")
+depth = 0.19
+spacing = 0.095
 
 [node name="DormerFront" type="MeshInstance3D" parent="Dormer" unique_id=1019609242]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 13.52, 1.23)

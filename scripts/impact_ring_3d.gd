@@ -1,4 +1,5 @@
 extends Node3D
+const CombatSfx := preload("res://scripts/combat_sfx.gd")
 ## Impact Ring 的 3D 移植版（源自 Juicee 插件的 2D impact_ring_effect.gd）。
 ## 在世界中画一个扩张的冲击环 + 放射尖刺 + 白色核心。
 ## 用 ImmediateMesh 每帧重建几何（对应 2D 版每帧重建 Line2D / Polygon2D），
@@ -37,6 +38,7 @@ static func spawn_fire_hit(parent: Node, world_pos: Vector3) -> Node3D:
 	fx.auto_free = true
 	parent.add_child(fx)
 	fx.burst(world_pos)
+	CombatSfx.play_fire_hit(parent, world_pos)
 	return fx
 
 var _ring: MeshInstance3D

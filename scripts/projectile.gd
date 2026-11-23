@@ -1,4 +1,5 @@
 extends Area3D
+const CombatSfx := preload("res://scripts/combat_sfx.gd")
 
 const ICE_SPEAR_SCENE: PackedScene = preload("res://assets/models/ice_spear.glb")
 # 惰性加载冰矛预设，避免引擎全局 class_name 注册完成前 preload 触发循环依赖报错
@@ -131,6 +132,7 @@ func _spawn_shatter(pos: Vector3, normal: Vector3) -> void:
 	root.add_child(fx)
 	if fx.has_method("burst_at"):
 		fx.call("burst_at", pos, normal)
+	CombatSfx.play_ice_shatter(root, pos)
 
 
 func _on_lance_finished() -> void:

@@ -1,7 +1,7 @@
 extends Node3D
-## A continuous, walk-in room. The shell is only hidden from inside; collision stays.
-const HALF_WIDTH := 6.0
-const HALF_DEPTH := 5.0
+## A walk-in lodge with an intact ground floor and cutaway upper-floor views.
+const GROUND_CAMERA_MIN := Vector3(-5.65, 0.22, -4.6)
+const GROUND_CAMERA_MAX := Vector3(5.65, 3.86, 4.57)
 var player: CharacterBody3D
 var game: Node
 var inside := false
@@ -75,9 +75,7 @@ func _physics_process(delta: float) -> void:
 		snow.visible = not inside and (not opening_active() or not opening.snow_lull)
 	if inside and not was_inside and game != null:
 		game.hud.show_notice("肯德齐的食堂 · 进来避避风雪吧。")
-	var p := to_local(player.global_position)
-	# Cut the roof a little before crossing the threshold, keeping the entry readable.
-	cutaway = inside or (absf(p.x) < 2.0 and p.z > 4.7 and p.z < 6.9)
+	cutaway = inside and to_local(player.global_position).y >= 4.0
 	update_cutaway(cutaway)
 	$Interior/RoomGlow.light_energy = 0.48 if inside else 0.3
 	var warm_target := 1.0 if RunState.snow_dining_restored else 0.0
@@ -95,8 +93,14 @@ func _physics_process(delta: float) -> void:
 	hint.visible = not hint.text.is_empty()
 	$Kendeqi/Nameplate.visible = inside
 
+func constrain_ground_camera(point: Vector3, focus: Vector3) -> Vector3:
+	var local_focus := to_local(focus)
+	if local_focus.y >= GROUND_CAMERA_MAX.y:
+		return point
+	return to_global(to_local(point).clamp(GROUND_CAMERA_MIN, GROUND_CAMERA_MAX))
+
+
 func update_cutaway(enabled: bool) -> void:
-	$CutawayWalls.visible = not enabled
 	# Keep the second-floor window visible when the camera is inside the room.
 	var camera := get_viewport().get_camera_3d()
 	var view := to_local(camera.global_position) if camera != null else Vector3(0,0,20)

@@ -186,7 +186,185 @@ func _chandelier(z: float, gold: Material, bright: Material, bronze: Material, w
 	up.spot_angle = 70.0
 	g.add_child(up)
 
+# The imported map leaves the spaces outside the main vault open above the walls.
+func _complete_roof() -> void:
+	var rooms := Node3D.new()
+	rooms.name = "PassageVaults"
+	add_child(rooms)
+	# Room dimensions use Architecture coordinates, independent of the baked vault's scale.
+	rooms.transform = transform.affine_inverse()
+
+	var plaster := material("Warm limestone plaster", "c39d77")
+	var oxblood := material("Painted coffer", "754649")
+	var gilding := material("Antique gilt moulding", "cf9c50", 0.28)
+	var bronze := material("Pendant bronze", "73523b", 0.35)
+	var glass := material("Honey glass", "ffd399", 0.0, 0.95)
+	var stone := material("Vault end wall", "8a7057")
+	stone.cull_mode = BaseMaterial3D.CULL_DISABLED
+	plaster.cull_mode = BaseMaterial3D.CULL_DISABLED
+	oxblood.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Profiles store half-width, spring height and rise, in metres.
+	var foyer := Vector3(8.18, 5.78, 2.43)
+	var entry := Vector3(4.22, 4.79, 1.40)
+	var wing := Vector3(8.16, 5.75, 1.95)
+	var core := Vector3(7.18, 7.03, 2.20)
+	var foyer_room := _room_vault(rooms, "FoyerVault", foyer, Vector3(0, 0, 25), 22.30, false, 4, plaster, oxblood, gilding)
+	var entry_room := _room_vault(rooms, "ServiceEntranceVault", entry, Vector3(0, 0, 40), 8.48, false, 2, plaster, oxblood, gilding)
+	var west := _room_vault(rooms, "KitchenVault", wing, Vector3(-19, 0, 20), 22.54, true, 4, plaster, oxblood, gilding)
+	var east := _room_vault(rooms, "SupplyGalleryVault", wing, Vector3(19, 0, 20), 22.54, true, 4, plaster, oxblood, gilding)
+	var core_room := _room_vault(rooms, "CoreAntechamberVault", core, Vector3(0, 0, -35), 14.46, false, 3, plaster, oxblood, gilding)
+	_end_wall(foyer_room, "GableOverEntranceArch", foyer, 10.98, foyer.y, stone, entry)
+	_arch_medallion(foyer_room, Vector3(0, 7.16, 10.94), gilding)
+	_end_wall(entry_room, "ServiceEntranceGable", entry, 4.04, 4.73, stone)
+	_end_wall(core_room, "RearVaultGable", core, -7.12, 6.95, stone)
+	for room in [west, east]:
+		for end in [-11.06, 11.06]:
+			_end_wall(room, "GalleryVaultGable", wing, end, 5.55, stone)
+
+	# The main vault is vaulted across X. Seal its two high ends above the stone archways.
+	var hall_profile := Vector3(16.01, 8.20, 4.40)
+	for z in [-27.90, 14.0]:
+		_end_wall(rooms, "MainHallGable", hall_profile, z, 8.0, stone)
+
+	for z in [20.2, 30.2]:
+		_passage_pendant(foyer_room, Vector3(0, foyer.y + foyer.z, z - 25), bronze, gilding, glass)
+	_passage_pendant(entry_room, Vector3(0, entry.y + entry.z, 0.65), bronze, gilding, glass)
+	for room in [west, east]:
+		_passage_pendant(room, Vector3(0, wing.y + wing.z, 3.0), bronze, gilding, glass)
+	_passage_pendant(core_room, Vector3(0, core.y + core.z, 5.1), bronze, gilding, glass)
+	for mesh in rooms.find_children("*", "MeshInstance3D", true, false):
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cache.clear()
+
+
+func _height(profile: Vector3, fraction: float) -> float:
+	return profile.y + profile.z * sqrt(maxf(0.0, 1.0 - fraction * fraction))
+
+
+func _room_vault(parent: Node3D, title: String, profile: Vector3, center: Vector3, length: float, across_x: bool,
+		bays: int, plaster: Material, paint: Material, gold: Material) -> Node3D:
+	var room := Node3D.new()
+	room.name = title
+	parent.add_child(room)
+	room.position = center
+	if across_x:
+		room.rotation.y = PI * 0.5
+	var half_length := length * 0.5
+	_vault_surface(room, "PlasterVault", profile, -1.0, 1.0, -half_length, half_length, 0.0, plaster)
+	for side in [-1.0, 1.0]:
+		var eave := Vector3(side * (profile.x - 0.06), profile.y + 0.08, 0)
+		box(room, "StoneCornice", eave, Vector3(0.30, 0.21, length), plaster)
+		box(room, "GiltCornice", eave + Vector3(-side * 0.14, -0.09, 0), Vector3(0.12, 0.07, length), gold)
+	var spacing := length / float(bays)
+	for bay in bays:
+		var start := -half_length + spacing * bay
+		var finish := start + spacing
+		for side in [-1.0, 1.0]:
+			var left := -0.83 if side < 0.0 else 0.11
+			var right := -0.11 if side < 0.0 else 0.83
+			var panel_start := start + 0.27
+			var panel_end := finish - 0.27
+			_vault_surface(room, "OxbloodCoffer", profile, left, right, panel_start, panel_end, -0.035, paint)
+			for z in [panel_start, panel_end]:
+				_vault_rib(room, profile, left, right, z, -0.064, 0.035, gold)
+			for edge in [left, right]:
+				var y := _height(profile, edge) - 0.067
+				rod(room, "CofferLongMoulding", Vector3(profile.x * edge, y, panel_start),
+					Vector3(profile.x * edge, y, panel_end), 0.034, gold)
+			var medallion: MeshInstance3D = ring(room, "CofferRosette", Vector3(profile.x * side * 0.46,
+				_height(profile, 0.46) - 0.13, (start + finish) * 0.5), 0.33, 0.028, gold)
+			medallion.rotation.z = atan(-side * profile.z * 0.46 / (profile.x * sqrt(1.0 - 0.46 * 0.46)))
+		if bay > 0:
+			_vault_rib(room, profile, -1.0, 1.0, start, -0.085, 0.075, gold)
+	return room
+
+
+func _vault_surface(room: Node3D, label: String, profile: Vector3, left: float, right: float,
+		start: float, finish: float, inset: float, mat: Material) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 24:
+		var a := lerpf(asin(left), asin(right), i / 24.0)
+		var b := lerpf(asin(left), asin(right), (i + 1) / 24.0)
+		var u := sin(a)
+		var v := sin(b)
+		var au := Vector3(profile.x * u, _height(profile, u) + inset, start)
+		var bv := Vector3(profile.x * v, _height(profile, v) + inset, start)
+		var az := Vector3(au.x, au.y, finish)
+		var bz := Vector3(bv.x, bv.y, finish)
+		for point: Vector3 in [au, bz, bv, au, az, bz]:
+			var angle := a if is_equal_approx(point.x, au.x) else b
+			surface.set_normal(Vector3(-sin(angle) / profile.x, -cos(angle) / profile.z, 0).normalized())
+			surface.add_vertex(point)
+	mesh_at(room, label, surface.commit(), Vector3.ZERO, mat)
+
+
+func _vault_rib(room: Node3D, profile: Vector3, left: float, right: float, z: float, inset: float,
+		radius: float, mat: Material) -> void:
+	_vault_surface(room, "CurvedGiltRib", profile, left, right, z - radius, z + radius, inset, mat)
+
+
+func _end_wall(room: Node3D, label: String, profile: Vector3, z: float, bottom: float, mat: Material,
+		opening := Vector3.ZERO) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 64:
+		var a := sin(lerpf(-PI * 0.5, PI * 0.5, i / 64.0))
+		var b := sin(lerpf(-PI * 0.5, PI * 0.5, (i + 1) / 64.0))
+		var left := a * profile.x
+		var right := b * profile.x
+		var left_base := bottom
+		var right_base := bottom
+		if opening.x > 0.0:
+			left_base = _height(opening, clampf(left / opening.x, -1.0, 1.0)) - 0.055
+			right_base = _height(opening, clampf(right / opening.x, -1.0, 1.0)) - 0.055
+		var low_left := Vector3(left, left_base, z)
+		var low_right := Vector3(right, right_base, z)
+		var top_left := Vector3(left, _height(profile, a) + 0.03, z)
+		var top_right := Vector3(right, _height(profile, b) + 0.03, z)
+		for point: Vector3 in [low_left, top_left, top_right, low_left, top_right, low_right]:
+			surface.set_normal(Vector3.FORWARD if z > 0 else Vector3.BACK)
+			surface.add_vertex(point)
+	mesh_at(room, label, surface.commit(), Vector3.ZERO, mat)
+
+
+func _arch_medallion(room: Node3D, center: Vector3, gold: Material) -> void:
+	for radius in [0.39, 0.52]:
+		var rim: MeshInstance3D = ring(room, "RosetteRim", center, radius, 0.025, gold)
+		rim.rotation.x = PI * 0.5
+	for petal in 8:
+		var angle := petal * TAU / 8.0
+		var offset := Vector3(cos(angle), sin(angle), 0) * 0.21
+		var detail: MeshInstance3D = jewel(room, "RosettePetal", center + offset, 0.055, 0.23, gold)
+		detail.rotation.z = angle - PI * 0.5
+
+
+func _passage_pendant(room: Node3D, top: Vector3, bronze: Material, gold: Material, glass: Material) -> void:
+	var pendant := Node3D.new()
+	pendant.name = "LanternPendant"
+	room.add_child(pendant, true)
+	pendant.position = top
+	ring(pendant, "GiltCeilingRose", Vector3(0, -0.12, 0), 0.38, 0.045, gold)
+	rod(pendant, "Suspension", Vector3(0, -0.09, 0), Vector3(0, -0.89, 0), 0.04, bronze)
+	var center := Vector3(0, -1.20, 0)
+	jewel(pendant, "WarmGlass", center, 0.24, 0.62, glass)
+	for y in [-0.21, 0.23]:
+		ring(pendant, "OpenworkCrown", center + Vector3.UP * y, 0.25, 0.032, gold)
+	for direction in [Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]:
+		rod(pendant, "LanternRib", center + direction * 0.24 + Vector3.UP * 0.24,
+			center + direction * 0.22 + Vector3.DOWN * 0.26, 0.026, bronze)
+	var lamp := OmniLight3D.new()
+	lamp.name = "LanternLight"
+	lamp.position = center + Vector3.UP * 0.10
+	lamp.light_color = Color("ffca92")
+	lamp.light_energy = 1.55
+	lamp.omni_range = 10.0
+	lamp.omni_attenuation = 0.80
+	pendant.add_child(lamp)
+
+
 func _ready():
+	_complete_roof()
 	for n in find_children("*", "MeshInstance3D", true, false):
 		var m = n.material_override
 		if m is StandardMaterial3D and m.emission_enabled and not _lit_materials.has(m):

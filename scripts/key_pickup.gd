@@ -2,6 +2,7 @@ extends Node3D
 
 const QuestNoticeRes := preload("res://scripts/quest_notice.gd")
 const RouteSignboard := preload("res://scripts/route_signboard.gd")
+const UiSfx := preload("res://scripts/ui_sfx.gd")
 
 ## 雪地里冻着的一串钥匙（占位几何）+ 歪倒路标。按 F 拾取，入背包后消失。
 ## 真实模型见草图，待你定后再替换这里的占位体。
@@ -17,6 +18,8 @@ var _hint_layer: CanvasLayer
 func _ready() -> void:
 	_build_placeholder()
 	_build_prompt()
+	_taken = RunState.has_item("ice_castle_keys") or RunState.ice_castle_keys_returned
+	_meshes.visible = not _taken
 	var area := Area3D.new()
 	var cs := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
@@ -64,9 +67,16 @@ func _build_placeholder() -> void:
 	signpost.material_override = wood
 	signpost.position = Vector3(0.9, 0.4, 0.3)
 	signpost.rotation.z = deg_to_rad(78)
-	_meshes.add_child(signpost)
+	add_child(signpost)
+	var fallen_board := MeshInstance3D.new()
+	var board_mesh := BoxMesh.new()
+	board_mesh.size = Vector3(0.9, 0.34, 0.09)
+	fallen_board.mesh = board_mesh
+	fallen_board.material_override = wood
+	fallen_board.position = Vector3(0, 0.57, 0.27)
+	signpost.add_child(fallen_board)
 	# 立着的路牌（参考图造型：立柱+三块木板+背板条+铁钉，牌面贴雪原路线图）
-	# 挂在根节点而不是 _meshes：拾取钥匙后旧占位路标消失，这块指路牌作为常驻地标保留
+	# 拾取钥匙后，两个路标仍然留在原地。
 	var board := RouteSignboard.new()
 	board.position = Vector3(-1.6, 0, -0.2)
 	board.rotation.y = deg_to_rad(20)
@@ -86,12 +96,12 @@ func _build_prompt() -> void:
 
 
 func _on_body_entered(b: Node3D) -> void:
-	if b.is_in_group("Player") or b is CharacterBody3D:
+	if b.is_in_group("Player"):
 		_player_near = true
 
 
 func _on_body_exited(b: Node3D) -> void:
-	if b.is_in_group("Player") or b is CharacterBody3D:
+	if b.is_in_group("Player"):
 		_player_near = false
 
 
@@ -143,7 +153,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _take() -> void:
 	_taken = true
+	UiSfx.play_pickup(self)
 	RunState.give_item("ice_castle_keys")
+	RunState.save_progress()
+	var game := get_tree().current_scene
+	if game != null and game.get("hud") != null:
+		game.hud.show_notice("捡到冰堡钥匙 · 按 Tab 查看背包")
 	if _meshes != null:
 		_meshes.visible = false
 	_prompt.visible = false

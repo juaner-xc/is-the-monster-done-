@@ -50,8 +50,36 @@ func play(lines: Array) -> void:
 	_previous_mouse_mode = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_set_visible_panel(true)
+	_frame_nearby_speaker()
 	started.emit()
 	_next_line()
+
+
+## 对话一开场：人先转过去，镜头跟上，别对着空气说话。
+func _frame_nearby_speaker() -> void:
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	if player == null:
+		return
+	var best: Node3D = null
+	var best_distance := 7.0
+	for n in get_tree().get_nodes_in_group("interactable"):
+		var other := n as Node3D
+		if other == null or other == player or not other.is_inside_tree():
+			continue
+		var d := other.global_position.distance_to(player.global_position)
+		if d < best_distance:
+			best_distance = d
+			best = other
+	if best == null:
+		return
+	var dir := best.global_position - player.global_position
+	dir.y = 0.0
+	if dir.length_squared() < 0.01:
+		return
+	player.rotation.y = atan2(-dir.x, -dir.z)
+	var cam: Variant = player.get("camera")
+	if cam != null and cam is Node3D:
+		cam.set("yaw", player.rotation.y)
 
 
 func stop() -> void:

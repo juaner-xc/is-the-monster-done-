@@ -10,8 +10,13 @@ signal turned
 @export var interact_range := 2.8
 @export var label := "喷气阀"
 @export var accent := Color("e2701f")
+## 只有「窗口期」才能关：千席宴炉的侧阀只在它抽热的时候才扳得动
+@export var gated := false
 
+var window_open := false
 var closed := false
+## 窗口外按下时把提示交给场景（Boss 场用它说「它还没开始抽热」）
+var hint_target: Node
 var _wheel: Node3D
 var _light: OmniLight3D
 var _indicator: MeshInstance3D
@@ -23,6 +28,10 @@ func _ready() -> void:
 
 
 func get_prompt() -> String:
+	if gated and not window_open:
+		if hint_target != null and is_instance_valid(hint_target) and hint_target.has_method("_announce"):
+			hint_target.call("_announce", "它还没开始抽热。等管子往回响，再关侧阀。")
+		return "%s：现在还扳不动" % label
 	if closed:
 		return "%s：已关闭" % label
 	return "按 [F] 关闭 %s" % label
@@ -30,6 +39,8 @@ func get_prompt() -> String:
 
 func interact(_who: Node) -> void:
 	if closed:
+		return
+	if gated and not window_open:
 		return
 	closed = true
 	_spin()

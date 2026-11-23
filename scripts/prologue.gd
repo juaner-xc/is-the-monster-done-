@@ -11,18 +11,18 @@ const HERO := "res://assets/portraits/nailong_dialogue.png"
 const LINES: Array[Dictionary] = [
 	{"shot": 0, "speaker": "旁白", "text": "群山与河流之间，有一座叫作炉灯城的小城。每天清晨，第一缕炊烟总比钟声更早升起。"},
 	{"shot": 0, "speaker": "旁白", "text": "这里的料理带着一点魔法：面包能留住炉火的温度，冰果能送来夏日的凉风。魔法，也是人们过日子的一部分。"},
-	{"shot": 1, "speaker": "旁白", "text": "蓝瓦小楼的街角厨房里，住着一位见习厨师。他叫奶龙，最喜欢的事，是尝一口刚出锅的料理。"},
-	{"shot": 1, "speaker": "奶龙", "text": "今天也要做出一道，让人吃完还想再来一碗的菜。"},
-	{"shot": 2, "speaker": "旁白", "text": "奶龙还在学着掌握火候。他把食材搭配记进旧本子，也把每一次煮糊的原因记在旁边。"},
+	{"shot": 1, "speaker": "旁白", "text": "蓝瓦小楼的街角厨房里，住着一位见习厨师。他叫奶蛙，最喜欢的事，是尝一口刚出锅的料理。"},
+	{"shot": 1, "speaker": "奶蛙", "text": "今天也要做出一道，让人吃完还想再来一碗的菜。"},
+	{"shot": 2, "speaker": "旁白", "text": "奶蛙还在学着掌握火候。他把食材搭配记进旧本子，也把每一次煮糊的原因记在旁边。"},
 	{"shot": 2, "speaker": "旁白", "text": "他听说，传说中的黄金食谱记着世上最厉害的料理。他想，总有一天，自己也要学会那样的手艺。"},
 	{"shot": 2, "speaker": "旁白", "text": "那天，锅里炖着蘑菇和奶油。厨房的窗开着，街上的吆喝声，混着汤的香气飘了进来。"},
-	{"shot": 3, "speaker": "奶龙", "text": "嗯……火候刚好，味道也对。可总觉得，还能再好一点。"},
-	{"shot": 3, "speaker": "奶龙", "text": "再加一点点魔法。就一点点。"},
+	{"shot": 3, "speaker": "奶蛙", "text": "嗯……火候刚好，味道也对。可总觉得，还能再好一点。"},
+	{"shot": 3, "speaker": "奶蛙", "text": "再加一点点魔法。就一点点。"},
 	{"shot": 4, "speaker": "旁白", "text": "最后一点魔法落进锅里，汤面忽然向内凹去。一道细细的裂缝，从锅底慢慢张开。"},
-	{"shot": 4, "speaker": "奶龙", "text": "咦？锅里……怎么在下雪？"},
-	{"shot": 4, "speaker": "旁白", "text": "冰冷的风扑灭了炉火。食谱翻得哗哗作响，奶龙伸手去扶锅，却被裂缝一并卷了进去。"},
-	{"shot": 5, "speaker": "奶龙", "text": "等、等一下——我的锅！"},
-	{"shot": 5, "speaker": "旁白", "text": "厨房的灯光越来越远。奶龙抱紧了锅，耳边只剩下呼啸的风。再睁开眼时，脚下已是一片陌生的雪原。"},
+	{"shot": 4, "speaker": "奶蛙", "text": "咦？锅里……怎么在下雪？"},
+	{"shot": 4, "speaker": "旁白", "text": "冰冷的风扑灭了炉火。食谱翻得哗哗作响，奶蛙伸手去扶锅，却被裂缝一并卷了进去。"},
+	{"shot": 5, "speaker": "奶蛙", "text": "等、等一下——我的锅！"},
+	{"shot": 5, "speaker": "旁白", "text": "厨房的灯光越来越远。奶蛙抱紧了锅，耳边只剩下呼啸的风。再睁开眼时，脚下已是一片陌生的雪原。"},
 ]
 
 var stage: Control
@@ -286,7 +286,7 @@ func _build_confirmation() -> void:
 	var title := Book.label("跳过序章，前往雪原初遇？", 27, Book.CREAM)
 	title.position = Vector2(30, 29)
 	panel.add_child(title)
-	var detail := Book.label("接着播放奶龙与老爷爷的对话。", 20, Book.MUTED)
+	var detail := Book.label("接着播放奶蛙与老爷爷的对话。", 20, Book.MUTED)
 	detail.position = Vector2(30, 82)
 	panel.add_child(detail)
 	var cancel := _button("继续观看  Esc", Vector2(30, 145), Vector2(230, 43))
@@ -350,7 +350,7 @@ func _set_shot(shot: int) -> void:
 	shot_clock = 0.0
 	if hero_entrance_tween != null and hero_entrance_tween.is_valid():
 		hero_entrance_tween.kill()
-	shot_title.text = ["炉灯城 · 炊烟升起的地方", "街角厨房 · 见习厨师奶龙", "试菜手记 · 蘑菇与奶油", "再加一点点", "锅底的风雪", "裂缝的另一端"][shot]
+	shot_title.text = ["炉灯城 · 炊烟升起的地方", "街角厨房 · 见习厨师奶蛙", "试菜手记 · 蘑菇与奶油", "再加一点点", "锅底的风雪", "裂缝的另一端"][shot]
 	var path := TOWN if shot < 2 else KITCHEN
 	var texture := texture_cache[path] as Texture2D
 	if background.texture != texture:

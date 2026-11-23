@@ -19,7 +19,7 @@ enum State { IDLE, VENT_TELEGRAPH, VENT, FAN_TELEGRAPH, FAN, OVERLOAD, STAGGER, 
 @export var max_hp := 320.0
 @export var vent_telegraph := 1.1
 @export var vent_active := 0.6
-@export var overload_charge := 6.0
+@export var overload_charge := 7.5
 @export var overload_heal := 90.0
 @export var stagger_time := 4.0
 
@@ -136,12 +136,14 @@ func _process(delta: float) -> void:
 				_timer = 2.0
 				_valves_used = 0
 				_reset_valves()
+				_set_valve_window(false)
 		State.STAGGER:
 			if _timer <= 0.0:
 				state = State.IDLE
 				_timer = 2.0
 				_valves_used = 0
 				_reset_valves()
+				_set_valve_window(false)
 
 
 func _start_vents() -> void:
@@ -219,6 +221,7 @@ func _start_overload() -> void:
 	_timer = overload_charge
 	_valves_used = 0
 	_reset_valves()
+	_set_valve_window(true)
 	if _core != null:
 		var material := _core.material_override as StandardMaterial3D
 		if material != null:
@@ -226,8 +229,16 @@ func _start_overload() -> void:
 			tween.tween_property(material, "emission_energy_multiplier", 6.0, overload_charge)
 
 
+## 窗口期：只有抽热的时候侧阀才扳得动，其它时候按 F 不该有反应
+func _set_valve_window(open: bool) -> void:
+	for valve in _valves:
+		if is_instance_valid(valve):
+			valve.window_open = open
+
+
 func _enter_stagger(duration: float) -> void:
 	state = State.STAGGER
+	_set_valve_window(false)
 	_timer = duration
 	if _core != null:
 		var material := _core.material_override as StandardMaterial3D

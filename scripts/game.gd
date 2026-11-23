@@ -114,7 +114,7 @@ func _process(delta: float) -> void:
 			_riding = false
 			if ferris_wheel != null and ferris_wheel.is_riding():
 				ferris_wheel.stop_ride()
-	# 乘坐中：奶龙朝向跟随鼠标（镜头）方向（与平时移动转向同一套约定）
+	# 乘坐中：奶蛙朝向跟随鼠标（镜头）方向（与平时移动转向同一套约定）
 	if _riding and game_camera != null and player != null and is_instance_valid(player):
 		var forward := -game_camera.global_basis.z
 		forward.y = 0.0

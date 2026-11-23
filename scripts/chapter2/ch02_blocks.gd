@@ -10,9 +10,11 @@ extends Node3D
 
 signal transport_cleared
 signal boss_defeated
+signal boss_gate_opened
 
 const ENEMY_SCRIPT := preload("res://scripts/chapter2/ch02_enemy.gd")
 const VALVE_SCRIPT := preload("res://scripts/chapter2/ch02_valve.gd")
+const OBJECTIVE := preload("res://scripts/chapter2/ch02_objective.gd")
 const BOSS_SCRIPT := preload("res://scripts/chapter2/ch02_boss.gd")
 const LAVA_SCRIPT := preload("res://scripts/chapter2/ch02_lava_zone.gd")
 
@@ -63,6 +65,7 @@ var _boss
 var _boss_lava: Area3D
 var _console
 var _elevator
+var _rift
 var _minecart: Node3D
 var _cleared := false
 
@@ -454,9 +457,10 @@ func _make_upgrade(pos: Vector3) -> Node3D:
 	var pickup := Ch02Pickup.new()
 	pickup.name = "IngredientPickup"
 	pickup.interact_range = 2.6
-	pickup.prompt_text = "按 [F] 取走强化食材"
+	pickup.prompt_text = "按 [F] 取走配料箱里的东西"
 	pickup.flag_key = "ch02.upgrade"
-	pickup.message = "获得巧克力、糖各一份。用料理台做成熔岩硬糖，可提升攻击。"
+	pickup.items = ["chocolate", "sugar"]
+	pickup.message = "拿到巧克力、糖各一份。料理手记：巧克力＋糖 → 熔岩硬糖，短时提升攻击。"
 	node.add_child(pickup)
 	return node
 
@@ -511,6 +515,7 @@ func _on_console_used() -> void:
 		tween.tween_property(_boss_gate, "position:y", _boss_gate.position.y + 4.6, 1.4) \
 				.set_trans(Tween.TRANS_SINE)
 	_announce("主炉控制台通了。升降道在下面，往下走。")
+	boss_gate_opened.emit()
 
 
 # ------------------------------------------------------------------ Boss
@@ -603,15 +608,17 @@ func _build_boss_arena() -> void:
 	# 故事大纲：「一个固定炉体、三种招式、两个场边阀门」。
 	# 想改回三台，只改这个数组即可，Boss 的打断逻辑按「关了几个」算，与数量无关。
 	var valve_spots := [
-		Vector3(-10.0, 0, 4.0),
-		Vector3(10.0, 0, 4.0),
+		Vector3(-7.0, 0, 4.0),
+		Vector3(7.0, 0, 4.0),
 	]
 	var valve_index := 0
 	for spot in valve_spots:
 		var valve := VALVE_SCRIPT.new()
 		valve.name = "ArenaValve_%d" % valve_index
-		valve.label = "蒸汽阀门 %d" % (valve_index + 1)
+		valve.label = "侧阀 %d" % (valve_index + 1)
 		valve.accent = Color("4a8de2")
+		valve.gated = true
+		valve.hint_target = self
 		valve.position = center + spot
 		_container.add_child(valve)
 		valve.turned.connect(_boss.on_valve_turned)
@@ -619,6 +626,7 @@ func _build_boss_arena() -> void:
 		valve_index += 1
 
 	_build_elevator(center)
+	_build_rift(center)
 	_add_checkpoint("Checkpoint_Boss", Vector3(origin.x + 83.0, 1.0, origin.z), "千席宴炉")
 
 
@@ -629,8 +637,21 @@ func _build_elevator(center: Vector3) -> void:
 		return
 	_elevator = script.new()
 	_elevator.name = "Elevator"
-	_elevator.position = center + Vector3(12.0, 0.0, 10.0)
+	_elevator.position = center + Vector3(12.0, 0.0, 6.0)
 	_container.add_child(_elevator)
+
+
+## 升降台后面那道岩壁：第二章真正的出口（新流程「七、你打开裂隙」）。
+## 位置在升降台正后方的场边，正对场心，玩家走下升降台回头就能看见。
+func _build_rift(center: Vector3) -> void:
+	var script: Script = load("res://scripts/chapter2/ch02_rift.gd") as Script
+	if script == null:
+		return
+	_rift = script.new()
+	_rift.name = "Rift"
+	_rift.position = center + Vector3(10.0, 0.0, 10.4)
+	_rift.rotation.y = PI * 1.25
+	_container.add_child(_rift)
 
 
 func _arena_vent_points(center: Vector3) -> Array:
@@ -659,6 +680,7 @@ func _on_boss_defeated() -> void:
 
 # ------------------------------------------------------------------ 流程
 func _on_valve_turned(index: int) -> void:
+	OBJECTIVE.note_valve_closed()
 	# 一个阀门只管自己那个喷口：关一个少一个，
 	# 而不是「三个都关完才一起停」——那样玩家会以为阀没起作用。
 	if index >= 0 and index < _vents.size():
@@ -681,6 +703,7 @@ func _stop_vent(vent: Node3D) -> void:
 
 
 func _on_enemy_died() -> void:
+	OBJECTIVE.note_kill()
 	# 不能用「列表里还有没有活着的节点」判断：died 是在 queue_free 之前发的，
 	# 那一帧所有敌人看起来都还活着。用计数才可靠。
 	_alive = maxi(0, _alive - 1)
@@ -813,6 +836,7 @@ class Ch02Pickup extends Node3D:
 	var prompt_text := "按 [F] 取走"
 	var flag_key := ""
 	var message := ""
+	var items: Array = []
 
 	func get_prompt() -> String:
 		if not is_visible_in_tree() or Ch02State.has(flag_key):
@@ -823,8 +847,9 @@ class Ch02Pickup extends Node3D:
 		if get_prompt().is_empty():
 			return
 		Ch02State.set_flag(flag_key, true)
-		RunState.cooking_inventory.add_ingredient("chocolate")
-		RunState.cooking_inventory.add_ingredient("sugar")
+		var list: Array = items if not items.is_empty() else ["chocolate", "sugar"]
+		for item in list:
+			RunState.cooking_inventory.add_ingredient(String(item))
 		if message != "":
 			var host := get_tree().current_scene
 			if host != null and host.has_method("_notice"):

@@ -42,7 +42,7 @@ func _ready() -> void:
     band.anchor_bottom = 1.0
     band.offset_top = -164
     root.add_child(band)
-    caption = Book.paragraph("天降食谱\n一道金光穿过风雪，落在奶龙的掌心。",24,Book.CREAM)
+    caption = Book.paragraph("天降食谱\n一道金光穿过风雪，落在奶蛙的掌心。",24,Book.CREAM)
     caption.position = Vector2(42,14)
     caption.anchor_right = 1.0
     caption.offset_right = -240

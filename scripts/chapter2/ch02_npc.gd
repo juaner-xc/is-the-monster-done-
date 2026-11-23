@@ -82,7 +82,7 @@ func _build() -> void:
 			_build_person(body_color, apron_color, false)
 
 
-## 人形：腿 + 躯干 + 头 + 两只手。总高约 1.62，和奶龙站在一起比例是对的。
+## 人形：腿 + 躯干 + 头 + 两只手。总高约 1.62，和奶蛙站在一起比例是对的。
 func _build_person(skin: Color, apron: Color, with_hat: bool) -> void:
 	var skin_mat := _mat(skin, 0.86)
 	# 躯干用「衣服色」，围裙用「罩衣色」——否则所有人都会是一团同色的糖

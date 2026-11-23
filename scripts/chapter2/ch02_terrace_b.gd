@@ -12,10 +12,49 @@ extends "res://scripts/chapter2/ch02_terrace_base.gd"
 const ENEMY_SCRIPT := preload("res://scripts/chapter2/ch02_enemy.gd")
 const MAT := preload("res://scripts/chapter2/ch02_materials.gd")
 const FACE_PLAYER_SCRIPT := preload("res://scripts/chapter2/ch02_face_player.gd")
+const LINES := preload("res://scripts/chapter2/ch02_lines.gd")
+const DIALOGUE_SCRIPT := preload("res://scripts/chapter2/ch02_dialogue.gd")
 
 var _energy_pickup: Node3D
 var _record_pickups: Array[Node3D] = []
 var _enemies: Array[Node] = []
+var _story_dialogue: CanvasLayer
+var _record_hinted := false
+
+
+## 仓库里的单据要一页一页翻，所以走对白层而不是一条公告。
+func _say(lines: Array) -> void:
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null:
+		player.set("movement_locked", true)
+	if _story_dialogue == null or not is_instance_valid(_story_dialogue):
+		_story_dialogue = DIALOGUE_SCRIPT.new()
+		_story_dialogue.name = "RecordDialogue"
+		add_child(_story_dialogue)
+		_story_dialogue.connect("finished", _on_story_finished)
+	_story_dialogue.call("play", lines)
+
+
+## 玩家一进仓库就提一句货架上那叠单据，免得关键信息全靠主动交互才看得见。
+func _process(_delta: float) -> void:
+	if _record_hinted:
+		return
+	if bool(Ch02State.get_flag("player_has_transport_record", false)):
+		_record_hinted = true
+		return
+	var player := get_tree().get_first_node_in_group("player")
+	if player == null or not (player is Node3D):
+		return
+	if (player as Node3D).global_position.distance_to(center) > 17.0:
+		return
+	_record_hinted = true
+	announce("货架上压着一叠运输记录，纸角被人翻起来过。")
+
+
+func _on_story_finished() -> void:
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null:
+		player.set("movement_locked", false)
 
 
 func setup(world_center: Vector3) -> void:
@@ -750,5 +789,5 @@ class RecordPickup extends Node3D:
 	func interact(_who: Node) -> void:
 		Ch02State.set_flag("player_has_transport_record", true)
 		if terrace != null:
-			terrace.call("announce", "近年的退货单越来越多。早年的夜班炉退货单上有肯德齐的签名。\n礼堂照片同批的厨房旧稿已送往运输线尽头，闸门内仅空车返回。")
+			terrace.call("_say", LINES.record_pages())
 		queue_free()

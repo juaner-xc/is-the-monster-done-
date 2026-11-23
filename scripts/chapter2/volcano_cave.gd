@@ -7,6 +7,7 @@ const CavePlayerScript = preload("res://scripts/chapter2/cave_player.gd")
 const CameraScript = preload("res://scripts/third_person_camera.gd")
 const CaveEntranceScript = preload("res://scripts/chapter2/cave_entrance.gd")
 const MAT := preload("res://scripts/chapter2/ch02_materials.gd")
+const OBJECTIVE_SCRIPT := preload("res://scripts/chapter2/ch02_objective.gd")
 
 # HUD 配色沿用第一章 hud.gd
 const INK := Color("3a2418")
@@ -79,6 +80,14 @@ var _notice_label: Label
 var _notice_panel: PanelContainer
 ## 岩浆外移时需要避让的区域（隧道走廊）
 var _lava_blocks: Array = []
+var objective_hud: Control
+## 展开的大图（按 M）
+var map_view: Control
+## 右上角常驻小图（半透明）
+var map_mini: Control
+var tent_marker: Node3D
+var _map_marker_points: Array = []
+var _map_refresh_t := 0.0
 
 
 func _ready() -> void:
@@ -98,6 +107,7 @@ func _ready() -> void:
 	_build_terrace_d()
 	_build_terrace_c()
 	_build_terrace_b()
+	_build_ch02_tent()
 	_clear_props_in_built_areas()
 	_build_volcano_terraces()
 	_clear_route_blockers()
@@ -105,6 +115,8 @@ func _ready() -> void:
 	_build_scatter()
 	_build_atmosphere()
 	_apply_three_layer_topology()
+	# 帐篷挂在栈道上，而栈道要等三层拓扑才挪到位——所以位置在这之后再钉一次
+	_place_ch02_tent()
 	_build_topology_zones()
 	_bind_merged_characters()
 	_build_furnace_city_backdrop()
@@ -124,6 +136,7 @@ func _ready() -> void:
 	_remove_shell_over_boss()
 	_build_axis_banners()
 	_build_hud()
+	_build_ch02_overlays()
 	# 淡入要等 HUD 建好（黑场图层在 HUD 里）才能启动
 	if riding:
 		if _entry_handoff_active:
@@ -1219,11 +1232,34 @@ func _process(delta: float) -> void:
 			_dismount_from_cart()
 	if game_camera != null and player != null:
 		game_camera.follow(player, delta, player.shake)
+	# 小图跟着剧情和玩家位置走：半秒刷一次，别每帧算
+	if map_mini != null and map_mini.visible:
+		_map_refresh_t += delta
+		if _map_refresh_t >= 0.5:
+			_map_refresh_t = 0.0
+			_ch02_note_visits()
+			map_mini.call("set_markers", _ch02_map_markers())
 
 
 ## Esc 直接退回标题（无料理界面可关）
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		var key: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+		if key == KEY_M:
+			if _ch02_map_open():
+				_ch02_close_map()
+			elif bool(Ch02State.get_flag("ch02.map_seen", false)):
+				_ch02_open_map()
+			else:
+				_notice("车盖上那张图还没摊开。先在生活区找陶陶。")
+			get_viewport().set_input_as_handled()
+			return
 	if not event.is_action_pressed("pause"):
+		return
+	# 地图开着的时候 Esc 先收地图，别直接退回标题
+	if _ch02_map_open():
+		_ch02_close_map()
+		get_viewport().set_input_as_handled()
 		return
 	_return_to_title()
 
@@ -1294,7 +1330,7 @@ func _spawn_player() -> void:
 		_begin_minecart_ride()
 
 
-## 奶龙出生在隧道深处的矿车里：镜头在洞里、正对洞口；矿车缓缓滑出，
+## 奶蛙出生在隧道深处的矿车里：镜头在洞里、正对洞口；矿车缓缓滑出，
 ## 大厅是一点点铺开的 —— 先用黑场压住，再让洞口的暖光慢慢洗亮画面。
 func _begin_minecart_ride() -> void:
 	riding = true
@@ -1394,6 +1430,209 @@ func _return_to_title() -> void:
 
 # ------------------------------------------------------------------ HUD
 ## 界面沿用第一章 hud.gd 的样式：描边卡片 + 奶油色文字 + 楷体
+## 第二章的任务卡与路线图：都挂在 HUD 的根节点下，跟着 HUD 一起开关。
+func _build_ch02_overlays() -> void:
+	var hud_layer := get_node_or_null("CaveHud")
+	if hud_layer == null or hud_layer.get_child_count() == 0:
+		return
+	var root := hud_layer.get_child(0) as Control
+	if root == null:
+		return
+	var hud_script: Script = load("res://scripts/chapter2/ch02_objective_hud.gd") as Script
+	if hud_script != null:
+		objective_hud = hud_script.new()
+		objective_hud.name = "Ch02Objective"
+		root.add_child(objective_hud)
+	var map_script: Script = load("res://scripts/chapter2/ch02_map_view.gd") as Script
+	if map_script != null:
+		_map_marker_points = _ch02_map_markers()
+		# 常驻小图：右上角，和第一章的 map_mini 一个位置、一个尺寸
+		map_mini = map_script.new()
+		map_mini.name = "Ch02MapMini"
+		map_mini.set("mini", true)
+		map_mini.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		map_mini.offset_left = -286.0
+		map_mini.offset_right = -26.0
+		map_mini.offset_top = 22.0
+		map_mini.offset_bottom = 308.0
+		map_mini.set("player", player)
+		map_mini.set("accepts_input", false)
+		root.add_child(map_mini)
+		map_mini.call("set_markers", _map_marker_points)
+		map_mini.visible = bool(Ch02State.get_flag("ch02.map_seen", false))
+		# 展开的大图：居中，M 打开时暂停
+		map_view = map_script.new()
+		map_view.name = "Ch02Map"
+		map_view.set("player", player)
+		map_view.set("accepts_input", true)
+		map_view.process_mode = Node.PROCESS_MODE_ALWAYS
+		root.add_child(map_view)
+		map_view.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		map_view.offset_left = -380.0
+		map_view.offset_right = 380.0
+		map_view.offset_top = -335.0
+		map_view.offset_bottom = 335.0
+		map_view.visible = false
+		map_view.call("set_markers", _map_marker_points)
+
+
+## 地图上的地标。未知地点也要占位——纸上是空的，走过去才有墨线。
+func _ch02_map_markers() -> Array:
+	var markers: Array = []
+	var target := _ch02_objective_kind()
+	if workshop_hub != null:
+		markers.append(_ch02_marker("camp", "生活区营地", "camp",
+			workshop_hub.global_position, target))
+	var blocks_node: Node = workshop_hub.get("_blocks") if workshop_hub != null else null
+	if blocks_node != null:
+		# 三个台地在三层拓扑里被整体搬过家，按 offset 算坐标会偏出一百多米，
+		# 所以直接取摆在台面中央的检查点。
+		var station_pos: Variant = _ch02_landmark(blocks_node, "Checkpoint_Transport")
+		var core_pos: Variant = _ch02_landmark(blocks_node, "Checkpoint_Core")
+		var boss_pos: Variant = _ch02_landmark(blocks_node, "Checkpoint_Boss")
+		if station_pos != null:
+			markers.append(_ch02_marker("station", "熔岩运输站", "station", station_pos, target))
+		if core_pos != null:
+			markers.append(_ch02_marker("core", "主炉控制区", "core", core_pos, target))
+		if boss_pos != null:
+			markers.append(_ch02_marker("boss", "千席宴炉", "boss", boss_pos, target))
+		var elevator: Node3D = blocks_node.get("_elevator")
+		if elevator != null:
+			markers.append(_ch02_marker("elevator", "升降台", "elevator",
+				elevator.global_position, target))
+		var rift: Node3D = blocks_node.get("_rift")
+		if rift != null:
+			markers.append(_ch02_marker("rift", "升降台后面的岩壁", "rift",
+				rift.global_position, target))
+	if terrace_c != null:
+		markers.append(_ch02_marker("warehouse", "原料仓库", "warehouse",
+			(terrace_c as Node3D).global_position, target))
+	if terrace_b != null:
+		markers.append(_ch02_marker("kitchen", "备用小厨房", "kitchen",
+			(terrace_b as Node3D).global_position, target))
+	if tent_marker != null:
+		markers.append(_ch02_marker("tent", "大平台上的紫帐篷", "tent",
+			(tent_marker as Node3D).global_position, target))
+	return markers
+
+
+## 地图上「去过」才算认识：没去过的点画问号，去过的才写名字。
+func _ch02_seen(id: String) -> bool:
+	return bool(Ch02State.get_flag("ch02.seen_" + id, false))
+
+
+func _ch02_marker(id: String, title: String, kind: String, pos: Variant, target: String) -> Dictionary:
+	return {
+		"id": id,
+		"title": title,
+		"kind": kind,
+		"pos": pos,
+		"known": _ch02_seen(id),
+		"objective": kind == target,
+	}
+
+
+## 当前任务指向的地标类型（地图据此画一圈「目标」）
+func _ch02_objective_kind() -> String:
+	var stage: Dictionary = OBJECTIVE_SCRIPT.stage()
+	var pid := String(stage.get("id", ""))
+	match pid:
+		"meet", "clear":
+			return "camp" if pid == "meet" else "station"
+		"warehouse":
+			return "warehouse"
+		"kitchen", "fuel":
+			return "kitchen"
+		"tent", "soup":
+			return "tent"
+		"boss":
+			return "boss"
+		"after":
+			return "elevator"
+		"rift":
+			return "rift"
+	return ""
+
+
+## 走进一片地方就把它记进地图：只认距离，不依赖旗标顺序。
+func _ch02_note_visits() -> void:
+	if _map_marker_points.is_empty():
+		return
+	var player := get_node_or_null("CavePlayer") as Node3D
+	if player == null:
+		return
+	for m in _map_marker_points:
+		if bool(m.get("known", false)):
+			continue
+		var pos: Variant = m.get("pos")
+		if pos == null:
+			continue
+		var at := pos as Vector3
+		if player.global_position.distance_to(at) > 22.0:
+			continue
+		Ch02State.set_flag("ch02.seen_" + String(m.get("id", "")), true)
+		m["known"] = true
+
+
+## 取一个地标节点的世界坐标（不存在就返回 null，地图上少一个点，不会画到错的地方）
+func _ch02_landmark(root: Node, node_name: String) -> Variant:
+	var node := root.find_child(node_name, true, false) as Node3D
+	if node == null or not is_instance_valid(node):
+		return null
+	return node.global_position
+
+
+## 剧情里「地图摊在车盖上」——把小图亮出来，不抢全屏
+func _ch02_reveal_map() -> void:
+	Ch02State.set_flag("ch02.map_seen", true)
+	_ch02_refresh_map()
+	if map_mini != null:
+		map_mini.visible = true
+	if objective_hud != null and objective_hud.has_method("flash_update"):
+		objective_hud.call("flash_update")
+
+
+## 任务卡更新时闪一下（对白里的 fx:"quest" 会叫到这里）
+func _ch02_flash_objective() -> void:
+	if objective_hud != null and objective_hud.has_method("flash_update"):
+		objective_hud.call("flash_update")
+
+
+func _ch02_refresh_map() -> void:
+	_map_marker_points = _ch02_map_markers()
+	if map_mini != null:
+		map_mini.call("set_markers", _map_marker_points)
+	if map_view != null:
+		map_view.call("set_markers", _map_marker_points)
+
+
+func _ch02_open_map() -> void:
+	if map_view == null:
+		return
+	_ch02_refresh_map()
+	map_view.set("accepts_input", true)
+	map_view.call("open")
+	if map_mini != null:
+		map_mini.visible = false
+	get_tree().paused = true
+
+
+func _ch02_close_map() -> void:
+	if map_view != null:
+		map_view.call("close")
+	get_tree().paused = false
+	if map_mini != null:
+		map_mini.visible = bool(Ch02State.get_flag("ch02.map_seen", false))
+
+
+func _ch02_map_open() -> bool:
+	return map_view != null and bool(map_view.call("is_open"))
+
+
+func _ch02_note_bell() -> void:
+	_notice("远处山壁响了一声卸货铃。那声音没有跟着车轮来。")
+
+
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "CaveHud"
@@ -1431,12 +1670,12 @@ func _build_chapter_card(root: Control) -> void:
 	box.add_theme_constant_override("separation", 6)
 	card.add_child(box)
 	var title := Label.new()
-	title.text = "第二章  ·  火山洞窟"
+	title.text = "第二章  ·  火山工坊"
 	title.add_theme_font_size_override("font_size", 23)
 	title.add_theme_color_override("font_color", CREAM)
 	box.add_child(title)
 	var hint := Label.new()
-	hint.text = "工坊探索 · 关阀清怪 · 能源分流"
+	hint.text = "关阀救人 · 找回丢弃物 · 能源分流"
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", MUTED)
 	box.add_child(hint)
@@ -1456,7 +1695,7 @@ func _build_help_bar(root: Control) -> void:
 			_panel_style(Color(0.07, 0.05, 0.04, 0.86), Color(0.95, 0.71, 0.34, 0.55), 16, 1))
 	root.add_child(panel)
 	var help := Label.new()
-	help.text = "WASD 移动    鼠标转镜头    滚轮缩放    左键挥锅    右键调味弹    Shift 下车/闪避    V 挥手    Esc 返回标题"
+	help.text = "WASD 移动    鼠标转镜头    左键挥锅    右键调味弹    F 交互    M 地图    Shift 闪避    Esc 返回标题"
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	help.add_theme_color_override("font_color", CREAM)
@@ -1702,6 +1941,35 @@ func _build_terrace_b() -> void:
 	terrace_b.set("compact_floor", true)
 	holder.add_child(terrace_b)
 	terrace_b.setup(center)
+
+
+## 旧帐篷：立在中层大平台（台地 D）的西侧空地，门朝广场中央。
+## 剧情文档里它是「魔法师当年试菜的地方」，也是《黄金食谱》前半本与那锅汤的所在。
+func _ch02_tent_anchor() -> Vector3:
+	# 运输站上去之后的那块空地（4F 控制区前庭）：楼梯上来先看到这一片空场。
+	# 门朝 +Z（南），正对从运输站上来的楼梯。
+	return Vector3(-49.0, L3_Y + 0.02, -59.0)
+
+
+func _build_ch02_tent() -> void:
+	if terrace_d == null:
+		return
+	var script: Script = load("res://scripts/chapter2/ch02_tent.gd") as Script
+	if script == null:
+		return
+	var tent: Node3D = script.new()
+	tent.name = "Ch02Tent"
+	tent.set("host", self)
+	add_child(tent)
+	tent.call("setup", workshop_hub, self, _ch02_tent_anchor())
+	tent_marker = tent
+
+
+## 台地挪位之后再钉一次帐篷，否则它会留在建场景时的原点附近
+func _place_ch02_tent() -> void:
+	if tent_marker == null or not is_instance_valid(tent_marker):
+		return
+	tent_marker.global_position = _ch02_tent_anchor()
 
 
 ## 清理两个实测会挡住主路的窄梁/墙头：运输站东门内和 S1 桥口。

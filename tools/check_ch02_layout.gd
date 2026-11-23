@@ -180,19 +180,14 @@ func _check_boss_flow() -> void:
 	await get_tree().process_frame
 	_check(bool(state.call("get_flag", "ch02.boss_down")), "Boss 死亡后写入 boss_down")
 
+	# 新流程：能源只在小厨房选一次，Boss 倒下后不再弹二选一
 	var choice := scene.find_child("EnergyChoice", true, false)
-	_check(choice != null, "战后能源选择界面已生成")
-	if choice == null:
-		return
-	_check(bool(choice.call("is_open")), "战后能源选择已弹出")
-	var energy_texts: Array[String] = []
-	for label in choice.find_children("*", "Label", true, false):
-		energy_texts.append(String((label as Label).text))
-	_check(energy_texts.has("接备用小灶") and energy_texts.has("接到你的锅上"), "战后能源选择卡片文字不为空")
-	choice.call("close")
+	_check(choice == null or not bool(choice.call("is_open")), "战后不再弹能源二选一")
+	_check(bool(scene.get("workshop_hub").get("_ending")), "Boss 倒下直接进入战后收尾")
+	var energy_now := String(state.call("get_flag", "ch02.energy", ""))
+	_check(energy_now != "", "战后能源沿用战前小厨房的选择（%s）" % energy_now)
 	player.set("movement_locked", false)
 	await get_tree().process_frame
-	_check(scene.find_child("EnergyChoice", true, false) != null, "战后能源选择界面保留")
 
 	var hub = scene.get("workshop_hub")
 	if hub != null:
@@ -204,7 +199,7 @@ func _check_boss_flow() -> void:
 			var texts: Array[String] = []
 			for label in after.find_children("*", "Label", true, false):
 				texts.append(String((label as Label).text))
-			_check(texts.has("留下来安顿") and texts.has("直接离开"), "章末选择卡片文字不为空")
+			_check(texts.has("留下接应急燃料") and texts.has("去升降台"), "章末选择卡片文字不为空")
 			after.call("close")
 		await get_tree().process_frame
 		hub.call("_show_ending_card")

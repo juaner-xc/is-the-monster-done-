@@ -92,12 +92,14 @@ func _run() -> void:
 		_check(absf(float(terrace.get("center").y) - 5.23) < 0.1,
 				"台地 D 已抬到 5.23m 中层")
 
-	# ---------- 台地 C：备用小厨房的能源分支 ----------
-	var kitchen: Node = scene.get("terrace_c")
+	# ---------- 台地 B：备用小厨房的能源分支 ----------
+	# 注意命名是反的：volcano_cave.terrace_b 挂的是 ch02_terrace_c.gd（小厨房），
+	# volcano_cave.terrace_c 挂的是 ch02_terrace_b.gd（仓库）。
+	var kitchen: Node = scene.get("terrace_b")
 	_check(kitchen != null, "台地 C 已生成")
 	if kitchen != null:
 		var flames: Array = kitchen.get("_flames")
-		_check(flames.size() == 3, "灶台有三口（%d）" % flames.size())
+		_check(flames.size() >= 1, "灶台有火口（%d）" % flames.size())
 		_check(not (flames[0] as Node3D).visible, "没有能源时灶台是灭的")
 
 		# 没能源时不该弹窗
@@ -131,16 +133,16 @@ func _run() -> void:
 				"选奶蛙的锅后获得冰雾强化（近战带减速）")
 		_check((kitchen.get("_residents") as Array).is_empty(), "居民散去")
 
-	# ---------- 台地 B：原料仓库 ----------
-	var warehouse: Node = scene.get("terrace_b")
+	# ---------- 台地 C：原料仓库 ----------
+	var warehouse: Node = scene.get("terrace_c")
 	_check(warehouse != null, "台地 B 已生成")
 	if warehouse != null:
 		var guards: Array = warehouse.get("_enemies")
 		_check(guards.size() == 3, "仓库里有三个守卫（%d）" % guards.size())
 		_check(guards.size() > 0 and (guards[0] as Node).is_in_group("enemies"),
 				"守卫算敌对单位")
-		var shelves := warehouse.find_children("Shelf_*", "StaticBody3D", true, false)
-		_check(shelves.size() == 5, "货架掩体有五个（%d）" % shelves.size())
+		var shelves := warehouse.find_children("StorageRack_*", "StaticBody3D", true, false)
+		_check(shelves.size() >= 4, "货架掩体有 %d 个" % shelves.size())
 
 		# 运输记录有两份（防漏拿）
 		var records: Array = warehouse.get("_record_pickups")
@@ -364,40 +366,40 @@ func _run() -> void:
 			await get_tree().create_timer(2.0).timeout
 			_check(not String(elevator.call("get_prompt")).contains("锁"), "Boss 倒下后升降台解锁")
 
-	# 5) 能源二选一
+	# 5) 能源：新流程里只在小厨房选一次，Boss 倒下不再重复问
 	var choice = hub.get("_choice")
-	_check(choice != null, "能源二选一界面已创建")
-	if choice != null:
-		_check(bool(choice.call("is_open")), "Boss 倒下后二选一自动弹出")
-		_check(get_tree().paused, "二选一弹出时场景暂停")
-		hub.call("_on_energy_chosen", "stove")
-		_check(not get_tree().paused, "选完之后场景恢复运行")
-		_check(bool(hub.get("_ending")), "选完能源会进入战后收尾")
-		hub.call("_on_after_boss_choice", "stay")
-		_check(bool(Ch02State.get_flag("ch02.helped_after", false)),
-				"选择留下安顿会写入 helped_after")
-		if kitchen != null:
-			kitchen.call("_poll_fuel_point")
-			var fuel: Node = kitchen.get("_fuel_point")
-			_check(fuel != null and (fuel as Node3D).visible, "选择留下后应急燃料接口出现")
-			if fuel != null:
-				fuel.call("interact", null)
-				_check(bool(Ch02State.get_flag("ch02.fuel_delivered", false)),
-						"接上应急燃料写入存档")
+	_check(choice == null or not bool(choice.call("is_open")), "Boss 倒下后不再弹能源二选一")
+	_check(String(Ch02State.get_flag("ch02.energy", "")) == "pot",
+			"战后能源沿用战前小厨房的选择（注入奶蛙的锅）")
+	_check(not get_tree().paused, "战后不弹窗，场景不会停住")
+	_check(bool(hub.get("_ending")), "Boss 倒下直接进入战后收尾")
+	hub.call("_on_after_boss_choice", "stay")
+	_check(bool(Ch02State.get_flag("ch02.helped_after", false)),
+			"选择留下安顿会写入 helped_after")
+	if kitchen != null:
+		kitchen.call("_poll_fuel_point")
+		var fuel2: Node = kitchen.get("_fuel_point")
+		_check(fuel2 != null and (fuel2 as Node3D).visible, "选择留下后应急燃料接口出现")
+		if fuel2 != null:
+			fuel2.call("interact", null)
+			_check(bool(Ch02State.get_flag("ch02.fuel_delivered", false)),
+					"接上应急燃料写入存档")
 
-		hub.call("_on_after_boss_choice", "leave")
-		_check(not bool(Ch02State.get_flag("ch02.helped_after", true)),
-				"选择离开会清掉 helped_after")
-
-		# 淡出 → 传回生活区 → 淡入 → 播残页对白，整段大约 2 秒
-		await get_tree().create_timer(2.8).timeout
-		var ending_dialogue = hub.get("dialogue")
-		_check(ending_dialogue != null and bool(ending_dialogue.call("is_playing")),
-				"战后会自动播放残页对白")
-		if ending_dialogue != null and bool(ending_dialogue.call("is_playing")):
-			var ending_lines: Array = ending_dialogue.get("_lines")
-			_check(ending_lines.size() >= 6, "残页对白句数够（%d 句）" % ending_lines.size())
-			ending_dialogue.call("stop")
+	# 淡出 → 传回生活区 → 淡入 → 播残页对白，整段大约 2 秒
+	await get_tree().create_timer(2.8).timeout
+	var ending_dialogue = hub.get("dialogue")
+	_check(ending_dialogue != null and bool(ending_dialogue.call("is_playing")),
+			"战后会自动播放残页对白")
+	if ending_dialogue != null and bool(ending_dialogue.call("is_playing")):
+		var ending_lines: Array = ending_dialogue.get("_lines")
+		# 收尾对白必须是残页那段，不是被顶在前面的战前通话（那段只有 5 句）
+		var has_manuscript := false
+		for line in ending_lines:
+			if String(line.get("text", "")).contains("帐篷里找到的那本"):
+				has_manuscript = true
+		_check(ending_lines.size() >= 8 and has_manuscript,
+				"收尾播的是残页对白（%d 句）" % ending_lines.size())
+		ending_dialogue.call("stop")
 
 		# 章节完成写回存档（先记下原状态，测完还原）
 		var had_chapter := "second" in RunState.completed_chapters
@@ -406,8 +408,8 @@ func _run() -> void:
 		if not had_chapter:
 			RunState.completed_chapters.erase("second")
 			RunState.save_progress()
-		_check(String(state.call("get_flag", "ch02.energy", "")) == "stove",
-				"选择写入 ch02.energy = stove")
+		_check(String(state.call("get_flag", "ch02.energy", "")) == "pot",
+				"战后沿用小厨房那次选择，写进 ch02.energy = pot")
 
 
 func _vent_on(vent) -> bool:

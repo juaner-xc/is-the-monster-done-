@@ -32,6 +32,22 @@ var _split_point: Node3D
 var _boots: Node
 var _fuel_point: Node3D
 var _fuel_enabled := false
+var _cup_table: Node3D
+var _cup_hand: Node3D
+var _cup_holder: Node3D
+var _seat_west: Node3D
+var _seat_east: Node3D
+var _seated: Node3D = null
+var _sit_guard := 0.0
+var _drank := false
+var _stand_pos := Vector3.ZERO
+var _stand_yaw := 0.0
+var _photo_layer: CanvasLayer
+var _photo_open := false
+var _photo_guard := 0.0
+var _world_unhandled: Array[Node] = []
+var _drink_tween: Tween
+var _photo_point: Node3D
 @export var compact_floor := false
 
 
@@ -42,6 +58,7 @@ func setup(world_center: Vector3) -> void:
 
 func _build() -> void:
 	add_to_group("zone_mid_exploration")
+	set_process_input(true)
 	_build_floor()
 	_build_stoves()
 	_build_table()
@@ -57,6 +74,7 @@ func _build() -> void:
 	_build_fuel_point()
 	_build_lighting()
 	_build_choice_ui()
+	_build_photo_ui()
 	_apply_state()
 
 
@@ -336,6 +354,7 @@ func _build_table() -> void:
 	# 东西两端各一把高背椅，都朝桌子中心
 	_add_chair(Vector3(center.x - 5.35, center.y, tz), 1)
 	_add_chair(Vector3(center.x + 5.35, center.y, tz), -1)
+	_build_seats(tz)
 
 	# 桌面陈设：金烛台、瓷盘、高脚杯、红绒餐巾
 	for cx in [-2.45, 2.45]:
@@ -394,11 +413,11 @@ func _build_table() -> void:
 			garlic.scale = Vector3(1.0, 0.82, 1.0)
 
 
-	# 一杯蜜雪冰城柠檬水：放在东端空位，进门第一眼能看到
-	_add_lemonade(Vector3(center.x + 4.05, top_y + 0.08, tz - 0.30))
+	# 一杯柠檬水：放在东端空位，进门第一眼能看到
+	_cup_table = _add_lemonade(Vector3(center.x + 4.05, top_y + 0.08, tz - 0.30))
 
 
-## 双开门冰柜：不锈钢柜体、两扇门、中缝把手、顶部压缩机，门上有奶龙自拍冰箱贴
+## 双开门冰柜：不锈钢柜体、两扇门、中缝把手、顶部压缩机，门上有奶蛙自拍冰箱贴
 func _build_freezer() -> void:
 	var steel := _mat(Color(0.54, 0.56, 0.58), 0.42, 0.25)
 	var steel_hi := _mat(Color(0.68, 0.70, 0.72), 0.36, 0.22)
@@ -446,7 +465,7 @@ func _build_freezer() -> void:
 	_deco_box(Vector3(0.03, 2.30, 0.02), Vector3(-0.06, 1.50, 0.555),
 			_emit(Color(0.55, 0.78, 1.0), 0.8, Color(0.40, 0.65, 0.95)), root)
 
-	# 左门上的奶龙自拍冰箱贴
+	# 左门上的奶蛙自拍冰箱贴
 	var cream := _mat(Color(0.95, 0.83, 0.42), 0.55)
 	var ink := _mat(Color(0.06, 0.05, 0.05), 0.5)
 	var mx := -0.70
@@ -465,6 +484,15 @@ func _build_freezer() -> void:
 	_deco_box(Vector3(0.055, 0.008, 0.006), Vector3(mx, my + 0.020, mz + 0.062), ink, root)
 	_deco_box(Vector3(0.020, 0.017, 0.055), Vector3(mx + 0.070, my - 0.045, mz + 0.062),
 			_mat(Color(0.95, 0.95, 0.90), 0.3), root)
+
+	# 冰箱贴的观察点：站在柜门前按 F
+	var photo_point := PhotoPoint.new()
+	photo_point.name = "PhotoPoint"
+	photo_point.position = Vector3(mx, my, 1.02)
+	photo_point.interact_range = 3.0
+	photo_point.terrace = self
+	_photo_point = photo_point
+	root.add_child(photo_point)
 
 	var cold := OmniLight3D.new()
 	cold.position = Vector3(0.2, 1.9, 1.35)
@@ -647,6 +675,329 @@ func _add_chair(pos: Vector3, face: int) -> void:
 				Vector3(0, 0, PI * 0.5))
 			_deco_cyl(0.026, 0.026, 0.16,
 				Vector3(pos.x + float(face) * 0.30, pos.y + 0.72, pos.z + sz), wood)
+# ------------------------------------------------------------------ 通用工具
+## 两把椅子的坐点：东西各一，面朝桌心
+func _build_seats(tz: float) -> void:
+	var east := SeatPoint.new()
+	east.name = "SeatEast"
+	east.position = Vector3(center.x + 5.35, center.y + 0.34, tz)
+	east.face_yaw = PI * 0.5
+	east.chair_side = -1
+	east.terrace = self
+	add_child(east)
+	_seat_east = east
+
+
+func _player_node() -> Node3D:
+	return get_tree().get_first_node_in_group("player") as Node3D
+
+
+# ------------------------------------------------------------------ 坐下 / 柠檬水
+func on_seat_interact(seat: Node3D) -> void:
+	if _photo_open:
+		return
+	var p := _player_node()
+	if p == null:
+		return
+	# 防止焦点残留：人已经走远时，这次 F 不算数
+	if p.global_position.distance_to(seat.global_position) > float(seat.get("interact_range")) + 0.8:
+		return
+	if _seated == seat:
+		if not bool(seat.get("drank")):
+			_start_drink(p)
+		else:
+			_stand_up()
+		return
+	if _seated != null:
+		_stand_up()
+	_sit_down(seat)
+
+
+func _sit_down(seat: Node3D) -> void:
+	var p := _player_node()
+	if p == null:
+		return
+	# 最后一道防线：人不在椅子旁边，绝不瞬移
+	if p.global_position.distance_to(seat.global_position) > 2.2:
+		return
+	print("[kitchen] sit d=", p.global_position.distance_to(seat.global_position), " from=", p.global_position)
+	_seated = seat
+	seat.set("occupied", true)
+	seat.set("drank", false)
+	_sit_guard = 0.4
+	_drank = false
+	_stand_pos = p.global_position
+	_stand_yaw = p.rotation.y
+	p.movement_locked = true
+	p.global_position = seat.global_position
+	p.rotation.y = float(seat.get("face_yaw"))
+	# 团子没有坐姿骨骼：轻微压扁模拟坐下
+	var vr: Node3D = p.get("visual_root")
+	if vr != null:
+		vr.scale = Vector3(1.0, 0.82, 1.0)
+	# 坐下后把提示换成“起身”
+	p.emit_signal("interact_focus_changed", seat)
+	# 东侧椅子：一坐下就喝柠檬水
+	_start_drink(p)
+
+
+func _stand_up() -> void:
+	if _seated == null:
+		return
+	var seat := _seated
+	seat.set("occupied", false)
+	_seated = null
+	var p := _player_node()
+	if p != null:
+		# 站起只从椅子往后退一步，不再用可能已经过期的 _stand_pos
+		var yaw := float(seat.get("face_yaw"))
+		var back := Vector3(sin(yaw), 0.0, cos(yaw)) * -0.78
+		p.global_position = seat.global_position + back
+		p.global_position.y = _stand_pos.y
+		p.rotation.y = yaw
+		p.movement_locked = false
+		var vr: Node3D = p.get("visual_root")
+		if vr != null:
+			vr.scale = Vector3.ONE
+		p.emit_signal("interact_focus_changed", null)
+		p.set("_focus", null)
+		if p.has_method("_update_focus"):
+			p.call("_update_focus")
+	_suspend_interactable(seat)
+	_reset_cup()
+
+
+## 起身/关照片后的短暂冷却：避免同一次 F 立刻又把玩家按回椅子/重新打开照片
+func _suspend_interactable(seat: Node) -> void:
+	if seat == null or not is_instance_valid(seat):
+		return
+	seat.remove_from_group("interactable")
+	await get_tree().create_timer(0.4).timeout
+	if is_instance_valid(seat) and not seat.is_in_group("interactable"):
+		seat.add_to_group("interactable")
+
+
+## 东侧椅子专属：桌上的柠檬水飞到手里，喝一口，+5 生命
+func _start_drink(p: Node3D) -> void:
+	if _drank or _cup_table == null or p == null:
+		return
+	_drank = true
+	_sit_guard = 1.35
+	if _seated != null:
+		_seated.set("drank", true)
+		p.emit_signal("interact_focus_changed", _seated)
+	_cup_table.visible = false
+	var host: Node = p.get("visual_root")
+	if host == null:
+		host = p
+	if _cup_hand == null:
+		_cup_holder = Node3D.new()
+		_cup_holder.name = "HeldLemonade"
+		host.add_child(_cup_holder)
+		_cup_hand = _add_lemonade(Vector3.ZERO, _cup_holder)
+		_cup_hand.scale = Vector3(0.72, 0.72, 0.72)
+	var rest := Vector3(0.30, 0.00, -0.58)
+	var mouth := Vector3(0.10, 0.12, -0.52)
+	_cup_holder.position = rest
+	_cup_holder.rotation = Vector3.ZERO
+	_cup_hand.visible = true
+	if _drink_tween != null and _drink_tween.is_valid():
+		_drink_tween.kill()
+	_drink_tween = create_tween()
+	_drink_tween.tween_property(_cup_holder, "position", mouth, 0.45) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_drink_tween.parallel().tween_property(_cup_holder, "rotation", Vector3(0.85, 0.0, -0.18), 0.45)
+	_drink_tween.tween_interval(0.35)
+	_drink_tween.tween_callback(func() -> void:
+		if is_instance_valid(p) and p.has_method("heal"):
+			p.call("heal", 5.0)
+		announce("喝了一口柠檬水，生命 +5。"))
+	_drink_tween.tween_property(_cup_holder, "position", rest, 0.45) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_drink_tween.parallel().tween_property(_cup_holder, "rotation", Vector3.ZERO, 0.45)
+	# 喝完就把杯子放回桌上
+	_drink_tween.tween_callback(func() -> void:
+		if _cup_hand != null:
+			_cup_hand.visible = false
+		if _cup_table != null:
+			_cup_table.visible = true)
+
+
+func _reset_cup() -> void:
+	if _drink_tween != null and _drink_tween.is_valid():
+		_drink_tween.kill()
+	if _cup_table != null:
+		_cup_table.visible = true
+	if _cup_hand != null:
+		_cup_hand.visible = false
+		if _cup_holder != null:
+			_cup_holder.position = Vector3(0.30, 0.00, -0.58)
+			_cup_holder.rotation = Vector3.ZERO
+
+
+# ------------------------------------------------------------------ 冰箱贴照片
+func open_photo() -> void:
+	if _photo_open:
+		return
+	var p := _player_node()
+	if p == null:
+		return
+	# 焦点残留时（例如刚从椅子起身）别在远处误开
+	if _photo_point != null and p.global_position.distance_to(_photo_point.global_position) > 3.6:
+		return
+	print("[kitchen] photo d=", p.global_position.distance_to(_photo_point.global_position), " from=", p.global_position)
+	_photo_open = true
+	_photo_guard = 0.2
+	if _photo_layer != null:
+		_photo_layer.visible = true
+	p.movement_locked = true
+	# 照片打开期间屏蔽关卡自己的 Esc 返回标题
+	_lock_world_unhandled(true)
+
+
+## 照片打开时，暂时关掉上层（关卡）的 _unhandled_input，避免 Esc 被“返回标题”抢走
+func _lock_world_unhandled(lock: bool) -> void:
+	if lock:
+		_world_unhandled.clear()
+		var n := get_parent()
+		while n != null:
+			if n.is_processing_unhandled_input():
+				_world_unhandled.append(n)
+				n.set_process_unhandled_input(false)
+			n = n.get_parent()
+	else:
+		for n in _world_unhandled:
+			if is_instance_valid(n):
+				n.set_process_unhandled_input(true)
+		_world_unhandled.clear()
+
+
+func close_photo() -> void:
+	if not _photo_open:
+		return
+	_photo_open = false
+	_photo_guard = 0.25
+	_lock_world_unhandled(false)
+	if _photo_layer != null:
+		_photo_layer.visible = false
+	if _seated == null:
+		var p := _player_node()
+		if p != null:
+			p.movement_locked = false
+			p.set("_focus", null)
+			if p.has_method("_update_focus"):
+				p.call("_update_focus")
+	_suspend_interactable(_photo_point)
+
+
+func _build_photo_ui() -> void:
+	_photo_layer = CanvasLayer.new()
+	_photo_layer.name = "PhotoView"
+	_photo_layer.layer = 90
+	_photo_layer.visible = false
+	add_child(_photo_layer)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.02, 0.02, 0.03, 0.80)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_photo_layer.add_child(bg)
+
+	var frame := ColorRect.new()
+	frame.color = Color(0.96, 0.94, 0.88)
+	frame.set_anchors_preset(Control.PRESET_CENTER)
+	frame.size = Vector2(620, 720)
+	frame.position = Vector2(-310, -360)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_photo_layer.add_child(frame)
+
+	var photo := TextureRect.new()
+	photo.texture = _make_photo_texture()
+	photo.set_anchors_preset(Control.PRESET_CENTER)
+	photo.position = Vector2(-270, -320)
+	photo.size = Vector2(540, 540)
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_photo_layer.add_child(photo)
+
+	var cap := Label.new()
+	cap.text = "奶蛙的自拍 · 火山厨房"
+	cap.set_anchors_preset(Control.PRESET_CENTER)
+	cap.position = Vector2(-240, 240)
+	cap.size = Vector2(480, 46)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.add_theme_font_size_override("font_size", 26)
+	cap.add_theme_color_override("font_color", Color(0.22, 0.18, 0.14))
+	_photo_layer.add_child(cap)
+
+	var hint := Label.new()
+	hint.text = "按 [F] / Esc 关闭"
+	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	hint.position = Vector2(-200, -70)
+	hint.size = Vector2(400, 40)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 22)
+	hint.add_theme_color_override("font_color", Color(0.35, 0.28, 0.20))
+	_photo_layer.add_child(hint)
+
+
+## 画一张奶蛙自拍：暖色背景、黄色团子、黑眼睛、笑脸、手里的柠檬水
+func _make_photo_texture() -> ImageTexture:
+	var n := 384
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.93, 0.88, 0.78))
+	for y in n:
+		for x in n:
+			if y > int(n * 0.74):
+				img.set_pixel(x, y, Color(0.66, 0.48, 0.31))
+			elif y < int(n * 0.10):
+				img.set_pixel(x, y, Color(0.84, 0.78, 0.66))
+	_photo_ellipse(img, 192, 210, 92, 112, Color(0.99, 0.84, 0.20))
+	_photo_ellipse(img, 192, 300, 86, 52, Color(0.99, 0.84, 0.20))
+	_photo_ellipse(img, 160, 186, 14, 18, Color(0.05, 0.04, 0.04))
+	_photo_ellipse(img, 224, 186, 14, 18, Color(0.05, 0.04, 0.04))
+	_photo_ellipse(img, 164, 181, 5, 6, Color(0.98, 0.97, 0.94))
+	_photo_ellipse(img, 228, 181, 5, 6, Color(0.98, 0.97, 0.94))
+	_photo_ellipse(img, 192, 238, 26, 9, Color(0.20, 0.10, 0.08))
+	_photo_ellipse(img, 192, 233, 28, 10, Color(0.99, 0.84, 0.20))
+	# 小短手
+	_photo_ellipse(img, 104, 268, 20, 46, Color(0.99, 0.84, 0.20))
+	_photo_ellipse(img, 280, 268, 20, 46, Color(0.99, 0.84, 0.20))
+	# 手里的柠檬水
+	_photo_ellipse(img, 276, 300, 24, 12, Color(0.95, 0.55, 0.15))
+	for y in range(300, 356):
+		for x in range(262, 292):
+			img.set_pixel(x, y, Color(0.99, 0.86, 0.30))
+	for y in range(292, 302):
+		for x in range(258, 296):
+			img.set_pixel(x, y, Color(0.96, 0.95, 0.92))
+	for y in range(270, 306):
+		for x in range(286, 291):
+			img.set_pixel(x, y, Color(0.85, 0.38, 0.28))
+	# 白色拍立得边框
+	for y in n:
+		for x in n:
+			if x < 18 or x >= n - 18 or y < 18 or y >= n - 18:
+				img.set_pixel(x, y, Color(0.98, 0.97, 0.93))
+	return ImageTexture.create_from_image(img)
+
+
+func _photo_ellipse(img: Image, cx: int, cy: int, rx: int, ry: int, col: Color) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var x0 := maxi(0, cx - rx)
+	var x1 := mini(w - 1, cx + rx)
+	var y0 := maxi(0, cy - ry)
+	var y1 := mini(h - 1, cy + ry)
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			var dx := float(x - cx) / float(maxi(1, rx))
+			var dy := float(y - cy) / float(maxi(1, ry))
+			if dx * dx + dy * dy <= 1.0:
+				img.set_pixel(x, y, col)
+
+
 # ------------------------------------------------------------------ 通用工具
 func _mat(c: Color, rough := 0.8, metal := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -1059,7 +1410,12 @@ func _build_lighting() -> void:
 
 
 # ------------------------------------------------------------------ 柠檬水
-func _add_lemonade(pos: Vector3) -> void:
+## 建一杯柠檬水，返回整杯的根节点，方便整体搬到手上/放回桌上
+func _add_lemonade(pos: Vector3, parent: Node = null) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Lemonade"
+	root.position = pos
+	(parent if parent != null else self).add_child(root)
 	var glass := StandardMaterial3D.new()
 	glass.albedo_color = Color(0.86, 0.93, 1.0, 0.18)
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -1079,22 +1435,23 @@ func _add_lemonade(pos: Vector3) -> void:
 	ice.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	ice.roughness = 0.05
 	# 大杯：高 0.48，口径 0.32
-	_deco_cyl(0.160, 0.132, 0.48, pos + Vector3(0, 0.24, 0), glass)
-	_deco_cyl(0.150, 0.124, 0.40, pos + Vector3(0, 0.21, 0), liquid)
-	_deco_cyl(0.162, 0.162, 0.035, pos + Vector3(0, 0.47, 0), glass)
+	_deco_cyl(0.160, 0.132, 0.48, Vector3(0, 0.24, 0), glass, Vector3.ZERO, root)
+	_deco_cyl(0.150, 0.124, 0.40, Vector3(0, 0.21, 0), liquid, Vector3.ZERO, root)
+	_deco_cyl(0.162, 0.162, 0.035, Vector3(0, 0.47, 0), glass, Vector3.ZERO, root)
 	# 一片立起来的柠檬轮，杯口一眼就能看到
-	var lx: float = pos.x + 0.005
-	_deco_cyl(0.128, 0.128, 0.028, Vector3(lx, pos.y + 0.545, pos.z + 0.01), lemon, Vector3(PI * 0.5, 0.0, 0.10))
-	_deco_cyl(0.137, 0.137, 0.010, Vector3(lx, pos.y + 0.545, pos.z + 0.004), rind, Vector3(PI * 0.5, 0.0, 0.10))
-	_deco_cyl(0.105, 0.105, 0.020, pos + Vector3(-0.03, 0.455, 0.0), lemon)
+	var lx := 0.005
+	_deco_cyl(0.128, 0.128, 0.028, Vector3(lx, 0.545, 0.01), lemon, Vector3(PI * 0.5, 0.0, 0.10), root)
+	_deco_cyl(0.137, 0.137, 0.010, Vector3(lx, 0.545, 0.004), rind, Vector3(PI * 0.5, 0.0, 0.10), root)
+	_deco_cyl(0.105, 0.105, 0.020, Vector3(-0.03, 0.455, 0.0), lemon, Vector3.ZERO, root)
 	# 吸管
-	_deco_cyl(0.018, 0.018, 0.52, pos + Vector3(0.04, 0.50, 0.01),
-			_mat(Color(0.72, 0.10, 0.10), 0.5), Vector3(0.13, 0, 0.10))
+	_deco_cyl(0.018, 0.018, 0.52, Vector3(0.04, 0.50, 0.01),
+			_mat(Color(0.72, 0.10, 0.10), 0.5), Vector3(0.13, 0, 0.10), root)
 	# 冰块
 	for i in 3:
 			_deco_box(Vector3(0.075, 0.075, 0.075),
-				pos + Vector3(-0.055 + 0.055 * float(i), 0.40 - 0.05 * float(i), 0.03 * float(i)),
-				ice, null).rotation = Vector3(0.3 * float(i), 0.5 * float(i), 0.2)
+				Vector3(-0.055 + 0.055 * float(i), 0.40 - 0.05 * float(i), 0.03 * float(i)),
+				ice, root).rotation = Vector3(0.3 * float(i), 0.5 * float(i), 0.2)
+	return root
 func _build_split_device() -> void:
 	# 分流装置就是进门右侧的锅炉：开关放在它正前方，面板上的红/绿灯就是状态
 	var bx := center.x + 8.5
@@ -1204,7 +1561,7 @@ func _on_branch_chosen(id: String) -> void:
 func _apply_state() -> void:
 	var supply := bool(Ch02State.get_flag("volc_workshop_supply_ready", false))
 	for flame in _flames:
-			flame.visible = true
+			flame.visible = supply
 	if supply:
 			_spawn_residents()
 	else:
@@ -1280,6 +1637,42 @@ func _remove_residents() -> void:
 
 
 # ------------------------------------------------------------------ 交互点
+class SeatPoint extends Node3D:
+	var interact_range := 2.0
+	var terrace
+	var chair_side := 1      # 1 = 西侧，-1 = 东侧
+	var face_yaw := 0.0
+	var occupied := false
+	var drank := false
+
+	func _ready() -> void:
+			add_to_group("interactable")
+
+	func get_prompt() -> String:
+			if not occupied:
+				return "按 [F] 坐下"
+			return "按 [F] 起身"
+
+	func interact(_who: Node) -> void:
+			if terrace != null:
+				terrace.call("on_seat_interact", self)
+
+
+class PhotoPoint extends Node3D:
+	var interact_range := 2.4
+	var terrace
+
+	func _ready() -> void:
+			add_to_group("interactable")
+
+	func get_prompt() -> String:
+			return "按 [F] 看看冰箱贴"
+
+	func interact(_who: Node) -> void:
+			if terrace != null:
+				terrace.call("open_photo")
+
+
 class SplitPoint extends Node3D:
 	var interact_range := 3.0
 	var terrace  # Ch02TerraceC
@@ -1402,8 +1795,40 @@ class FuelPoint extends Node3D:
 
 
 ## 应急燃料接口要在正确的时机出现，所以需要每帧轮询
-func _process(_delta: float) -> void:
+func _input(event: InputEvent) -> void:
+	if not _photo_open:
+		return
+	# 放大照片时自己接管 F / Esc：不然 Esc 会被关卡的“返回标题”抢走
+	var want_close := event.is_action_pressed("interact") \
+		or event.is_action_pressed("ui_cancel") \
+		or (event is InputEventKey and (event as InputEventKey).keycode == KEY_ESCAPE)
+	if want_close:
+		close_photo()
+		get_viewport().set_input_as_handled()
+
+
+func _process(delta: float) -> void:
 	_poll_fuel_point()
+	_sit_guard = maxf(0.0, _sit_guard - delta)
+	_photo_guard = maxf(0.0, _photo_guard - delta)
+	# 自愈：玩家被其他系统挪走时，清掉坐姿状态，避免下一次 F 把人拉回椅子
+	if _seated != null:
+		if not is_instance_valid(_seated):
+			_seated = null
+			_reset_cup()
+		else:
+			var pp := _player_node()
+			if pp == null or pp.global_position.distance_to(_seated.global_position) > 3.0:
+				_seated.set("occupied", false)
+				_seated = null
+				_reset_cup()
+	if _photo_open:
+		if _photo_guard <= 0.0 and (Input.is_action_just_pressed("interact") \
+				or Input.is_action_just_pressed("ui_cancel") \
+				or Input.is_action_just_pressed("pause")):
+			close_photo()
+	elif _seated != null and _sit_guard <= 0.0 and Input.is_action_just_pressed("interact"):
+		_stand_up()
 
 
 func _clear_facade_collision() -> void:

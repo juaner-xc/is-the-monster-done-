@@ -65,8 +65,10 @@ func _build_card(option: Dictionary) -> Control:
 	name_label.add_theme_color_override("font_color", ORANGE)
 	column.add_child(name_label)
 
-	column.add_child(_line("战斗中", String(option.get("battle", option.get("desc", "")))))
-	column.add_child(_line("世界里", String(option.get("world", ""))))
+	column.add_child(_line(String(option.get("left_title", "战斗中")),
+			String(option.get("battle", option.get("desc", "")))))
+	column.add_child(_line(String(option.get("right_title", "世界里")),
+			String(option.get("world", ""))))
 
 	var button := Button.new()
 	button.text = "就这个"

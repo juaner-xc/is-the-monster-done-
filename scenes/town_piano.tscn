@@ -1,0 +1,47 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/town_piano.gd" id="1_piano"]
+[ext_resource type="PackedScene" path="res://assets/town_props/piano/old-piano.glb" id="2_model"]
+[ext_resource type="PackedScene" path="res://scenes/town_piano_corner.tscn" id="3_corner"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_cabinet"]
+size = Vector3(2.146, 1.972, 0.899)
+
+[sub_resource type="AudioStreamPolyphonic" id="AudioStreamPolyphonic_keys"]
+polyphony = 12
+
+[node name="TownPiano" type="Node3D"]
+process_mode = 1
+script = ExtResource("1_piano")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]
+transform = Transform3D(1.45, 0, 0, 0, 1.45, 0, 0, 0, 1.45, 0, 0, 0)
+
+[node name="CabinetCollision" type="StaticBody3D" parent="."]
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CabinetCollision"]
+position = Vector3(0, 0.986, 0)
+shape = SubResource("BoxShape3D_cabinet")
+
+[node name="Music" type="AudioStreamPlayer3D" parent="."]
+position = Vector3(0, 1.204, 0.35)
+stream = SubResource("AudioStreamPolyphonic_keys")
+volume_db = -5.0
+unit_size = 2.8
+max_distance = 22.0
+
+[node name="PianoCorner" parent="." instance=ExtResource("3_corner")]
+
+[node name="Approach" type="Marker3D" parent="."]
+position = Vector3(0, 0.04, 1.72)
+
+[node name="InteractionPrompt" type="Label3D" parent="."]
+position = Vector3(0, 1.72, 1.35)
+visible = false
+billboard = 1
+pixel_size = 0.004
+font_size = 32
+outline_size = 9
+modulate = Color(1, 0.87, 0.63, 1)
+text = "F  坐下弹奏"

@@ -27,6 +27,15 @@ const TYPE_DATA := {
 	"boss_furnace": {"color": "d83b2d", "damage": 20.0, "range": 2.25, "experience": 120, "scale": 3.9},
 }
 
+const ALERT_RADIUS := 11.0
+const DISENGAGE_RADIUS := 18.0
+const HOME_LEASH := 24.0
+const HOME_ARRIVE_RADIUS := 0.18
+
+enum HuntState { IDLE, CHASING, RETURNING }
+
+var home_position := Vector3.INF
+var _hunt_state := HuntState.IDLE
 var target: Node3D
 var enemy_type := "slime"
 var max_health := 50.0
@@ -118,10 +127,7 @@ func _physics_process(delta: float) -> void:
 	if target == null or not is_instance_valid(target):
 		velocity = Vector3.ZERO
 		return
-	if target.has_meta("snow_shelter") and not is_boss:
-		velocity = Vector3.ZERO
-		_apply_gravity(delta)
-		move_and_slide()
+	if dead:
 		return
 	if is_boss and is_instance_valid(furnace_brain):
 		furnace_brain.tick(delta)
@@ -138,6 +144,15 @@ func _physics_process(delta: float) -> void:
 	var to_target := target.global_position - global_position
 	to_target.y = 0.0
 	var distance := to_target.length()
+	var sheltered := target.has_meta("snow_shelter") or target.has_meta("snow_town_safe")
+	if home_position.is_finite():
+		if not _update_hunt(delta, distance, sheltered):
+			return
+	elif not is_boss and sheltered:
+		velocity = Vector3.ZERO
+		_apply_gravity(delta)
+		move_and_slide()
+		return
 	if distance > 0.05:
 		look_at(global_position + to_target, Vector3.UP)
 	if is_instance_valid(furnace_visual):
@@ -170,6 +185,39 @@ func _physics_process(delta: float) -> void:
 	velocity += knockback_velocity
 	knockback_velocity = knockback_velocity.move_toward(Vector3.ZERO, delta * 12.0)
 	move_and_slide()
+
+
+func set_home() -> void:
+	home_position = global_position
+
+
+func _update_hunt(delta: float, target_distance: float, sheltered: bool) -> bool:
+	var to_home := home_position - global_position
+	to_home.y = 0.0
+	var home_distance := to_home.length()
+	var can_reach_target_floor := absf(global_position.y - target.global_position.y) < 2.2
+	if _hunt_state == HuntState.CHASING and (sheltered or not can_reach_target_floor or target_distance > DISENGAGE_RADIUS or home_distance > HOME_LEASH):
+		_hunt_state = HuntState.RETURNING
+		windup_time = 0.0
+		dash_time = 0.0
+		knockback_velocity = Vector3.ZERO
+		telegraph.hide()
+
+	if _hunt_state == HuntState.IDLE and not sheltered and can_reach_target_floor and target_distance <= ALERT_RADIUS:
+		_hunt_state = HuntState.CHASING
+	if _hunt_state == HuntState.CHASING:
+		return true
+
+	velocity = Vector3.ZERO
+	if _hunt_state == HuntState.RETURNING:
+		if home_distance <= HOME_ARRIVE_RADIUS:
+			_hunt_state = HuntState.IDLE
+		else:
+			look_at(global_position + to_home, Vector3.UP)
+			velocity = to_home.normalized() * minf(move_speed, home_distance / delta)
+	_apply_gravity(delta)
+	move_and_slide()
+	return false
 
 
 func _apply_gravity(delta: float) -> void:

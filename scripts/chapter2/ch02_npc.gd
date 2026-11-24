@@ -10,6 +10,7 @@ const INTERACT_GROUP := "interactable"
 
 ## resident / taotao / machine
 @export var body_kind := "resident"
+@export var food_model: PackedScene
 @export var display_name := "居民"
 @export var body_color := Color("7b8f74")
 @export var apron_color := Color("c9694a")
@@ -47,7 +48,9 @@ func interact(_who: Node) -> void:
 
 func _process(delta: float) -> void:
 	_bob_time += delta
-	if _body_root != null and bob_amp > 0.0:
+	if food_model != null:
+		_body_root.scale.y = 1.0 + sin(_bob_time * 1.6) * 0.013
+	elif _body_root != null and bob_amp > 0.0:
 		_body_root.position.y = sin(_bob_time * 1.7) * bob_amp
 	if _head != null:
 		# 说话的人会点头：很小的幅度，但站在一起时能看出「在听」
@@ -79,10 +82,13 @@ func _build() -> void:
 		"taotao":
 			_build_person(Color("d8b08a"), apron_color, true)
 		_:
-			_build_person(body_color, apron_color, false)
+			if food_model != null:
+				_body_root.add_child(food_model.instantiate())
+			else:
+				_build_person(body_color, apron_color, false)
 
 
-## 人形：腿 + 躯干 + 头 + 两只手。总高约 1.62，和奶龙站在一起比例是对的。
+## 人形：腿 + 躯干 + 头 + 两只手。总高约 1.62，和奶蛙站在一起比例是对的。
 func _build_person(skin: Color, apron: Color, with_hat: bool) -> void:
 	var skin_mat := _mat(skin, 0.86)
 	# 躯干用「衣服色」，围裙用「罩衣色」——否则所有人都会是一团同色的糖

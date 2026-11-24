@@ -51,6 +51,7 @@ var snow_lull := false
 var remaining_magic := 0
 var tutorial_experience := 0
 var loader_position: Vector3
+var tutorial_loader: Node3D
 var soup_wave: Node3D
 var condensate: Node3D
 
@@ -278,7 +279,7 @@ func equip_soup() -> bool:
 	RunState.cooking_inventory.dishes.erase(HOT_SOUP)
 	RunState.cooking_inventory.changed.emit()
 	stage = LOADER_ROUTE
-	_mark(loader_position, "失控搬运机")
+	_prepare_tutorial_loader()
 	return true
 
 
@@ -362,19 +363,19 @@ func objective_hint() -> String:
 				return "散逸魔力正飘向锅沿…"
 			if stirs < 2:
 				return "[左键] 翻炒热汤（%d / 2）" % stirs
-			return "[右键] 朝雪地泼汤" if _has_live_foes(SOUP_REACH) else "锅已经热了 · 等冻面包靠近"
+			return "[右键] 朝雪地泼汤" if _has_live_foes(SOUP_REACH) else "锅已经热了 · 等目标靠近"
 		HAND_OVER:
 			return "[F] 递上热汤" if _near_traveler() else "靠近路灯下的旅人"
 		ARM_SOUP:
 			return "[Tab] 打开背包，把热汤装进锅"
 		LOADER_ROUTE:
-			return "热汤已装锅 · 前往失控搬运机"
+			return "热汤已装锅 · 按 G 查看前进方向"
 		LOADER_FIGHT:
 			if not _has_live_foes():
 				return "搬运机停下了…"
 			if stirs < 2:
 				return "[左键] 加热锅里的汤（%d / 2）" % stirs
-			return "[右键] 泼汤" if _has_live_foes(SOUP_REACH) else "等搬运机冲近，闪开后泼汤"
+			return "[右键] 泼汤" if _has_live_foes(SOUP_REACH) else "等目标靠近，闪开后泼汤"
 		DISCOVER_CONDENSATE:
 			return "[F] 查看魔力凝材" if _near_condensate() else "靠近搬运机旁发光的魔力凝材"
 		RETURN_ELDER:
@@ -517,24 +518,34 @@ func tick() -> void:
 			enemy.position.y = game._terrain_height(enemy.position.x,enemy.position.z) + 0.13
 			game.add_child(enemy)
 			enemy.setup(player, 28.0, 2.45, "toast")
+			enemy.set_home()
 			enemy.tutorial_toast = true
 			enemy.attack_range = 1.0
 			enemy.killed.connect(_toast_defeated)
 			foes.append(enemy)
 		remaining_magic = foes.size()
-		game.hud.show_notice("冻面包闻到汤香，朝锅扑了过来")
 	elif stage == LOADER_ROUTE and player.global_position.distance_to(loader_position) < 5.0:
 		stage = LOADER_FIGHT
 		marker.hide()
 		foes.clear()
 		stirs = 0
-		var loader: Node3D = game.ENEMY_SCENE.instantiate()
-		loader.position = loader_position
-		game.add_child(loader)
-		loader.setup(player, 42.0, 2.15, "cargo_loader")
-		loader.killed.connect(_loader_defeated)
-		foes.append(loader)
-		game.hud.show_notice("失控搬运机 · 留意冲锋")
+		tutorial_loader.add_to_group("enemies")
+		tutorial_loader.set_deferred("collision_layer", 2)
+		tutorial_loader.set_physics_process(true)
+		foes.append(tutorial_loader)
+
+
+func _prepare_tutorial_loader() -> void:
+	tutorial_loader = game.ENEMY_SCENE.instantiate()
+	tutorial_loader.position = loader_position
+	game.add_child(tutorial_loader)
+	tutorial_loader.setup(player, 42.0, 2.15, "cargo_loader")
+	tutorial_loader.set_home()
+	_face(tutorial_loader, player.global_position, true)
+	tutorial_loader.set_physics_process(false)
+	tutorial_loader.collision_layer = 0
+	tutorial_loader.remove_from_group("enemies")
+	tutorial_loader.killed.connect(_loader_defeated)
 
 
 func _loader_defeated(_value: int, at: Vector3, _boss: bool) -> void:
@@ -571,7 +582,7 @@ func serve() -> void:
 		game.hud.show_notice("汤还凉着")
 		return
 	if not _has_live_foes(SOUP_REACH):
-		game.hud.show_notice("等冻面包再靠近一点")
+		game.hud.show_notice("再靠近一点")
 		return
 	stirs = 0
 	player.pan_heat.adjust(-18.0)

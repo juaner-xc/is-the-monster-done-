@@ -15,17 +15,17 @@ normal_enabled = true
 normal_texture = ExtResource("3_c6egd")
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_npc_col"]
-size = Vector3(0.7, 1.8, 0.8)
+size = Vector3(0.76, 1.95, 0.87)
 
 [node name="DoubaoNPC" type="Node3D" unique_id=1749089787]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
 
 [node name="Body" type="MeshInstance3D" parent="." unique_id=1350910094]
-transform = Transform3D(1.7999334, 0, 0, 0, 1.7999334, 0, 0, 0, 1.7999334, 0, 0.8999469, 0)
+transform = Transform3D(1.9499279, 0, 0, 0, 1.9499279, 0, 0, 0, 1.9499279, 0, 0.9749425, 0)
 material_override = SubResource("StandardMaterial3D_in268")
 mesh = ExtResource("5_4frle")
 
 [node name="Collision" type="StaticBody3D" parent="."]
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Collision"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.975, 0)
 shape = SubResource("BoxShape3D_npc_col")

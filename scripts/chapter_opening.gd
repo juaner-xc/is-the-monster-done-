@@ -8,23 +8,23 @@ const DESIGN_SIZE := Vector2(1280.0, 720.0)
 const TYPE_SPEED := 32.0
 const ELDER_ENTRANCE_LINE := 2
 const LINES: Array[Dictionary] = [
-	{"speaker": "旁白", "focus": "none", "text": "风声贴着耳边掠过。奶龙睁开眼，面前是一片陌生的雪原。"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "……好冷。我的厨房呢？"},
+	{"speaker": "旁白", "focus": "none", "text": "风声贴着耳边掠过。奶蛙睁开眼，面前是一片陌生的雪原。"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "……好冷。我的厨房呢？"},
 	{"speaker": "？？？", "focus": "elder", "text": "醒了？先别急着站起来。你刚才连人带锅，一头栽进了雪里。"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "您是……？这里是什么地方？"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "您是……？这里是什么地方？"},
 	{"speaker": "老爷爷", "focus": "elder", "text": "叫我老爷爷就好。你不是这儿的人？"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "这里不是炉灯城？"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "我本来在做一道魔法料理……然后突然出现了一道裂缝。再然后，我就在这里了。"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "这里不是炉灯城？"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "我本来在做一道魔法料理……然后突然出现了一道裂缝。再然后，我就在这里了。"},
 	{"speaker": "老爷爷", "focus": "elder", "text": "原来如此。你已经不在原来的世界了。这里是饥饿异界的雪原。"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "！？纳尼？！传说是真的？"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "！？纳尼？！传说是真的？"},
 	{"speaker": "老爷爷", "focus": "elder", "text": "什么传说？"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "您听说过黄金食谱吗？我照着它做菜，想证明自己……结果魔力失控了。"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "您听说过黄金食谱吗？我照着它做菜，想证明自己……结果魔力失控了。"},
 	{"speaker": "老爷爷", "focus": "elder", "text": "……黄金食谱……原来你是被它带来的。"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "您知道它？那有没有办法回去——"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "您知道它？那有没有办法回去——"},
 	{"speaker": "旁白", "focus": "none", "text": "山口忽然传来一声沉闷的炉鸣。树后的小小影子抱紧了布袋，迅速躲进风雪。"},
 	{"speaker": "老爷爷", "focus": "elder", "text": "先别说了。暴食烤炉占着山口，异界已经乱套了。"},
 	{"speaker": "老爷爷", "focus": "elder", "text": "风雪很快就会变大。想继续往前走，就得在封路之前打败它。"},
-	{"speaker": "奶龙", "focus": "nailong", "text": "啊？？？"},
+	{"speaker": "奶蛙", "focus": "nailong", "text": "啊？？？"},
 	{"speaker": "出发准备", "focus": "none", "text": "两分钟内击败暴食烤炉。升级时选择食材，组合料理；倒计时到 1:00 时，Boss 将现身。", "hint": true},
 ]
 

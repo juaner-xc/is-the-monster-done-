@@ -7,6 +7,7 @@ const CavePlayerScript = preload("res://scripts/chapter2/cave_player.gd")
 const CameraScript = preload("res://scripts/third_person_camera.gd")
 const CaveEntranceScript = preload("res://scripts/chapter2/cave_entrance.gd")
 const MAT := preload("res://scripts/chapter2/ch02_materials.gd")
+const OBJECTIVE_SCRIPT := preload("res://scripts/chapter2/ch02_objective.gd")
 
 # HUD 配色沿用第一章 hud.gd
 const INK := Color("3a2418")
@@ -49,6 +50,7 @@ const TUNNEL_FLOOR_Y := 0.95
 const HUB_ORIGIN := Vector3(-39.0, 0.52, 20.0)
 
 var player: CavePlayer
+var travel_backpack = preload("res://scripts/travel_kitchen.gd").new()
 var game_camera: Camera3D
 var _topo_stairs_gate: Node3D
 var _entry_handoff_active := false
@@ -57,6 +59,11 @@ var _entry_handoff_active := false
 var cave_entrance  # CaveEntrance
 var cave_scatter  # CaveScatter
 var workshop_hub  # Ch02WorkshopHub
+var magic_hud: CanvasLayer
+var _location_hud
+var _prompt_actor: Node3D
+var _notice_tween: Tween
+var _guide_sparks: Node3D
 var low_zone  # Ch02LowZone
 var terrace_d  # Ch02TerraceD
 var terrace_c  # Ch02TerraceC
@@ -79,6 +86,14 @@ var _notice_label: Label
 var _notice_panel: PanelContainer
 ## 岩浆外移时需要避让的区域（隧道走廊）
 var _lava_blocks: Array = []
+var objective_hud: Control
+## 展开的大图（按 M）
+var map_view: Control
+## 右上角常驻小图（半透明）
+var map_mini: Control
+var tent_marker: Node3D
+var _map_marker_points: Array = []
+var _map_refresh_t := 0.0
 
 
 func _ready() -> void:
@@ -93,11 +108,14 @@ func _ready() -> void:
 	_brighten_cave()
 	_build_entrance()
 	_spawn_player()
+	add_child(travel_backpack)
+	travel_backpack.setup(self, 2)
 	_build_workshop_hub()
 	_build_low_zone()
 	_build_terrace_d()
 	_build_terrace_c()
 	_build_terrace_b()
+	_build_ch02_tent()
 	_clear_props_in_built_areas()
 	_build_volcano_terraces()
 	_clear_route_blockers()
@@ -105,6 +123,8 @@ func _ready() -> void:
 	_build_scatter()
 	_build_atmosphere()
 	_apply_three_layer_topology()
+	# 帐篷挂在栈道上，而栈道要等三层拓扑才挪到位——所以位置在这之后再钉一次
+	_place_ch02_tent()
 	_build_topology_zones()
 	_bind_merged_characters()
 	_build_furnace_city_backdrop()
@@ -124,6 +144,10 @@ func _ready() -> void:
 	_remove_shell_over_boss()
 	_build_axis_banners()
 	_build_hud()
+	magic_hud = preload("res://scripts/magic_journey_hud.gd").new()
+	magic_hud.setup(self, Vector2(26, 128), Color("cd9d65"), _can_show_magic_choice,
+			func() -> bool: return not riding and not _entry_handoff_active)
+	_build_ch02_overlays()
 	# 淡入要等 HUD 建好（黑场图层在 HUD 里）才能启动
 	if riding:
 		if _entry_handoff_active:
@@ -1053,6 +1077,8 @@ func _brighten_cave() -> void:
 		env.ambient_light_energy = 0.38
 		env.tonemap_exposure = 1.0
 		env.glow_intensity = 1.15
+		env.glow_enabled = true
+		env.glow_bloom = 0.45
 		env.glow_hdr_threshold = 1.0
 		env.fog_light_color = Color(0.055, 0.05, 0.062)
 		env.fog_density = 0.0072
@@ -1192,17 +1218,26 @@ func _raycast(from: Vector3, to: Vector3) -> Dictionary:
 	return space.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, 1))
 
 
+func _can_show_magic_choice() -> bool:
+	if riding or _entry_handoff_active or player == null or player.health <= 0 or player.cooking or player.movement_locked:
+		return false
+	return not is_instance_valid(workshop_hub) or not workshop_hub.is_story_ui_open()
+
+
 func _process(delta: float) -> void:
-	# 防止对话已经结束但 movement_locked 没被复位，导致楼梯顶/平台口卡住。
-	if player != null and not riding and not _entry_handoff_active and player.movement_locked and workshop_hub != null:
-		var dlg = workshop_hub.get("dialogue")
-		var choice = workshop_hub.get("_choice")
-		var tao = get_node_or_null("TaoTao")
-		var story_open := dlg != null and bool(dlg.call("is_playing"))
-		var choice_open := choice != null and bool(choice.call("is_open"))
-		var model_open := tao != null and is_instance_valid(tao.get("dialog"))
-		if not story_open and not choice_open and not model_open and player.health > 0.0:
-			player.movement_locked = false
+	var modal := false
+	if workshop_hub != null:
+		modal = workshop_hub.is_story_ui_open()
+	if player != null and not (riding or _entry_handoff_active or modal) and player.movement_locked and player.health > 0.0:
+		player.movement_locked = false
+	if _location_hud != null and player != null:
+		_location_hud.update_view(delta, player.global_position, workshop_hub.get("_blocks") if workshop_hub != null else null,
+				riding, modal, _entry_handoff_active, _fade_rect.color.a if _fade_rect.visible else 0.0, objective_hud == null)
+	if objective_hud != null:
+		objective_hud.visible = not (modal or riding or _entry_handoff_active or _ch02_map_open())
+	_update_interaction_prompt(modal)
+	if _notice_panel != null:
+		_notice_panel.visible = not (modal or riding)
 	if _topo_stairs_gate != null and is_instance_valid(_topo_stairs_gate):
 		var state := get_node_or_null("/root/Ch02State")
 		if state != null and bool(state.call("get_flag", "ch02.area_transport")) \
@@ -1217,13 +1252,128 @@ func _process(delta: float) -> void:
 			_dismount_from_cart()
 	if game_camera != null and player != null:
 		game_camera.follow(player, delta, player.shake)
+	# 小图跟着剧情和玩家位置走：半秒刷一次，别每帧算
+	if map_mini != null and map_mini.visible:
+		_map_refresh_t += delta
+		if _map_refresh_t >= 0.5:
+			_map_refresh_t = 0.0
+			_ch02_note_visits()
+			map_mini.call("set_markers", _ch02_map_markers())
 
 
 ## Esc 直接退回标题（无料理界面可关）
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		var key: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
+		if key == KEY_M:
+			if _ch02_map_open():
+				_ch02_close_map()
+			elif riding or _entry_handoff_active or (workshop_hub != null and workshop_hub.is_story_ui_open()):
+				return
+			elif bool(Ch02State.get_flag("ch02.map_seen", false)):
+				_ch02_open_map()
+			else:
+				_notice("车盖上那张图还没摊开。先在生活区找陶陶。")
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventKey and event.pressed and not event.echo and (
+			event.keycode == KEY_G or event.physical_keycode == KEY_G):
+		if not (_ch02_map_open() or riding or _entry_handoff_active) and workshop_hub != null and not workshop_hub.is_story_ui_open():
+			_show_goal_direction()
+			get_viewport().set_input_as_handled()
+		return
 	if not event.is_action_pressed("pause"):
 		return
+	# 地图开着的时候 Esc 先收地图，别直接退回标题
+	if _ch02_map_open():
+		_ch02_close_map()
+		get_viewport().set_input_as_handled()
+		return
 	_return_to_title()
+
+
+func _show_goal_direction() -> void:
+	var target := _goal_direction_point()
+	var offset := target - player.global_position
+	offset.y = 0.0
+	if offset.length_squared() < 0.1:
+		return
+	if is_instance_valid(_guide_sparks):
+		_guide_sparks.queue_free()
+	_guide_sparks = Node3D.new()
+	_guide_sparks.name = "EmberGuide"
+	add_child(_guide_sparks)
+	var sparks := _guide_sparks
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.055
+	mesh.height = 0.11
+	mesh.radial_segments = 8
+	mesh.rings = 4
+	var direction := offset.normalized()
+	for i in 10:
+		var mote := MeshInstance3D.new()
+		mote.mesh = mesh
+		mote.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var tint := material.duplicate() as StandardMaterial3D
+		tint.albedo_color = Color("ffbd71")
+		mote.material_override = tint
+		sparks.add_child(mote)
+		var spacing := 0.35 + float(i) * 0.25
+		mote.global_position = player.global_position + direction * spacing + Vector3.UP * (0.49 + 0.24 * sin(i * .37)) \
+				+ direction.cross(Vector3.UP) * sin(i * 2.4) * 0.13
+		mote.scale = Vector3.ONE * (0.6 + (i % 3) * 0.22)
+		mote.hide()
+		var travel := mote.create_tween()
+		travel.tween_interval(i * 0.055)
+		travel.tween_callback(mote.show)
+		travel.tween_property(mote, "position", mote.position + direction * 0.9 + Vector3.UP * 0.28, 1.1)
+		travel.parallel().tween_property(tint, "albedo_color:a", 0.0, 1.1)
+	var cleanup := sparks.create_tween()
+	cleanup.tween_interval(1.8)
+	cleanup.tween_callback(sparks.queue_free)
+
+
+func _goal_direction_point() -> Vector3:
+	var at := player.global_position
+	if not Ch02State.has("met_taotao"):
+		var tao := get_node("TaoTao") as Node3D
+		return tao.global_position
+	if at.y < 3.5:
+		return Vector3(AXIS_X, L0_Y, 0.0) if absf(at.x - AXIS_X) > 1.6 else Vector3(AXIS_X, L1_Y, -7.5)
+	var need_transport := not Ch02State.has("ch02.area_transport")
+	if not need_transport and (not Ch02State.has("ch02.has_energy") or not Ch02State.has("ch02.energy_branch_set")):
+		if at.y >= 8.0:
+			return Vector3(STAIR_HUB_X, L1_Y, STAIR_HUB_Z + 0.8) if absf(at.x - AXIS_X) < 1.6 else Vector3(STAIR_HUB_X, L2_Y, -27)
+		var terrace: Node3D = terrace_c if Ch02State.has("ch02.has_energy") else terrace_b
+		var point: Node3D = terrace.get("_split_point") if terrace == terrace_c else terrace.get("_energy_pickup")
+		return point.global_position if is_instance_valid(point) else terrace.get("center")
+	if at.y < 8.0:
+		return Vector3(STAIR_HUB_X, L1_Y, STAIR_HUB_Z + 0.5) if absf(at.x - STAIR_HUB_X) > 1.6 else Vector3(STAIR_HUB_X, L2_Y, -26.0)
+	var blocks = workshop_hub.get("_blocks")
+	if need_transport:
+		var candidates: Array = blocks.get("_valves").filter(func(valve): return not valve.closed)
+		if candidates.is_empty():
+			candidates = blocks.get("_enemies")
+		var best := Vector3(AXIS_X, L2_Y, -44.0)
+		var nearest := INF
+		for item in candidates:
+			if is_instance_valid(item) and item.global_position.distance_squared_to(at) < nearest:
+				best = item.global_position
+				nearest = best.distance_squared_to(at)
+		return best
+	if at.y < 12.3:
+		return Vector3(STAIR_CORE_X, L2_Y, STAIR_CORE_Z) if absf(at.x - STAIR_CORE_X) > 1.6 else Vector3(STAIR_CORE_X, L3_Y, -65.0)
+	if Ch02State.has("ch02.boss_down"):
+		var elevator: Node3D = blocks.get("_elevator")
+		if is_instance_valid(elevator):
+			return elevator.global_position
+	var console: Node3D = blocks.get("_console")
+	if not Ch02State.has("ch02.console") and is_instance_valid(console):
+		return console.global_position
+	return Vector3(AXIS_X, L3_Y, -103.0)
 
 
 # ------------------------------------------------------------------ 接线
@@ -1292,7 +1442,7 @@ func _spawn_player() -> void:
 		_begin_minecart_ride()
 
 
-## 奶龙出生在隧道深处的矿车里：镜头在洞里、正对洞口；矿车缓缓滑出，
+## 奶蛙出生在隧道深处的矿车里：镜头在洞里、正对洞口；矿车缓缓滑出，
 ## 大厅是一点点铺开的 —— 先用黑场压住，再让洞口的暖光慢慢洗亮画面。
 func _begin_minecart_ride() -> void:
 	riding = true
@@ -1361,7 +1511,6 @@ func _dismount_from_cart() -> void:
 	player.dodge_cooldown = maxf(player.dodge_cooldown, 0.30)
 	player.velocity = cart_forward * 2.3 + Vector3.UP * 4.4
 	_hide_ride_hint()
-	_notice("已抵达火山洞窟 · 沿轨道往前就是工坊营地")
 
 
 func _show_ride_hint() -> void:
@@ -1375,14 +1524,32 @@ func _hide_ride_hint() -> void:
 
 
 func _on_focus_changed(target: Node) -> void:
-	if _prompt_label == null or _prompt_panel == null:
+	if _prompt_label == null:
 		return
-	if target == null or not is_instance_valid(target) or not target.has_method("get_prompt"):
-		_prompt_label.text = ""
-		_prompt_panel.modulate.a = 0.0
+	_prompt_actor = target as Node3D
+	_prompt_label.text = String(target.call("get_prompt")) if is_instance_valid(target) and target.has_method("get_prompt") else ""
+
+
+func _update_interaction_prompt(modal: bool) -> void:
+	if _prompt_panel == null:
 		return
-	_prompt_label.text = String(target.call("get_prompt"))
-	_prompt_panel.modulate.a = 1.0
+	_prompt_panel.visible = not modal and not riding and not _entry_handoff_active and not _prompt_label.text.is_empty()
+	_prompt_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_prompt_panel.offset_left = -148
+	_prompt_panel.offset_right = 148
+	_prompt_panel.offset_top = -68
+	if not _prompt_panel.visible or not is_instance_valid(_prompt_actor) or not _prompt_actor.is_in_group("taotao_npc"):
+		return
+	var point := _prompt_actor.global_position + Vector3.UP * 2.65
+	if game_camera.is_position_behind(point):
+		return
+	var at := game_camera.unproject_position(point)
+	var view := get_viewport().get_visible_rect().size
+	if at.x < 174 or at.x > view.x - 174 or at.y < 105 or at.y > view.y - 64:
+		return
+	_prompt_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_prompt_panel.position = at - Vector2(148, 40)
+	_prompt_panel.size = Vector2(296, 0)
 
 
 func _return_to_title() -> void:
@@ -1392,6 +1559,212 @@ func _return_to_title() -> void:
 
 # ------------------------------------------------------------------ HUD
 ## 界面沿用第一章 hud.gd 的样式：描边卡片 + 奶油色文字 + 楷体
+## 第二章的任务卡与路线图：都挂在 HUD 的根节点下，跟着 HUD 一起开关。
+func _build_ch02_overlays() -> void:
+	var hud_layer := get_node_or_null("CaveHud")
+	if hud_layer == null or hud_layer.get_child_count() == 0:
+		return
+	var root := hud_layer.get_child(0) as Control
+	if root == null:
+		return
+	var hud_script: Script = load("res://scripts/chapter2/ch02_objective_hud.gd") as Script
+	if hud_script != null:
+		objective_hud = hud_script.new()
+		objective_hud.name = "Ch02Objective"
+		root.add_child(objective_hud)
+	var map_script: Script = load("res://scripts/chapter2/ch02_map_view.gd") as Script
+	if map_script != null:
+		_map_marker_points = _ch02_map_markers()
+		# 常驻小图：右上角，和第一章的 map_mini 一个位置、一个尺寸
+		map_mini = map_script.new()
+		map_mini.name = "Ch02MapMini"
+		map_mini.set("mini", true)
+		map_mini.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		map_mini.offset_left = -286.0
+		map_mini.offset_right = -26.0
+		map_mini.offset_top = 22.0
+		map_mini.offset_bottom = 308.0
+		map_mini.set("player", player)
+		map_mini.set("accepts_input", false)
+		root.add_child(map_mini)
+		map_mini.call("set_markers", _map_marker_points)
+		map_mini.visible = bool(Ch02State.get_flag("ch02.map_seen", false))
+		# 展开的大图：居中，M 打开时暂停
+		map_view = map_script.new()
+		map_view.name = "Ch02Map"
+		map_view.set("player", player)
+		map_view.set("accepts_input", true)
+		map_view.process_mode = Node.PROCESS_MODE_ALWAYS
+		root.add_child(map_view)
+		map_view.close_requested.connect(_ch02_close_map)
+		map_view.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		map_view.offset_left = -380.0
+		map_view.offset_right = 380.0
+		map_view.offset_top = -335.0
+		map_view.offset_bottom = 335.0
+		map_view.visible = false
+		map_view.call("set_markers", _map_marker_points)
+
+
+## 地图上的地标。未知地点也要占位——纸上是空的，走过去才有墨线。
+func _ch02_map_markers() -> Array:
+	var markers: Array = []
+	var target := _ch02_objective_kind()
+	if workshop_hub != null:
+		markers.append(_ch02_marker("camp", "生活区营地", "camp",
+			workshop_hub.global_position, target))
+	var blocks_node: Node = workshop_hub.get("_blocks") if workshop_hub != null else null
+	if blocks_node != null:
+		# 三个台地在三层拓扑里被整体搬过家，按 offset 算坐标会偏出一百多米，
+		# 所以直接取摆在台面中央的检查点。
+		var station_pos: Variant = _ch02_landmark(blocks_node, "Checkpoint_Transport")
+		var core_pos: Variant = _ch02_landmark(blocks_node, "Checkpoint_Core")
+		var boss_pos: Variant = _ch02_landmark(blocks_node, "Checkpoint_Boss")
+		if station_pos != null:
+			markers.append(_ch02_marker("station", "熔岩运输站", "station", station_pos, target))
+		if core_pos != null:
+			markers.append(_ch02_marker("core", "主炉控制区", "core", core_pos, target))
+		if boss_pos != null:
+			markers.append(_ch02_marker("boss", "千席宴炉", "boss", boss_pos, target))
+		var elevator: Node3D = blocks_node.get("_elevator")
+		if elevator != null:
+			markers.append(_ch02_marker("elevator", "升降台", "elevator",
+				elevator.global_position, target))
+		var rift: Node3D = blocks_node.get("_rift")
+		if rift != null:
+			markers.append(_ch02_marker("rift", "升降台后面的岩壁", "rift",
+				rift.global_position, target))
+	if terrace_c != null:
+		markers.append(_ch02_marker("warehouse", "原料仓库", "warehouse",
+			(terrace_c as Node3D).global_position, target))
+	if terrace_b != null:
+		markers.append(_ch02_marker("kitchen", "备用小厨房", "kitchen",
+			(terrace_b as Node3D).global_position, target))
+	if tent_marker != null:
+		markers.append(_ch02_marker("tent", "大平台上的紫帐篷", "tent",
+			(tent_marker as Node3D).global_position, target))
+	return markers
+
+
+## 地图上「去过」才算认识：没去过的点画问号，去过的才写名字。
+func _ch02_seen(id: String) -> bool:
+	return bool(Ch02State.get_flag("ch02.seen_" + id, false))
+
+
+func _ch02_marker(id: String, title: String, kind: String, pos: Variant, target: String) -> Dictionary:
+	return {
+		"id": id,
+		"title": title,
+		"kind": kind,
+		"pos": pos,
+		"known": _ch02_seen(id),
+		"objective": kind == target,
+	}
+
+
+## 当前任务指向的地标类型（地图据此画一圈「目标」）
+func _ch02_objective_kind() -> String:
+	var stage: Dictionary = OBJECTIVE_SCRIPT.stage()
+	var pid := String(stage.get("id", ""))
+	match pid:
+		"meet", "clear":
+			return "camp" if pid == "meet" else "station"
+		"warehouse":
+			return "warehouse"
+		"kitchen", "fuel":
+			return "kitchen"
+		"tent", "soup":
+			return "tent"
+		"boss":
+			return "boss"
+		"after":
+			return "elevator"
+		"rift":
+			return "rift"
+	return ""
+
+
+## 走进一片地方就把它记进地图：只认距离，不依赖旗标顺序。
+func _ch02_note_visits() -> void:
+	if _map_marker_points.is_empty():
+		return
+	var player := get_node_or_null("CavePlayer") as Node3D
+	if player == null:
+		return
+	for m in _map_marker_points:
+		if bool(m.get("known", false)):
+			continue
+		var pos: Variant = m.get("pos")
+		if pos == null:
+			continue
+		var at := pos as Vector3
+		if player.global_position.distance_to(at) > 22.0:
+			continue
+		Ch02State.set_flag("ch02.seen_" + String(m.get("id", "")), true)
+		m["known"] = true
+
+
+## 取一个地标节点的世界坐标（不存在就返回 null，地图上少一个点，不会画到错的地方）
+func _ch02_landmark(root: Node, node_name: String) -> Variant:
+	var node := root.find_child(node_name, true, false) as Node3D
+	if node == null or not is_instance_valid(node):
+		return null
+	return node.global_position
+
+
+## 剧情里「地图摊在车盖上」——把小图亮出来，不抢全屏
+func _ch02_reveal_map() -> void:
+	Ch02State.set_flag("ch02.map_seen", true)
+	_ch02_refresh_map()
+	if map_mini != null:
+		map_mini.visible = true
+	if objective_hud != null and objective_hud.has_method("flash_update"):
+		objective_hud.call("flash_update")
+
+
+## 任务卡更新时闪一下（对白里的 fx:"quest" 会叫到这里）
+func _ch02_flash_objective() -> void:
+	if objective_hud != null and objective_hud.has_method("flash_update"):
+		objective_hud.call("flash_update")
+
+
+func _ch02_refresh_map() -> void:
+	_map_marker_points = _ch02_map_markers()
+	if map_mini != null:
+		map_mini.call("set_markers", _map_marker_points)
+	if map_view != null:
+		map_view.call("set_markers", _map_marker_points)
+
+
+func _ch02_open_map() -> void:
+	if map_view == null:
+		return
+	_ch02_refresh_map()
+	map_view.set("accepts_input", true)
+	map_view.call("open")
+	if objective_hud != null:
+		objective_hud.hide()
+	if map_mini != null:
+		map_mini.visible = false
+	get_tree().paused = true
+
+
+func _ch02_close_map() -> void:
+	if map_view != null:
+		map_view.call("close")
+	get_tree().paused = false
+	if map_mini != null:
+		map_mini.visible = bool(Ch02State.get_flag("ch02.map_seen", false))
+
+
+func _ch02_map_open() -> bool:
+	return map_view != null and bool(map_view.call("is_open"))
+
+
+func _ch02_note_bell() -> void:
+	_notice("远处山壁响了一声卸货铃。那声音没有跟着车轮来。")
+
+
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "CaveHud"
@@ -1406,8 +1779,9 @@ func _build_hud() -> void:
 	theme.default_font = font
 	theme.default_font_size = 19
 	root.theme = theme
-	_build_chapter_card(root)
-	_build_help_bar(root)
+	_location_hud = preload("res://scripts/chapter2/ch02_location_hud.gd").new()
+	_location_hud.name = "VolcanoLocationHud"
+	root.add_child(_location_hud)
 	_build_ride_hint(root)
 	_build_prompt(root)
 	_build_notice(root)
@@ -1417,48 +1791,6 @@ func _build_hud() -> void:
 	# 开场在矿车里时显示跳车提示
 	if riding:
 		_show_ride_hint()
-
-
-func _build_chapter_card(root: Control) -> void:
-	var card := PanelContainer.new()
-	card.position = Vector2(22.0, 22.0)
-	card.size = Vector2(330.0, 96.0)
-	card.add_theme_stylebox_override("panel", _panel_style(PANEL_DARK, ORANGE, 18, 2))
-	root.add_child(card)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 6)
-	card.add_child(box)
-	var title := Label.new()
-	title.text = "第二章  ·  火山洞窟"
-	title.add_theme_font_size_override("font_size", 23)
-	title.add_theme_color_override("font_color", CREAM)
-	box.add_child(title)
-	var hint := Label.new()
-	hint.text = "工坊探索 · 关阀清怪 · 能源分流"
-	hint.add_theme_font_size_override("font_size", 15)
-	hint.add_theme_color_override("font_color", MUTED)
-	box.add_child(hint)
-
-
-func _build_help_bar(root: Control) -> void:
-	var panel := PanelContainer.new()
-	panel.anchor_left = 0.5
-	panel.anchor_top = 1.0
-	panel.anchor_right = 0.5
-	panel.anchor_bottom = 1.0
-	panel.offset_left = -430.0
-	panel.offset_right = 430.0
-	panel.offset_top = -58.0
-	panel.offset_bottom = -16.0
-	panel.add_theme_stylebox_override("panel",
-			_panel_style(Color(0.07, 0.05, 0.04, 0.86), Color(0.95, 0.71, 0.34, 0.55), 16, 1))
-	root.add_child(panel)
-	var help := Label.new()
-	help.text = "WASD 移动    鼠标转镜头    滚轮缩放    左键挥锅    右键调味弹    Shift 下车/闪避    V 挥手    Esc 返回标题"
-	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	help.add_theme_color_override("font_color", CREAM)
-	panel.add_child(help)
 
 
 ## 乘车提示：矿车滑行期间显示，跳车后隐藏
@@ -1473,7 +1805,7 @@ func _build_ride_hint(root: Control) -> void:
 	_ride_hint.offset_top = -128.0
 	_ride_hint.offset_bottom = -84.0
 	_ride_hint.add_theme_stylebox_override("panel",
-			_panel_style(Color(0.11, 0.07, 0.04, 0.90), ORANGE, 16, 2))
+			_panel_style(Color("1d1413e0"), Color("a6754eaa"), 4, 1))
 	_ride_hint.modulate.a = 0.0
 	root.add_child(_ride_hint)
 	var hint := Label.new()
@@ -1496,8 +1828,8 @@ func _build_prompt(root: Control) -> void:
 	_prompt_panel.offset_top = -132.0
 	_prompt_panel.offset_bottom = -92.0
 	_prompt_panel.add_theme_stylebox_override("panel",
-			_panel_style(Color(0.11, 0.07, 0.04, 0.90), ORANGE, 16, 2))
-	_prompt_panel.modulate.a = 0.0
+			_panel_style(Color("1d1413e0"), Color("a6754eaa"), 4, 1))
+	_prompt_panel.hide()
 	root.add_child(_prompt_panel)
 	_prompt_label = Label.new()
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1513,10 +1845,12 @@ func _build_notice(root: Control) -> void:
 	_notice_panel.anchor_right = 0.5
 	_notice_panel.offset_left = -260.0
 	_notice_panel.offset_right = 260.0
-	_notice_panel.offset_top = 132.0
-	_notice_panel.offset_bottom = 180.0
+	_notice_panel.anchor_top = 1.0
+	_notice_panel.anchor_bottom = 1.0
+	_notice_panel.offset_top = -138.0
+	_notice_panel.offset_bottom = -91.0
 	_notice_panel.add_theme_stylebox_override("panel",
-			_panel_style(Color(0.11, 0.07, 0.04, 0.94), ORANGE, 18, 2))
+			_panel_style(Color("1d1413e0"), Color("a6754eaa"), 4, 1))
 	root.add_child(_notice_panel)
 	_notice_label = Label.new()
 	_notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1573,9 +1907,11 @@ func _notice(text: String) -> void:
 		return
 	_notice_label.text = text
 	_notice_panel.modulate.a = 1.0
-	var tween := create_tween()
-	tween.tween_interval(1.5)
-	tween.tween_property(_notice_panel, "modulate:a", 0.0, 0.55)
+	if _notice_tween != null:
+		_notice_tween.kill()
+	_notice_tween = create_tween()
+	_notice_tween.tween_interval(1.5)
+	_notice_tween.tween_property(_notice_panel, "modulate:a", 0.0, 0.55)
 
 
 # ------------------------------------------------------------------ 输入
@@ -1702,6 +2038,35 @@ func _build_terrace_b() -> void:
 	terrace_b.setup(center)
 
 
+## 旧帐篷：立在中层大平台（台地 D）的西侧空地，门朝广场中央。
+## 剧情文档里它是「魔法师当年试菜的地方」，也是《黄金食谱》前半本与那锅汤的所在。
+func _ch02_tent_anchor() -> Vector3:
+	# 运输站上去之后的那块空地（4F 控制区前庭）：楼梯上来先看到这一片空场。
+	# 门朝 +Z（南），正对从运输站上来的楼梯。
+	return Vector3(-49.0, L3_Y + 0.02, -59.0)
+
+
+func _build_ch02_tent() -> void:
+	if terrace_d == null:
+		return
+	var script: Script = load("res://scripts/chapter2/ch02_tent.gd") as Script
+	if script == null:
+		return
+	var tent: Node3D = script.new()
+	tent.name = "Ch02Tent"
+	tent.set("host", self)
+	add_child(tent)
+	tent.call("setup", workshop_hub, self, _ch02_tent_anchor())
+	tent_marker = tent
+
+
+## 台地挪位之后再钉一次帐篷，否则它会留在建场景时的原点附近
+func _place_ch02_tent() -> void:
+	if tent_marker == null or not is_instance_valid(tent_marker):
+		return
+	tent_marker.global_position = _ch02_tent_anchor()
+
+
 ## 清理两个实测会挡住主路的窄梁/墙头：运输站东门内和 S1 桥口。
 ## 只删尺寸很小的 StaticBody，不动地板/台体。
 func _clear_route_blockers() -> void:
@@ -1801,6 +2166,7 @@ func _bind_merged_characters() -> void:
 		authored.set("story_proxy", proxy)
 		authored.set("story_host", workshop_hub)
 		authored.global_position = proxy.global_position
+		authored.global_rotation.y = proxy.global_rotation.y + PI
 		proxy.visible = false
 		proxy.remove_from_group("interactable")
 	var wizard := get_node_or_null("CulinaryWizard") as Node3D
@@ -1912,6 +2278,9 @@ func _shell_deck(cx: float, top_y: float, z_center: float, depth: float,
 	mi.mesh = bm
 	mi.material_override = mat
 	body.add_child(mi)
+	# The lower slab continues beneath the courtyard paths and main stairs.
+	if top_y == L0_Y:
+		return
 	var z_front := z_center + depth * 0.5
 	# 基座挑边：墙脚一道加厚石基座，把立面从洞底接住
 	_shell_trim_box(Vector3(cx, 0.42, z_front + 0.18), Vector3(width + 1.0, 0.72, 1.0), mat)

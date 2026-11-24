@@ -62,7 +62,6 @@ func _physics_process(delta: float) -> void:
 	elapsed += delta
 	var rack_already_taken: bool = opening_active() and opening.stage in [opening.WEAPON_GUIDE, opening.WEAPON_GUIDE_TALK, opening.SUPPLY_CHEST]
 	gift_display.visible = not rack_already_taken and (opening_active() or not RunState.has_gear("snowleaf"))
-	var was_inside := inside
 	inside = contains_point(player.global_position)
 	if inside:
 		player.set_meta("snow_shelter", self)
@@ -73,8 +72,6 @@ func _physics_process(delta: float) -> void:
 	var snow := get_parent().get_node_or_null("snow_fall") as Node3D
 	if snow != null:
 		snow.visible = not inside and (not opening_active() or not opening.snow_lull)
-	if inside and not was_inside and game != null:
-		game.hud.show_notice("肯德齐的食堂 · 进来避避风雪吧。")
 	cutaway = inside and to_local(player.global_position).y >= 4.0
 	update_cutaway(cutaway)
 	$Interior/RoomGlow.light_energy = 0.48 if inside else 0.3
@@ -196,10 +193,10 @@ func _is_wake_dialogue() -> bool:
 
 func _update_line() -> void:
 	dialogue_text.text = lines[dialogue_index]
-	dialogue_hint.text = "[F / Enter] 继续"
+	dialogue_hint.text = "继续"
 	dialogue_hint.show()
 	if dialogue_index == opening.choice_line:
-		dialogue_hint.text = "[← / →] 选择 · [F / Enter] 确认"
+		dialogue_hint.text = "选择后确认"
 		choice_row = HBoxContainer.new()
 		dialogue_panel.get_child(0).add_child(choice_row)
 		dialogue_panel.show()
@@ -225,7 +222,7 @@ func _update_line() -> void:
 		elif opening.stage in [opening.ROUTE, opening.AFTER]:
 			action = "接过热汤"
 	continue_button.text = action
-	dialogue_hint.text = "[F / Enter] " + action
+	dialogue_hint.text = action
 	dialogue_panel.show()
 
 func _answer(answer: String) -> void:

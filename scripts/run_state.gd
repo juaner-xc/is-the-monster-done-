@@ -5,7 +5,7 @@ const PERSIST_PROGRESS := false
 const CHAPTERS := [
 	{"id": "snow", "title": "第一章 · 雪原边境", "status": "available", "scene": "res://scenes/main.tscn", "debug_hint": "战斗 / 烤炉二阶段 / 炉芯剧情"},
 	{"id": "second", "title": "第二章 · 火山洞窟", "status": "available", "scene": "res://scenes/chapter2/volcano_cave.tscn", "debug_hint": "工坊剧情 / 战斗 / 三层平台"},
-	{"id": "third", "title": "第三章 · 终宴大厅", "status": "available", "scene": "res://scenes/final_banquet_hall.tscn", "debug_hint": "主核心决战 / 四个结局 / 补席解谜"},
+	{"id": "third", "title": "第三章 · 终宴大厅", "status": "available", "scene": "res://scenes/final_banquet_hall.tscn", "debug_hint": "长桌赴宴 / 主核心决战 / 无名料理"},
 ]
 
 
@@ -69,12 +69,20 @@ func claim_holiday_coins() -> bool:
 	if holiday_coins_claimed:
 		return false
 	holiday_coins_claimed = true
-	coins += 100
-	if save_progress() == OK:
+	if award_coins(100):
 		return true
-	coins -= 100
 	holiday_coins_claimed = false
 	return false
+
+
+func award_coins(amount: int) -> bool:
+	coins += amount
+	if save_progress() == OK:
+		return true
+	coins -= amount
+	return false
+
+
 ## 把火柴带回门房可获得旧食谱。
 var magic_recipe_received := false
 var snow_portrait_seen := false
@@ -102,6 +110,7 @@ func resolve_snow_core(use: String) -> bool:
 	return true
 
 
+var magic_progress := preload("res://scripts/magic_progress.gd").new()
 var cooking_inventory := FoodInventory.new()
 var guards: Array = []
 var cooking_journal: Array[String] = []
@@ -212,6 +221,7 @@ func save_progress() -> Error:
 	config.set_value("snow_story", "snowleaf_rack_claimed", snowleaf_rack_claimed)
 	config.set_value("snow_story", "holiday_coins_claimed", holiday_coins_claimed)
 	config.set_value("hero", "name", player_name)
+	config.set_value("hero", "magic_progress", magic_progress.to_data())
 	config.set_value("hero", "coins", coins)
 	config.set_value("cooking", "journal", cooking_journal)
 	config.set_value("cooking","ingredients",cooking_inventory.ingredients)
@@ -245,6 +255,8 @@ func load_progress() -> void:
 	var config := ConfigFile.new()
 	if config.load(progress_path) != OK:
 		return
+	var magic_data: Variant = config.get_value("hero", "magic_progress", {})
+	magic_progress.restore(magic_data if magic_data is Dictionary else {})
 	cooking_inventory.ingredients = config.get_value("cooking","ingredients",{})
 	cooking_inventory.dishes = config.get_value("cooking","dishes",{})
 	guards = config.get_value("cooking","guards",[])
@@ -275,6 +287,13 @@ func load_progress() -> void:
 	snow_town_lights_stage = clampi(int(config.get_value("snow_story", "town_lights_stage", 0)), 0, 4)
 	# 旧版火柴流程留下的道具仍可使用。
 	if not config.has_section_key("snow_story", "match_errand_stage"):
+		# 队友版曾把买火柴、播放短片和领食谱记在同一个字段里。
+		var old_stage := int(config.get_value("snow_story", "match_girl_stage", 0))
+		if old_stage > 0 or has_item("coins") or has_item("matches"):
+			ice_castle_keys_returned = true
+			snow_portrait_seen = true
+		if old_stage >= 3:
+			magic_recipe_received = true
 		if magic_recipe_received:
 			match_girl_stage = 3
 		elif has_item("matches"):
@@ -314,6 +333,7 @@ func load_progress() -> void:
 
 
 func reset_run() -> void:
+	magic_progress.restore({})
 	cooking_inventory.clear()
 	guards.clear()
 	cooking_journal.clear()

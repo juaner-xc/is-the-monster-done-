@@ -3,8 +3,9 @@ extends Node3D
 
 const INTERACT_RANGE := 3.2
 const MODEL_PATH := "res://assets/models/match_girl_nailong.glb"
-## 模型原始尺寸偏大（比玩家高约 4 倍），统一缩到正常 NPC 身高
-const MODEL_SCALE := 0.25
+## 身高约 1.58 米，略矮于 1.70 米的奶蛙。
+const MODEL_SCALE := 0.35
+const MODEL_FLOOR_LIFT := 0.028
 
 var _player_near := false
 var _prompt: Label3D
@@ -30,6 +31,7 @@ func _ready() -> void:
 		_body = (res as PackedScene).instantiate() as Node3D
 		if _body != null:
 			_body.scale = Vector3.ONE * MODEL_SCALE
+			_body.position.y = MODEL_FLOOR_LIFT
 			add_child(_body)
 	_build_prompt()
 	_build_ui()
@@ -47,9 +49,9 @@ func _ready() -> void:
 func _build_prompt() -> void:
 	_prompt = Label3D.new()
 	_prompt.text = "按 F 与卖火柴的小姑娘交谈"
-	_prompt.font_size = 48
-	_prompt.pixel_size = 0.012
-	_prompt.position = Vector3(0, 1.7, 0)
+	_prompt.font_size = 38
+	_prompt.pixel_size = 0.009
+	_prompt.position = Vector3(0, 1.86, 0)
 	_prompt.modulate = Color(1.0, 0.92, 0.78)
 	_prompt.visible = false
 	add_child(_prompt)

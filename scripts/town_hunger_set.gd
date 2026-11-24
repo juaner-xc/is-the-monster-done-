@@ -53,13 +53,6 @@ func _process(delta: float) -> void:
 	_eye.rotation.y = sin(_time * 0.91) * 0.55
 
 
-func set_overlook(active: bool) -> void:
-	_fire_light.visible = not active
-	_sparks.emitting = not active
-	_sparks.visible = not active
-	_gate.visible = not active
-
-
 func _build_town_gate_sign() -> void:
 	_gate = _group("TownGateSign", Vector3(-9.5, 0, 14.5), 0.15, self)
 	var wood := Color("53372f")

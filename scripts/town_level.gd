@@ -3,6 +3,8 @@ extends Node3D
 
 const TownHouseDoorScript = preload("res://scripts/town_house_door.gd")
 const HungerSet := preload("res://scripts/town_hunger_set.gd")
+const PERFORMANCE_STAGE := preload("res://scripts/town_performance_stage.gd")
+const PERFORMANCE_STAGE_POSITION := Vector3(19.8, 0.0, 11.15)
 
 # 小镇里所有带原生门的房屋（贴图 033~043，逐个四面实拍确认门所在面）。
 # town_house_door.gd 会把 GLB 自己的门面片裁成可旋转门板、挖出真门洞，
@@ -36,7 +38,7 @@ const SCALE_RATIO := TOWN_SCALE / SCALE_REFERENCE
 const TOWN_ANCHOR := Vector3(-111.0, -559.0, 734.0)
 const SPAWN_ANCHOR := Vector3(0.0, 0.0, 5.0)
 
-# 篝火广场里的居民。坐标相对篝火，yaw=0 时朝向食堂来路。
+# 常驻居民。坐标相对篝火，yaw=0 时朝向食堂来路。
 const RESIDENTS := [
 	{
 		"id": "cocoa", "name": "热可可太太",
@@ -81,6 +83,34 @@ const RESIDENTS := [
 			"雪停在半空的时候，别出声。",
 			"广场的灯我点了四十年。今年少了一盏。",
 		],
+	},
+	{
+		"id": "orange_lamplighter", "name": "橘灯匠",
+		"path": "res://scenes/npcs/residents/orange_lamplighter.tscn",
+		"height": 1.56, "sway": 0.012, "ambient": true,
+		"pos": Vector3(0.1, 0.0, -5.6), "yaw": PI,
+		"lines": ["今晚灯芯不够，我剥了个橘子来顶班。\n你闻，点着了还有点甜。"],
+	},
+	{
+		"id": "chestnut_locksmith", "name": "栗子锁匠",
+		"path": "res://scenes/npcs/residents/chestnut_locksmith.tscn",
+		"height": 1.37, "sway": 0.009, "ambient": true,
+		"pos": Vector3(8.3, 0.0, 8.7), "yaw": 0.8,
+		"lines": ["这把钥匙我锉了三年。\n门早让人拆去搭舞台了，钥匙倒还在。"],
+	},
+	{
+		"id": "waffle_courier", "name": "华夫饼邮差",
+		"path": "res://scenes/npcs/residents/waffle_courier.tscn",
+		"height": 1.65, "sway": 0.012, "ambient": true,
+		"pos": Vector3(-24.0, 0.0, 45.0), "yaw": 2.2,
+		"lines": ["风把门牌都吹掉了。\n我照着窗里的灯送信，至今只送错了一封。"],
+	},
+	{
+		"id": "mint_bellmaker", "name": "薄荷糖铃匠",
+		"path": "res://scenes/npcs/residents/mint_bellmaker.tscn",
+		"height": 1.42, "sway": 0.016, "ambient": true,
+		"pos": Vector3(-34.1, 0.0, 58.0), "yaw": -0.7,
+		"lines": ["你听见乐队背后那两声铃了吗？\n他们嫌它走调，我说那是风在唱。"],
 	},
 ]
 const RESIDENT_SCENE := preload("res://scenes/npcs/town_resident.tscn")
@@ -138,7 +168,6 @@ const TRANSPARENCY_SCISSOR := 2
 # 早期把整块换成纯白雪贴图，连棕土路也洗成灰色；改用 road_color.png：
 # 青蓝雪 -> 中性白雪，棕土路面/深灰路缘 -> 保留图片里的原色。
 const SNOW_GROUND_MESH := &"bb23ed9e-ac4f-449a-b2b8-c0c7ad930d37"
-const PLAZA_CHRISTMAS_TREE := &"4462ae35-93cc-4065-9a26-b232648763ba"
 
 # 小镇 GLB 的图集里青蓝雪像素占比不一，逐张挑会漏，故整体处理：
 # preview_asset/snow_white/ 下放同名白化版（只把青蓝雪像素转成中性白），
@@ -180,9 +209,6 @@ var _custom_tex_cache: Dictionary = {}
 # 在 _fix_walk 里按「原始贴图名」记下雪人网格名；运行时贴图是 ImageTexture，
 # 没有 resource_path，扶正阶段无法再靠贴图路径判断，故用这份名字集合。
 var _snowman_names: Dictionary = {}
-var _dining_overlook := false
-var _overlook_details: Array[MeshInstance3D] = []
-var _hunger_set: HungerSet
 var lights_errand: Node3D
 
 func build(model: Node3D, plaza_transform: Transform3D, plaza_walk: Array[Vector3]) -> void:
@@ -209,19 +235,20 @@ func build(model: Node3D, plaza_transform: Transform3D, plaza_walk: Array[Vector
 		var girl: Node3D = girl_scene.instantiate()
 		girl.position = Vector3(8.0, 0.0, 10.0)
 		add_child(girl)
+	var stage := PERFORMANCE_STAGE.new()
+	stage.name = "ChristmasPerformanceStage"
+	stage.position = PERFORMANCE_STAGE_POSITION
+	add_child(stage)
 	var plaza := Node3D.new()
 	plaza.name = "EntranceBonfireSquare"
 	plaza.transform = plaza_transform
 	add_child(plaza)
-	_hunger_set = HungerSet.new()
-	_hunger_set.name = "HungerTownProps"
-	_hunger_set.gate_walk = plaza_walk
-	plaza.add_child(_hunger_set)
+	var hunger_set := HungerSet.new()
+	hunger_set.name = "HungerTownProps"
+	hunger_set.gate_walk = plaza_walk
+	plaza.add_child(hunger_set)
 	_spawn_residents(plaza)
 
-	for part in find_children("*", "MeshInstance3D", true, false):
-		if part.visible and part.name != SNOW_GROUND_MESH and part.name != PLAZA_CHRISTMAS_TREE:
-			_overlook_details.append(part as MeshInstance3D)
 	lights_errand = preload("res://scripts/snow_town_lights.gd").new()
 	lights_errand.name = "ChristmasLightsErrand"
 	plaza.add_child(lights_errand)
@@ -253,19 +280,10 @@ func _spawn_residents(plaza: Node3D) -> void:
 		npc.target_height = float(data["height"])
 		npc.sway = float(data["sway"])
 		npc.dialogue = data["lines"]
+		npc.ambient_dialogue = data.get("ambient", false)
 		npc.position = data["pos"]
 		npc.rotation.y = float(data["yaw"])
 		plaza.add_child(npc)
-
-
-func set_dining_overlook(active: bool) -> void:
-	if active == _dining_overlook:
-		return
-	_dining_overlook = active
-	for part in _overlook_details:
-		part.visible = not active
-	_hunger_set.set_overlook(active)
-	lights_errand.set_overlook(active)
 
 
 func _set_plaza_surface(root: Node3D) -> void:

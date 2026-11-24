@@ -2,6 +2,8 @@ extends Node3D
 ## 雪原地表的道路、圣诞小镇和公共灶台。
 
 const TOWN_LEVEL := preload("res://scenes/town_level.tscn")
+const PATH_TEXTURE := preload("res://preview_asset/road_color.png")
+const PATH_SHADER := preload("res://assets/shaders/snow_surface.gdshader")
 const PassLandscape := preload("res://scripts/snow_pass_landscape.gd")
 const DINING_HALL := Vector3(10.65, 0, 0)
 # 圣诞树广场的中心对准肯德齐食堂正门。
@@ -16,7 +18,6 @@ const PASS_STOVE := PassLandscape.PASS + Vector3(9.5, 0, 34)
 const TOWN_STOVE := TOWN_CENTER + TOWN_BASIS * Vector3(3, 0, 14)
 const TOWN_JUNCTION := Vector3(21, 0, 32)
 const TOWN_ENTRANCE := Vector3(-2, 0, 73)
-const DINING_TOWN_SIGN := Vector3(8.0, 0, 14.0)
 const MAIN_PATH: Array[Vector3] = [
 	Vector3(15.6, 0, 15), Vector3(22, 0, 17), Vector3(30, 0, 15), Vector3(31, 0, 5), KEY,
 	Vector3(48, 0, -47), Vector3(72, 0, -65), Vector3(78, 0, -96),
@@ -45,6 +46,7 @@ var _town: Node3D
 var _map_board: Node3D
 var _bell_heard := false
 var _departure_bell_heard := false
+var _path_material: ShaderMaterial
 
 
 func lights_task_text() -> String:
@@ -68,12 +70,9 @@ func _ready() -> void:
 				for step in range(ceili(a.distance_to(b) / 6.0) + 1):
 					var spot := a.lerp(b, clampf(step * 6.0 / a.distance_to(b), 0.0, 1.0))
 					streamer.no_spawn_zones.append(Vector3(spot.x, spot.z, 4.8))
-	_make_path(MAIN_PATH, Color("8ea9bc"))
-	_make_path(PASS_PATH, Color("8ea9bc"))
+	_make_path(MAIN_PATH)
+	_make_path(PASS_PATH)
 	_sign(Vector3(29, 0, -17), "雪原礼堂 · 沿灯走")
-	_sign(TOWN_PATH[1] + Vector3(-2.2, 0, 0), "圣诞小镇")
-	_sign(DINING_TOWN_SIGN, "圣诞小镇 · 篝火广场")
-	_sign(TOWN_CENTER + TOWN_BASIS * Vector3(-1, 0, -7), "圣诞小镇广场 · 公共灶台")
 	_sign(TOWN_CENTER + TOWN_BASIS * Vector3(0, 0, 9), "雪原礼堂 · 沿这条巷子往回走")
 	_sign(Vector3(7, 0, -122), "山口 · 公共灶台")
 	_build_map_board()
@@ -103,10 +102,11 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(_game.player):
 		return
 	var p: Vector3 = _game.player.global_position
-	_town.set_dining_overlook(absf(p.x - DINING_HALL.x) < 24.0 and p.z > -16.0 and p.z < 22.0)
-	var town_offset := _town.to_local(p)
-	in_town = p.z > BONFIRE_SQUARE.z - 12.0 and town_offset.z > -51.0 and town_offset.z < 85.0 \
-		and town_offset.x > -58.0 and town_offset.x < 134.0
+	in_town = is_town_position(p)
+	if in_town and not _game.player.has_meta("snow_town_safe"):
+		_game.player.set_meta("snow_town_safe", true)
+	elif not in_town and _game.player.has_meta("snow_town_safe"):
+		_game.player.remove_meta("snow_town_safe")
 	var hall_distance := _horizontal_distance(p, HALL_DOOR)
 	if not _departure_bell_heard and RunState.match_girl_stage == 3 and hall_distance > 8.0 and hall_distance < 25.0:
 		_departure_bell_heard = true
@@ -117,6 +117,15 @@ func _process(_delta: float) -> void:
 			_bell_heard = true
 			_game.furnace_encounter.ring_route_bell()
 			_game.hud.show_notice("取餐铃 · 声音是从山脚传来的")
+
+func is_town_position(at: Vector3, margin := 0.0) -> bool:
+	var town_offset := TOWN_BASIS.inverse() * (at - TOWN_CENTER)
+	return (
+		at.z > BONFIRE_SQUARE.z - 12.0 - margin
+		and town_offset.z > -51.0 - margin and town_offset.z < 85.0 + margin
+		and town_offset.x > -58.0 - margin and town_offset.x < 134.0 + margin
+	)
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("interact") or event.is_echo() or get_tree().paused:
@@ -242,7 +251,7 @@ func _brick(parent: Node3D, at: Vector3, dimensions: Vector3, color: Color) -> v
 	brick.position = at
 	parent.add_child(brick)
 
-func _make_path(path: Array[Vector3], color: Color, width := 3.8) -> void:
+func _make_path(path: Array[Vector3], width := 3.8) -> void:
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var offsets: Array[Vector3] = []
@@ -253,19 +262,43 @@ func _make_path(path: Array[Vector3], color: Color, width := 3.8) -> void:
 		var direction := after if i < path.size() - 1 else before
 		var alignment := edge.dot(direction.cross(Vector3.UP))
 		offsets.append(edge * (width * 0.5 / maxf(alignment, 0.65)))
+	var distance_along := 0.0
 	for i in range(path.size() - 1):
 		var a := path[i] + Vector3.UP * 0.018
 		var b := path[i + 1] + Vector3.UP * 0.018
 		var left := offsets[i]
 		var right := offsets[i + 1]
-		for vertex in [a - left, b - right, a + left, a + left, b - right, b + right]:
-			surface.add_vertex(vertex)
+		var next_distance := distance_along + a.distance_to(b)
+		# The town atlas has snow on the left and earth on the right.
+		# Mirror its snowy edge across the lane, keeping earth in the centre.
+		var u_left := 0.43
+		var u_middle := 0.95
+		var v_start := distance_along / 6.0
+		var v_end := next_distance / 6.0
+		var vertices: Array[Vector3] = [
+			a - left, b - right, a, a, b - right, b,
+			a, b, a + left, a + left, b, b + right,
+		]
+		var uvs: Array[Vector2] = [
+			Vector2(u_left, v_start), Vector2(u_left, v_end), Vector2(u_middle, v_start),
+			Vector2(u_middle, v_start), Vector2(u_left, v_end), Vector2(u_middle, v_end),
+			Vector2(u_middle, v_start), Vector2(u_middle, v_end), Vector2(u_left, v_start),
+			Vector2(u_left, v_start), Vector2(u_middle, v_end), Vector2(u_left, v_end),
+		]
+		for j in vertices.size():
+			surface.set_uv(uvs[j])
+			surface.add_vertex(vertices[j])
+		distance_along = next_distance
 	surface.generate_normals()
 	var ribbon := MeshInstance3D.new()
 	ribbon.mesh = surface.commit()
-	var mat := _material(color)
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	ribbon.material_override = mat
+	if _path_material == null:
+		_path_material = ShaderMaterial.new()
+		_path_material.shader = PATH_SHADER
+		_path_material.set_shader_parameter("surface_texture", PATH_TEXTURE)
+		_path_material.set_shader_parameter("plaza", true)
+	ribbon.name = "TownStylePath"
+	ribbon.material_override = _path_material
 	ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ribbon)
 

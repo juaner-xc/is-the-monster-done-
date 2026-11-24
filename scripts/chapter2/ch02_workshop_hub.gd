@@ -13,6 +13,7 @@ const CameraScript = preload("res://scripts/third_person_camera.gd")
 const NpcScript = preload("res://scripts/chapter2/ch02_npc.gd")
 const DialogueScript = preload("res://scripts/chapter2/ch02_dialogue.gd")
 const LinesScript = preload("res://scripts/chapter2/ch02_lines.gd")
+const PropScript := preload("res://scripts/chapter2/ch02_prop.gd")
 
 const TITLE_SCENE := "res://scenes/front_end.tscn"
 
@@ -65,6 +66,8 @@ var _deck_stone: StandardMaterial3D
 
 var _furnace_light: OmniLight3D
 var _alarm_active := false
+var _dock_bell: Node3D
+var _dock_steam: Array[Node3D] = []
 var _alarm_time := 0.0
 
 var _prompt_panel: PanelContainer
@@ -89,6 +92,7 @@ var _taotao_body: Node3D
 ## 陶陶去工位的那段路：从餐车边走过去要穿营地、上中央大阶梯、再进台地 D，
 ## 全程 40 m 左右，所以用一个 tween 沿折线推，不能直接改 global_position。
 var _taotao_walk_tween: Tween
+var _taotao_conversation := false
 var _robot_prop: Node3D
 var _after_stuck := false
 var _after_rest := false
@@ -114,7 +118,9 @@ func _ready() -> void:
 		_build_living_space()
 		_build_cottages()
 		_build_garden()
+		_build_loading_dock()
 		_build_residents()
+		_build_living_props()
 		_build_taotao()
 		_build_machine()
 		_build_dialogue()
@@ -123,7 +129,9 @@ func _ready() -> void:
 	_build_room()
 	_build_pipes()
 	_build_living_space()
+	_build_loading_dock()
 	_build_residents()
+	_build_living_props()
 	_build_taotao()
 	_build_machine()
 	_build_furnace_backdrop()
@@ -325,7 +333,7 @@ func _build_room() -> void:
 # ------------------------------------------------------------------ 洞窟内的地台
 ## 停靠模式：不建墙、不建顶，只在洞窟地面之上抬起一块地台，三面栅栏 + 东侧闸门
 func _build_deck() -> void:
-	# 地台本体（椭圆台面、台基、13 条碰撞切片、东侧两面石墙）已预制体化，
+	# 地台本体（椭圆台面、连续碰撞、东侧两面石墙）已预制体化，
 	# 见 scenes/chapter2/deck/hub_deck.tscn；尺寸口径仍由 DECK_* 常量负责。
 	var deck: Node3D = preload("res://scenes/chapter2/deck/hub_deck.tscn").instantiate()
 	add_child(deck)
@@ -442,20 +450,177 @@ func _build_center_pipe() -> void:
 	_add_omni(Vector3(2.0, y + 0.4, z), Color(1.0, 0.56, 0.24), 1.8, 20.0)
 
 
+## 东墙那组：卸货台、吊臂和铃、翻倒的货车、翻上来的白汽，以及一户人家的楼梯。
+## 初见那场戏里「铃响 — 车撞 — 白汽罩住路和楼梯」都发生在这里，玩家在餐车边回头就能看见。
+func _build_loading_dock() -> void:
+	# 位置是按顶视图挑的：台地东南角一块空地，从餐车边转头就能看见，
+	# 又不压住往东门去的那条路。
+	var base := Vector3(20.0, 0.0, 5.0)
+	# 卸货台本体：一段抬起来的石台，上面垫一块卸下来的铁板
+	_solid_box(Vector3(4.4, 0.9, 2.6), base + Vector3(0.0, 0.45, 0.0), _stone)
+	_solid_box(Vector3(1.1, 0.06, 2.2), base + Vector3(-1.4, 0.93, 0.1), _metal)
+	# 吊臂：一根立柱撑起悬臂，铃挂在臂端，正好在人的高度上
+	_add_box_part(self, Vector3(0.24, 2.4, 0.24), base + Vector3(1.9, 2.15, -1.1), _metal)
+	_add_box_part(self, Vector3(3.0, 0.16, 0.18), base + Vector3(0.42, 3.3, -1.1), _metal)
+	_add_box_part(self, Vector3(0.14, 0.9, 0.14), base + Vector3(1.6, 2.85, -0.72), _metal).rotation.x = 0.9
+	_add_mesh_part(self, _cylinder(0.02, 0.9), base + Vector3(-0.95, 2.85, -1.1), _metal)
+	var bell_mesh := CylinderMesh.new()
+	bell_mesh.top_radius = 0.05
+	bell_mesh.bottom_radius = 0.19
+	bell_mesh.height = 0.34
+	bell_mesh.radial_segments = 12
+	_dock_bell = Node3D.new()
+	_dock_bell.name = "DockBell"
+	_dock_bell.position = base + Vector3(-0.95, 2.2, -1.1)
+	add_child(_dock_bell)
+	_add_mesh_part(_dock_bell, bell_mesh, Vector3.ZERO, _metal)
+	var clapper := SphereMesh.new()
+	clapper.radius = 0.05
+	clapper.height = 0.1
+	_add_mesh_part(_dock_bell, clapper, Vector3(0.0, -0.2, 0.0), _wood)
+	_add_omni(base + Vector3(-0.9, 2.2, -1.6), Color(1.0, 0.82, 0.55), 1.1, 9.0)
+	for crate in [Vector3(-1.1, 1.16, 0.55), Vector3(0.35, 1.08, 0.72), Vector3(1.2, 1.02, -0.35)]:
+		var box := _add_box_part(self, Vector3(0.7, 0.5, 0.55), base + crate, _wood)
+		box.rotation.y = crate.z * 0.9
+	var chute := _add_box_part(self, Vector3(1.2, 0.1, 2.4), base + Vector3(2.7, 0.55, 0.2), _metal)
+	chute.rotation.z = 0.42
+	_add_prop("dock_bell", self, base + Vector3(-0.95, 2.2, -0.95),
+			"按 [F] 看看那只卸货铃", 3.0)
+
+	# 翻倒的货车：从东门那侧滑进来，歪在台边，车斗朝上
+	var wreck := Node3D.new()
+	wreck.name = "DockWreck"
+	wreck.position = Vector3(17.2, 0.0, 8.0)
+	wreck.rotation.y = 0.72
+	add_child(wreck)
+	var wreck_body := _add_box_part(wreck, Vector3(2.3, 1.15, 1.15), Vector3(0.0, 0.62, 0.0), _metal)
+	wreck_body.rotation.z = 0.17
+	for sx in [-0.75, 0.75]:
+		for sz in [-0.44, 0.44]:
+			var wheel := CylinderMesh.new()
+			wheel.top_radius = 0.27
+			wheel.bottom_radius = 0.27
+			wheel.height = 0.12
+			var wheel_node := _add_mesh_part(wreck, wheel, Vector3(sx, 0.3, sz), _metal)
+			wheel_node.rotation.z = PI * 0.5
+	_add_prop("dock_wreck", self, Vector3(17.2, 0.7, 8.0),
+			"按 [F] 看看翻倒的货车", 3.0)
+	for spot in [Vector3(15.6, 0.14, 7.0), Vector3(15.9, 0.10, 9.2), Vector3(18.9, 0.16, 9.6)]:
+		var junk := _add_box_part(self, Vector3(0.45, 0.28, 0.38), spot, _metal)
+		junk.rotation.y = spot.x * 1.7
+
+	# 白汽：先藏着，撞车那一刻再翻上来
+	# 白汽用软边贴片：球体一眼就像肥皂泡，贴片才像汽
+	var soft := Gradient.new()
+	soft.set_color(0, Color(1.0, 1.0, 1.0, 0.62))
+	soft.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
+	var cloud_tex := GradientTexture2D.new()
+	cloud_tex.gradient = soft
+	cloud_tex.fill = GradientTexture2D.FILL_RADIAL
+	cloud_tex.fill_from = Vector2(0.5, 0.5)
+	cloud_tex.fill_to = Vector2(1.0, 0.5)
+	cloud_tex.width = 96
+	cloud_tex.height = 96
+	var steam_mat := StandardMaterial3D.new()
+	steam_mat.albedo_texture = cloud_tex
+	steam_mat.albedo_color = Color(0.95, 0.96, 0.98, 0.5)
+	steam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	steam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	steam_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	steam_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	steam_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	steam_mat.no_depth_test = false
+	var clouds := [
+		[Vector3(21.8, 1.3, 3.2), 2.4],
+		[Vector3(19.0, 1.8, 9.2), 2.8],
+		[Vector3(23.2, 2.3, 6.4), 2.1],
+		[Vector3(16.6, 1.1, 4.6), 1.9],
+		[Vector3(24.2, 0.8, 1.4), 1.9],
+	]
+	for item in clouds:
+		var quad := QuadMesh.new()
+		quad.size = Vector2(2.6, 2.6)
+		var puff := _add_mesh_part(self, quad, item[0], steam_mat)
+		puff.name = "DockSteam"
+		puff.scale = Vector3.ONE * float(item[1])
+		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		puff.visible = false
+		_dock_steam.append(puff)
+
+	# 一户人家的楼梯：贴着边上那间小屋的南墙翻上去，梯口一扇门，灯还亮着
+	var stair_x := 16.2
+	for i in 6:
+		var step_h := 0.3 * float(i + 1)
+		_solid_box(Vector3(1.5, step_h, 0.36),
+				Vector3(stair_x, step_h * 0.5, 0.9 - 0.36 * float(i)), _stone)
+	_solid_box(Vector3(1.9, 0.24, 1.1), Vector3(stair_x, 1.86, -1.4), _stone)
+	for dx in [-0.85, 0.85]:
+		_add_box_part(self, Vector3(0.16, 2.3, 0.2), Vector3(stair_x + dx, 2.98, -1.95), _wood)
+	_add_box_part(self, Vector3(1.9, 0.18, 0.22), Vector3(stair_x, 4.05, -1.95), _wood)
+	_solid_box(Vector3(1.7, 2.2, 0.14), Vector3(stair_x, 3.0, -2.1), _wood)
+	_add_omni(Vector3(stair_x, 3.1, -1.6), Color(1.0, 0.74, 0.45), 1.6, 8.0)
+	_add_prop("house_stair", self, Vector3(stair_x, 1.0, 0.2),
+			"按 [F] 看看这段楼梯", 3.2)
+
+	# 小孩在梯口，他妈在楼上——台词里那句「我妈下不来」得有人
+	var kid: Variant = _make_npc("kid", "小孩", Vector3(stair_x + 0.9, 0.0, 1.6),
+			Color("d8b08a"), Color("6f7d9a"), 0.0)
+	if kid != null:
+		kid.scale = Vector3(0.62, 0.66, 0.62)
+		_add_capsule_collider(kid, 0.3, 1.2, Vector3(0, 0.6, 0))
+	var mother: Variant = _make_npc("mother", "楼上的人", Vector3(stair_x, 1.98, -1.2),
+			Color("c9a583"), Color("7a5b8f"), PI)
+	if mother != null:
+		_add_capsule_collider(mother, 0.35, 1.75, Vector3(0, 0.875, 0))
+
+
+func _cylinder(radius: float, height: float) -> CylinderMesh:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 10
+	return mesh
+
+
+## 铃响：晃两下就停。撞车那一下用它交代「刚才那声是这儿来的」。
+func _ring_dock_bell() -> void:
+	if _dock_bell == null or not is_instance_valid(_dock_bell):
+		return
+	var tween := create_tween()
+	tween.tween_property(_dock_bell, "rotation:z", 0.34, 0.16)
+	tween.tween_property(_dock_bell, "rotation:z", -0.28, 0.18)
+	tween.tween_property(_dock_bell, "rotation:z", 0.18, 0.16)
+	tween.tween_property(_dock_bell, "rotation:z", 0.0, 0.2)
+
+
+## 撞车之后白汽翻上来：只挡视线，不挡路（这几团没有碰撞体）。
+func _show_dock_steam() -> void:
+	for puff in _dock_steam:
+		if puff == null or not is_instance_valid(puff):
+			continue
+		puff.visible = true
+		var tween := create_tween()
+		tween.set_loops()
+		tween.tween_property(puff, "scale", puff.scale * 1.08, 6.0)
+		tween.parallel().tween_property(puff, "position:y", puff.position.y + 0.35, 6.0)
+
+
 ## 生活区点缀：地毯、长凳、货箱/桶、盆栽、餐车遮棚。
 func _build_living_decor() -> void:
 	# 陶陶/餐车脚下的深色地毯
 	var rug_mat := StandardMaterial3D.new()
-	rug_mat.albedo_color = Color(0.24, 0.08, 0.05)
+	rug_mat.albedo_color = Color(0.36, 0.13, 0.08)
 	rug_mat.roughness = 0.95
 	var rug := CylinderMesh.new()
 	rug.top_radius = 3.8
 	rug.bottom_radius = 3.8
-	rug.height = 0.035
+	rug.height = 0.012
 	rug.radial_segments = 32
 	var rug_node := MeshInstance3D.new()
 	rug_node.mesh = rug
-	rug_node.position = Vector3(3.2, 0.605, 4.0)
+	rug_node.name = "TaoTaoRug"
+	rug_node.position = Vector3(3.2, 0.008 + _living_floor_offset(), 4.0)
 	rug_node.material_override = rug_mat
 	add_child(rug_node)
 
@@ -542,52 +707,245 @@ func _build_cottage_props() -> void:
 	# 盆栽：金属和岩石里唯一的活物，压一压「全是机器」的观感
 	_place_model("plant.glb", to_global(Vector3(-16.8, 0.0, 8.8)), 1.1, 0.0)
 	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-16.8, 0.7, 8.8))
-	_place_model("plant.glb", to_global(Vector3(16.6, 0.0, 0.6)), 0.9, 1.2)
-	_add_cylinder_collider(self, 0.3, 1.4, Vector3(16.6, 0.7, 0.6))
+	_place_model("plant.glb", to_global(Vector3(14.3, 0.0, 1.9)), 0.9, 1.2)
+	_add_cylinder_collider(self, 0.3, 1.4, Vector3(14.3, 0.7, 1.9))
 	_place_model("plant.glb", to_global(Vector3(-10.8, 0.0, -8.6)), 1.3, 2.4)
 	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-10.8, 0.7, -8.6))
 
 
-func _build_residents() -> void:
-	# 居民全部贴着「有人生活的那几处」站：火盆边、帐篷口、石屋门口、梯口。
-	var pair_a: Variant = _make_npc("resident_pair_a", "居民", Vector3(-10.5, 0, 10.8),
-			Color("8a9a7c"), Color("b8613f"), 0.2)
-	_add_capsule_collider(pair_a, 0.35, 1.75, Vector3(0, 0.875, 0))
-	var pair_b: Variant = _make_npc("resident_pair_b", "居民", Vector3(-12.0, 0, 11.5),
-			Color("9a8f7a"), Color("6a7f9a"), -0.4)
-	_add_capsule_collider(pair_b, 0.35, 1.75, Vector3(0, 0.875, 0))
-	if pair_a != null and pair_b != null:
-		pair_a.face_target = pair_b
-		pair_b.face_target = pair_a
+func _living_floor_offset() -> float:
+	return 0.06 if docked else 0.0
 
-	_add_capsule_collider(_make_npc("resident_pipe", "居民", Vector3(-13.5, 0, -1.0), Color("7c7a86"), Color("9a5b3f"), PI),
-			0.35, 1.75, Vector3(0, 0.875, 0))
-	_add_capsule_collider(_make_npc("resident_queue", "居民", Vector3(10.8, 0, 0.5), Color("87907a"), Color("c9764a"), -1.1),
-			0.35, 1.75, Vector3(0, 0.875, 0))
-	_add_capsule_collider(_make_npc("resident_tent", "居民", Vector3(-12.0, 0, -10.5), Color("8f8271"), Color("7a5b8f"), 1.4),
-			0.35, 1.75, Vector3(0, 0.875, 0))
+
+func _build_residents() -> void:
+	var pair_a := _make_resident("resident_pair_a", "南瓜面包", Vector3(-10.5, 0, 10.8), 0.2,
+			preload("res://assets/chapter2/models/food_residents/pumpkin_bread.glb"))
+	var pair_b := _make_resident("resident_pair_b", "芝麻饭团", Vector3(-12.0, 0, 11.5), -0.4,
+			preload("res://assets/chapter2/models/food_residents/sesame_rice_ball.glb"))
+	pair_a.face_target = pair_b
+	pair_b.face_target = pair_a
+	_make_resident("resident_pipe", "烤红薯", Vector3(-13.5, 0, -1.0), PI,
+			preload("res://assets/chapter2/models/food_residents/roast_sweet_potato.glb"))
+	var queue_front := _make_resident("resident_queue", "肉桂卷", Vector3(6.4, 0, 4.4), 0.98,
+			preload("res://assets/chapter2/models/food_residents/cinnamon_roll.glb"))
+	var queue_middle := _make_resident("resident_queue_b", "老饭团", Vector3(7.3, 0, 5.7), 0.81,
+			preload("res://assets/chapter2/models/food_residents/sesame_rice_ball.glb"))
+	var queue_end := _make_resident("resident_queue_c", "南瓜面包", Vector3(8.2, 0, 7.0), 0.75,
+			preload("res://assets/chapter2/models/food_residents/pumpkin_bread.glb"))
+	for resident in [queue_front, queue_middle, queue_end]:
+		resident.face_target = null
+		_add_hand_bowl(resident)
+	_make_resident("resident_tent", "葱花包", Vector3(-12.0, 0, -10.5), 1.4,
+			preload("res://assets/chapter2/models/food_residents/scallion_bun.glb"))
+
+
+func _make_resident(key: String, label: String, pos: Vector3, yaw: float,
+		model: PackedScene) -> Ch02Npc:
+	pos.y = _living_floor_offset()
+	var resident := _make_npc(key, label, pos, Color.WHITE, Color.WHITE, yaw, "resident", model)
+	_add_capsule_collider(resident, 0.39, 1.47, Vector3(0, 0.735, 0))
+	return resident
+
+	# 排队区的地面标记：队伍从这儿排起
+	var mat := Node3D.new()
+	mat.name = "QueueLine"
+	mat.position = Vector3(7.2, 0.03, 5.6)
+	add_child(mat)
+	_add_box_part(mat, Vector3(0.12, 0.02, 4.4), Vector3.ZERO, _wood).rotation.y = 0.52
+
+
+## 排队的人手里那只碗：一个搪瓷碗加一道把手，让人一眼看出「在等饭」
+func _add_hand_bowl(npc: Node3D) -> void:
+	var bowl := CylinderMesh.new()
+	bowl.top_radius = 0.13
+	bowl.bottom_radius = 0.09
+	bowl.height = 0.11
+	bowl.radial_segments = 12
+	var node := MeshInstance3D.new()
+	node.name = "HandBowl"
+	node.mesh = bowl
+	var white := StandardMaterial3D.new()
+	white.albedo_color = Color(0.82, 0.79, 0.70)
+	white.roughness = 0.7
+	node.material_override = white
+	node.position = Vector3(0.2, 0.86, -0.24)
+	npc.add_child(node)
+
+
+## 生活区里的三件「台词点了名」的公用物：长凳、校印木箱、通话管。
+func _build_living_props() -> void:
+	# 长凳：火盆边上那条，谁都能坐
+	var bench := Node3D.new()
+	bench.name = "Bench"
+	bench.position = Vector3(-11.6, _living_floor_offset(), 9.4)
+	bench.rotation.y = 0.32
+	add_child(bench)
+	_add_box_part(bench, Vector3(2.2, 0.1, 0.45), Vector3(0, 0.46, 0), _wood)
+	for dx in [-0.9, 0.9]:
+		_add_box_part(bench, Vector3(0.12, 0.44, 0.38), Vector3(dx, 0.22, 0), _wood)
+	_add_box_part(bench, Vector3(0.5, 0.06, 0.34), Vector3(-0.55, 0.54, 0), _metal)
+	_add_prop("bench", bench, Vector3(0, 0.62, 0), "按 [F] 看看这条长凳", 2.8)
+
+	# 校印木箱：侧板上压着一个圆印，和礼堂货签上那个是同一个
+	var crate := Node3D.new()
+	crate.name = "StampCrate"
+	crate.position = Vector3(3.4, _living_floor_offset(), 2.2)
+	crate.rotation.y = -0.55
+	add_child(crate)
+	var crate_mat := StandardMaterial3D.new()
+	crate_mat.albedo_color = Color(0.68, 0.52, 0.34)
+	crate_mat.roughness = 0.95
+	_add_box_part(crate, Vector3(0.78, 0.66, 0.7), Vector3(0, 0.33, 0), crate_mat)
+	_add_omni(Vector3(3.4, 1.9, 2.9), Color(1.0, 0.78, 0.5), 2.0, 6.5)
+	_add_box_part(crate, Vector3(0.84, 0.06, 0.76), Vector3(0, 0.68, 0), _metal)
+	var stamp := CylinderMesh.new()
+	stamp.top_radius = 0.21
+	stamp.bottom_radius = 0.21
+	stamp.height = 0.02
+	var mark := _add_mesh_part(crate, stamp, Vector3(0.0, 0.44, 0.355), _metal)
+	mark.rotation.x = PI * 0.5
+	_add_prop("stamp_crate", crate, Vector3(0, 0.4, 0.4), "按 [F] 看看校印木箱", 2.8)
+
+	# 通话管：垂管上分出来的一截黄铜管，管口朝着人
+	var tube := Node3D.new()
+	tube.name = "SpeakingTube"
+	tube.position = Vector3(-12.0, 1.25, -1.0)
+	add_child(tube)
+	# 管子一直通到头顶那根运输管上，而不是悬在半空
+	_add_mesh_part(tube, _cylinder(0.05, 5.0), Vector3(0, 2.5, 0), _metal)
+	var mouth := CylinderMesh.new()
+	mouth.top_radius = 0.16
+	mouth.bottom_radius = 0.07
+	mouth.height = 0.2
+	var horn := _add_mesh_part(tube, mouth, Vector3(0, 1.55, 0.14), _metal)
+	horn.rotation.x = -1.15
+	_add_prop("speaking_tube", tube, Vector3(0, 1.5, 0.3), "按 [F] 看看通话管", 2.6)
 
 
 func _build_taotao() -> void:
 	# 陶陶 + 餐车摆在中轴偏南：玩家从隧道下来往北走，第一眼就看见她。
 	# 她面朝南（yaw=PI），是迎着进场方向站的 —— 原来正面朝北，看见的是后脑勺。
-	_taotao = _make_npc("taotao", "陶陶", Vector3(2.0, 0, 4.0),
+	_taotao = _make_npc("taotao", "陶陶", Vector3(2.0, _living_floor_offset(), 4.0),
 			Color("eae2d0"), Color("e08a3c"), PI, "taotao")
 	if _taotao != null:
 		_taotao.interact_range = 3.2
 
 	var cart := preload("res://scenes/chapter2/taotao_food_cart.tscn").instantiate() as Node3D
-	cart.position = Vector3(5.2, 0, 3.2)
+	cart.position = Vector3(5.2, _living_floor_offset(), 3.2)
 	cart.rotation.y = -0.55
 	add_child(cart)
 	_add_box_collider(cart, Vector3(1.7, 1.05, 0.95), Vector3(0, 0.7, 0))
 	_add_omni(Vector3(5.1, 2.4, 3.0), Color(1.0, 0.7, 0.4), 2.6, 12.0)
+	_build_cart_props(cart)
+
+
+## 车上的那几件东西：掀开的车盖（内侧是地图）、挂着的三个锅盖、带扣的饭盒、小锅。
+## 台词点了名，玩家就得能在车上找到它们——这是「初见」这一场成立的前提。
+func _build_cart_props(cart: Node3D) -> void:
+	var paper := StandardMaterial3D.new()
+	paper.albedo_color = Color(0.56, 0.50, 0.39)
+	paper.roughness = 0.95
+
+	var ink := StandardMaterial3D.new()
+	ink.albedo_color = Color(0.20, 0.15, 0.11)
+	ink.roughness = 0.85
+
+	# ---- 车盖：半扇旧烤炉门，铰链在车尾，掀到几乎立起来
+	# 铰链点就是 Ch02Prop 的原点：子节点的坐标都相对它算，别再叠加一次高度
+	var lid := _add_prop("cart_lid", cart, Vector3(0.0, 1.34, -0.51),
+			"按 [F] 看看掀开的车盖", 3.2)
+	var pivot := Node3D.new()
+	pivot.name = "CartLidPivot"
+	pivot.rotation.x = -1.70
+	lid.add_child(pivot)
+	# 旧烤炉门：锈铁色，比金属亮一点，否则在暗处读不出是一扇门
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.42, 0.33, 0.27)
+	iron.roughness = 0.9
+	iron.metallic = 0.35
+	_add_box_part(pivot, Vector3(1.84, 0.06, 1.04), Vector3(0.0, 0.0, 0.52), iron)
+	# 内侧：一块熏黄的旧铁板，地图就摊在这上面（比门小一圈，留出铁边）
+	_add_box_part(pivot, Vector3(1.56, 0.014, 0.78), Vector3(0.0, -0.040, 0.54), paper)
+	# 地图：一条从坡口往东的虚线，划到纸边就断了；沿线三个记号
+	var path := [Vector2(-0.62, 0.30), Vector2(-0.24, 0.52), Vector2(0.16, 0.44),
+			Vector2(0.50, 0.62), Vector2(0.78, 0.60)]
+	for i in range(path.size() - 1):
+		var a: Vector2 = path[i]
+		var b: Vector2 = path[i + 1]
+		var dir := (b - a).normalized()
+		var seg_len := (b - a).length() * 0.74
+		var mid := (a + b) * 0.5
+		var seg := _add_box_part(pivot, Vector3(seg_len, 0.006, 0.014),
+				Vector3(mid.x, -0.052, mid.y), ink)
+		seg.rotation.y = -atan2(dir.y, dir.x)
+	# 划出纸边的那一下：断在右边缘外
+	_add_box_part(pivot, Vector3(0.18, 0.006, 0.014),
+			Vector3(0.84, -0.052, 0.60), ink)
+	# 三个地名：压出来的小方片
+	for spot in [Vector2(-0.60, 0.28), Vector2(0.16, 0.44), Vector2(0.50, 0.62)]:
+		_add_box_part(pivot, Vector3(0.075, 0.008, 0.075),
+				Vector3(spot.x, -0.052, spot.y), ink)
+	# 最远处圈了一笔：那是这图上唯一一处被人反复描过的地方
+	var ring := CylinderMesh.new()
+	ring.top_radius = 0.085
+	ring.bottom_radius = 0.085
+	ring.height = 0.006
+	ring.radial_segments = 16
+	var ring_node := _add_mesh_part(pivot, ring, Vector3(0.78, -0.052, 0.60), ink)
+	ring_node.rotation.z = 0.0
+
+	# ---- 锅盖：三个，一个比一个小，都盖不上玩家那口锅
+	for i in 3:
+		var radius := 0.30 - float(i) * 0.055
+		var disc := CylinderMesh.new()
+		disc.top_radius = radius
+		disc.bottom_radius = radius * 0.93
+		disc.height = 0.032
+		disc.radial_segments = 18
+		# 挂在车头正面：玩家从坡口过来第一眼就能看见它们
+		var at := Vector3(-0.56 + float(i) * 0.56, 0.92, 0.575)
+		var node := _add_mesh_part(cart, disc, at, _metal)
+		node.rotation.x = PI * 0.5
+		node.rotation.z = float(i) * 0.28 - 0.2
+		var knob := CylinderMesh.new()
+		knob.top_radius = 0.035
+		knob.bottom_radius = 0.035
+		knob.height = 0.06
+		_add_mesh_part(cart, knob, at + Vector3(0.0, 0.0, 0.05), _wood)
+	var lids := _add_prop("pot_lids", cart, Vector3(0.0, 0.95, 0.62),
+			"按 [F] 看看挂着的锅盖", 2.6)
+
+	# ---- 饭盒：带扣的铝盒，放在地图边上
+	var lunch := _add_prop("lunch_box", cart, Vector3(0.44, 1.40, 0.12),
+			"按 [F] 拿起饭盒", 2.4, "ch02.lunch_taken")
+	_add_box_part(lunch, Vector3(0.24, 0.12, 0.16), Vector3.ZERO, _metal)
+	_add_box_part(lunch, Vector3(0.26, 0.022, 0.175), Vector3(0.0, 0.070, 0.0), _metal)
+	_add_box_part(lunch, Vector3(0.026, 0.05, 0.02), Vector3(0.0, 0.052, 0.088), _metal)
+
+	# ---- 车上的小锅（台词里的「灶」就是它）
+	_add_prop("cart_pot", cart, Vector3(-0.35, 1.54, 0.0),
+			"按 [F] 看看锅里的汤", 2.2)
+
+
+## 通用「看一眼」的物件：Ch02Prop 只当容器，网格塞成子节点。
+func _add_prop(key: String, parent: Node3D, pos: Vector3, prompt: String,
+		range_value := 2.6, flag := "") -> Node:
+	var prop: Node = PropScript.new()
+	prop.name = "Prop_" + key
+	prop.position = pos
+	prop.set("prop_key", key)
+	prop.set("prompt_text", prompt)
+	prop.set("interact_range", range_value)
+	if not flag.is_empty():
+		prop.set("flag_key", flag)
+	parent.add_child(prop)
+	return prop
 
 
 func _build_machine() -> void:
 	# 机器人原来站在轴线正中（2, 1.9），把营地唯一的一条通道堵住了。
 	# 挪到菜畦南边，面朝西 —— 它是「在自家门口晒太阳的旧家电」。
-	var seat := Vector3(9.0, 0.0, 2.6)
+	var seat := Vector3(9.0, _living_floor_offset(), 2.6)
 	_machine = _make_npc("machine", "退休料理机械", seat,
 			Color("6b6862"), Color("6b6862"), -1.7, "machine")
 	if _machine == null:
@@ -665,7 +1023,7 @@ func _apply_face_targets() -> void:
 
 
 func _make_npc(key: String, label: String, pos: Vector3, color: Color, apron: Color,
-		yaw: float, kind := "resident") -> Variant:
+		yaw: float, kind := "resident", model: PackedScene = null) -> Ch02Npc:
 	var npc := NpcScript.new()
 	npc.name = "Npc_" + key
 	npc.line_key = key
@@ -674,8 +1032,8 @@ func _make_npc(key: String, label: String, pos: Vector3, color: Color, apron: Co
 	npc.apron_color = apron
 	# body_kind 必须在上树之前定好：外观是在 _ready 里一次性搭出来的
 	npc.body_kind = kind
-	# 居民和机器人整体放大一档，站在奶龙旁边不再像矮一截
-	npc.scale = Vector3.ONE * (1.28 if kind == "resident" else 1.12)
+	npc.food_model = model
+	npc.scale = Vector3.ONE * 1.12
 	# 洞穴里环境光比独立场景亮得多，角色反照率要跟着压下去
 	if docked:
 		npc.set_meta("albedo_scale", 0.42)
@@ -696,7 +1054,10 @@ func _on_npc_talk(npc: Node) -> void:
 		_start_dialogue(LinesScript.taotao_after_rest(), "", key)
 		return
 	if key == "taotao" and bool(Ch02State.get_flag("met_taotao", false)):
-		_start_dialogue(LinesScript.taotao_briefing(), "", key)
+		if bool(Ch02State.get_flag("ch02.briefed", false)):
+			_start_dialogue(LinesScript.taotao_reminder(), "", key)
+		else:
+			_start_dialogue(LinesScript.taotao_briefing(), "ch02.briefed", key)
 		return
 	match key:
 		"taotao":
@@ -704,15 +1065,38 @@ func _on_npc_talk(npc: Node) -> void:
 		"machine":
 			_start_dialogue(LinesScript.machine(), "", key)
 		_:
-			_start_dialogue(LinesScript.resident(key), "", key)
+			var lines := LinesScript.resident(key)
+			for line in lines:
+				line["who"] = npc.display_name
+			_start_dialogue(lines, "", key)
 
 
 ## talk_key 记下这段对话是跟谁说的：只有跟陶陶说完，她才起身去工位。
 ## 和居民、旧机械说完话把她支走，读起来像 bug。
+func is_story_ui_open() -> bool:
+	return (dialogue != null and dialogue.is_playing()) or (_choice != null and _choice.is_open()) \
+			or (get_node_or_null("AfterBossChoice") != null and get_node("AfterBossChoice").is_open())
+
+
+func get_taotao_conversation_target() -> Node3D:
+	if _taotao_conversation and dialogue != null and dialogue.is_playing():
+		return player
+	return null
+
+
 func _start_dialogue(lines: Array, flag: String, talk_key := "") -> void:
+	# 上一段还没读完就来了新的一段（比如战前通话管没关就进了 Boss 战）：
+	# 先把旧的收掉，否则 play() 会因为「正在播」直接返回，新的一段永远出不来。
+	if dialogue.is_playing():
+		# 悄悄收掉：不能让 finished 信号跑一遍收尾逻辑（会提前写章节完成、弹善后选择）
+		dialogue.set_block_signals(true)
+		dialogue.stop()
+		dialogue.set_block_signals(false)
+	_taotao_conversation = talk_key == "taotao" or lines.any(
+			func(line: Dictionary) -> bool: return line.get("who") == "陶陶")
 	_pending_flag = flag
 	_talk_key = talk_key
-	dialogue.play(lines)
+	dialogue.play(lines, player.get_parent().get_node_or_null("TaoTao") as Node3D if player != null and docked and _taotao_conversation else null, player)
 
 
 func _on_dialogue_started() -> void:
@@ -728,6 +1112,7 @@ func _on_dialogue_started() -> void:
 
 
 func _on_dialogue_finished() -> void:
+	_taotao_conversation = false
 	if player != null:
 		player.movement_locked = false
 	if game_camera != null:
@@ -780,10 +1165,44 @@ func _announce(text: String) -> void:
 
 
 func _on_line_shown(_index: int, line: Dictionary) -> void:
-	if String(line.get("fx", "")) == "alarm":
+	var fx := String(line.get("fx", ""))
+	if fx == "alarm":
 		_alarm_active = true
+		# 撞车：先响铃，白汽再翻上来（只挡视线，不挡路）
+		_ring_dock_bell()
+		_show_dock_steam()
+		# 新流程：这句旁白就是「车撞了」。写旗标，任务卡从「跟陶陶去最后一户」切到清运输线
+		Ch02State.set_flag("ch02.crash", true)
 		if not docked:
 			_show_notice("运输站分流阀损坏。先去关闭三处喷气阀。")
+		return
+	if fx == "map":
+		# 摊开地图只把小图亮出来，不抢全屏：玩家还在对话里
+		var host := _host_node()
+		if host != null and host.has_method("_ch02_reveal_map"):
+			host.call("_ch02_reveal_map")
+		return
+	if fx == "quest":
+		var host3 := _host_node()
+		if host3 != null and host3.has_method("_ch02_flash_objective"):
+			host3.call("_ch02_flash_objective")
+		return
+	if fx == "bell":
+		_ring_dock_bell()
+		var host2 := _host_node()
+		if host2 != null and host2.has_method("_ch02_note_bell"):
+			host2.call("_ch02_note_bell")
+		return
+
+
+## 往上找火山洞窟宿主（docked 模式时对话层挂在生活区里）
+func _host_node() -> Node:
+	var host := get_parent()
+	while host != null:
+		if host.has_method("_ch02_open_map") or host.has_method("_ch02_note_bell"):
+			return host
+		host = host.get_parent()
+	return null
 
 
 func _on_focus_changed(target: Node) -> void:
@@ -819,7 +1238,7 @@ func _build_hud() -> void:
 			_panel_style(Color(0.10, 0.07, 0.05, 0.90), ORANGE, 16, 2))
 	root.add_child(_card)
 	var card_label := Label.new()
-	card_label.text = "第二章 · 火山熔岩工坊\n生活区"
+	card_label.text = "第二章 · 火山工坊\n生活区"
 	card_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	card_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	card_label.add_theme_font_size_override("font_size", 22)
@@ -1080,26 +1499,27 @@ func _build_blocks() -> void:
 	var world_origin: Vector3 = global_transform * Vector3(_corridor_x, 0.04, 0.0)
 	_blocks.setup(world_origin, player)
 	_blocks.boss_defeated.connect(_on_boss_defeated)
+	_blocks.boss_gate_opened.connect(_on_boss_gate_opened)
+
+
+## 控制台放行之后，陶陶从通话管里交代千席宴炉的打法（新流程「六、千席宴炉」）。
+## 只播一次，读档回来不重复播。
+func _on_boss_gate_opened() -> void:
+	if bool(Ch02State.get_flag("ch02.boss_briefed", false)):
+		return
+	Ch02State.set_flag("ch02.boss_briefed", true)
+	_start_dialogue(LinesScript.taotao_boss_brief(), "")
 
 
 func _on_boss_defeated() -> void:
 	_alarm_active = false
-	if _choice == null:
-		return
-	_choice.present("主炉停了。剩下的能源只够接一处——接哪里？", [
-		{
-			"id": "stove",
-			"name": "接备用小灶",
-			"battle": "放弃这次能源强化，靠现在的构筑往下打。",
-			"world": "主炉停了，大家还有热饭。",
-		},
-		{
-			"id": "buff",
-			"name": "接到你的锅上",
-			"battle": "已经激活的料理多一条加工分支：冰雾 / 灼烧地面。",
-			"world": "备用厨房这一次启动不了。",
-		},
-	])
+	# 能源分流在战前的小厨房就定下了，这里不再重复问一遍：
+	# 主炉停下之后只剩「收尾」——去升降台，或者留下来接应急燃料。
+	var energy := String(Ch02State.get_flag("ch02.energy_branch", "stove"))
+	if energy != "pot":
+		energy = "stove"
+	Ch02State.set_flag("ch02.energy", energy)
+	_start_ending(energy)
 
 
 func _on_energy_chosen(id: String) -> void:
@@ -1173,21 +1593,22 @@ func _ask_after_boss() -> void:
 	add_child(ui)
 	ui.chosen.connect(_on_after_boss_choice)
 	ui.call("present", "主炉停了。走之前，还做点什么吗？", [
-		{"id": "stay", "name": "留下来安顿",
+		{"id": "stay", "name": "留下接应急燃料",
 			"battle": "不改变战斗构筑。",
-			"world": "推进帮助居民的路线，会多花一点时间。"},
-		{"id": "leave", "name": "直接离开",
+			"world": "把小厨房的应急燃料接上，几户人今晚有热汤。"},
+		{"id": "leave", "name": "去升降台",
 			"battle": "不改变战斗构筑。",
-			"world": "直接离开工坊，留下尚未解决的困难。"},
+			"world": "直接去升降台，看看后面那道岩壁。"},
 	])
 
 
 func _on_after_boss_choice(id: String) -> void:
+	Ch02State.set_flag("ch02.after_choice", true)
 	Ch02State.set_flag("ch02.helped_after", id == "stay")
 	if id == "stay":
-		_announce("你留下来了。先去把小厨房的应急燃料接上。")
+		_announce("先把小厨房的应急燃料接上。几户人家今晚就指着这一锅。")
 	else:
-		_announce("你转身走向升降台。")
+		_announce("升降台解锁了。陶陶说它后面那道岩壁，最近老响。")
 	_show_ending_card()
 	await _finish_after_card()
 
@@ -1216,7 +1637,7 @@ func _show_ending_card() -> void:
 			_panel_style(Color(0.08, 0.05, 0.03, 0.95), ORANGE, 18, 2))
 	root.add_child(panel)
 	var label := Label.new()
-	label.text = "第二章 · 火山熔岩工坊\n完"
+	label.text = "第二章 · 火山工坊\n完"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1556,7 +1977,7 @@ func _finish_after_card() -> void:
 	var card := get_node_or_null("EndingCard")
 	if card != null:
 		card.queue_free()
-	_announce("升降台已经解锁。回千席宴炉，乘它上去。")
+	_announce("升降台已经解锁。陶陶说后面那道岩壁，最近老响。")
 
 
 ## 把「第二章通关」写回第一章那套存档，首页的章节页据此显示进度。

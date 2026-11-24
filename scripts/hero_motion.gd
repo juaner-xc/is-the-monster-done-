@@ -113,6 +113,31 @@ func _build_clips() -> void:
 	_add(library, "BenchRest", 1.0, [_frame(0.0, -0.004, Vector3(7,0,3), Vector3(12,0,-6),
 		[Vector3(-0.32,-0.85,0.24),Vector3(0.12,-0.24,0.97),Vector3(0.38,-0.84,0.20),Vector3(-0.14,-0.19,0.98)],
 		[Vector3(-0.25,-0.12,0.96),Vector3(0,-1,0.07),Vector3(0.25,-0.12,0.96),Vector3(0,-1,0.07)])], true)
+	var seated_legs := [Vector3(-0.25,-0.12,0.96), Vector3(0,-1,0.07), Vector3(0.25,-0.12,0.96), Vector3(0,-1,0.07)]
+	var resting_arms := [Vector3(-0.32,-0.85,0.24), Vector3(0.12,-0.24,0.97), Vector3(0.38,-0.84,0.20), Vector3(-0.14,-0.19,0.98)]
+	var piano_arms := [Vector3(-0.32,-0.72,0.42), Vector3(0.03,-0.03,0.99),
+		Vector3(0.32,-0.72,0.42), Vector3(-0.03,-0.03,0.99)]
+	var piano_rest := _frame(0.0, -0.004, Vector3(10, 0, 0), Vector3(9, 0, 0), piano_arms, seated_legs)
+	_add(library, "PianoRest", 0.8, [piano_rest], true)
+	for hand: int in [0, 1]:
+		var stroke := piano_arms.duplicate()
+		var side := -1.0 if hand == 0 else 1.0
+		stroke[hand * 2 + 1] = Vector3(side * 0.19, -0.32, 0.94)
+		_add(library, "PianoLeft" if hand == 0 else "PianoRight", 0.21, [
+			piano_rest,
+			_frame(0.38, -0.006, Vector3(13, 2.5 * side, 2.0 * side), Vector3(12, 0, 0), stroke, seated_legs),
+			_frame(1.0, -0.004, Vector3(10, 0, 0), Vector3(9, 0, 0), piano_arms, seated_legs)
+		])
+	_add(library, "BenchTaste", 1.4, [
+		_frame(0.0, -0.004, Vector3(7,0,3), Vector3(12,0,-6), resting_arms, seated_legs),
+		_frame(0.24, -0.008, Vector3(16,0,2), Vector3(8,0,0),
+			[resting_arms[0], resting_arms[1], Vector3(0.26,-0.36,0.88), Vector3(-0.24,-0.20,0.92)], seated_legs),
+		_frame(0.57, -0.004, Vector3(5,-5,2), Vector3(15,6,-4),
+			[resting_arms[0], resting_arms[1], Vector3(0.24,-0.38,0.88), Vector3(-0.4,0.90,0.12)], seated_legs),
+		_frame(0.76, -0.004, Vector3(6,-3,2), Vector3(16,4,-3),
+			[resting_arms[0], resting_arms[1], Vector3(0.26,-0.40,0.86), Vector3(-0.4,0.85,0.23)], seated_legs),
+		_frame(1.0, -0.004, Vector3(7,0,3), Vector3(12,0,-6), resting_arms, seated_legs)
+	])
 	_add(library, "Jump", 0.5, [_frame(0.0,-0.004,Vector3(3,0,0),Vector3(-3,0,0),
 		[Vector3(-0.60,-0.65,0.32),Vector3(-0.20,-0.70,0.46),Vector3(0.60,-0.65,0.32),Vector3(0.20,-0.70,0.46)],
 		[Vector3(-0.18,-1,0.24),Vector3(0,-1,-0.20),Vector3(0.18,-1,0.24),Vector3(0,-1,-0.20)])], true)
@@ -246,4 +271,3 @@ func _add(library: AnimationLibrary, clip: String, duration: float, frames: Arra
 	for frame: Dictionary in frames:
 		animation.position_track_insert_key(height_track, frame.t * duration, _rests[root_index].origin + Vector3.UP * frame.lift)
 	library.add_animation(clip, animation)
-

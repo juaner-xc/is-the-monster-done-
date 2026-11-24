@@ -34,6 +34,13 @@ var _mat_cache := {}
 
 func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
+	if "--extra-residents" in OS.get_cmdline_user_args():
+		_save_extra_resident(_build_orange_lamplighter(), "orange_lamplighter")
+		_save_extra_resident(_build_chestnut_locksmith(), "chestnut_locksmith")
+		_save_extra_resident(_build_waffle_courier(), "waffle_courier")
+		_save_extra_resident(_build_mint_bellmaker(), "mint_bellmaker")
+		quit()
+		return
 	_save(_build_cinnamon(), "cinnamon_vendor")
 	_save(_build_gingerbread(), "gingerbread_watch")
 	_save(_build_candy(), "candy_cane_watch")
@@ -1162,3 +1169,123 @@ func _box_mesh(size: Vector3) -> BoxMesh:
 	var b := BoxMesh.new()
 	b.size = size
 	return b
+
+
+func _build_orange_lamplighter() -> Node3D:
+	var root := Node3D.new()
+	root.name = "OrangeLamplighter"
+	var peel := _mat(Color("e29042"))
+	var leaf := _mat(Color("567c62"))
+	_ball(root, "Orange", Vector3(0, 0.57, 0), Vector3(0.40, 0.43, 0.33), peel)
+	_cyl(root, "Stem", Vector3(0, 1.01, 0), 0.032, 0.045, 0.16, _mat(C_WOOD), 8)
+	_ball(root, "Leaf", Vector3(0.12, 1.02, 0.01), Vector3(0.17, 0.033, 0.062), leaf, 10, 5).rotation_degrees.z = 21.0
+	_winter_details(root, peel, _mat(Color("477879")), 0.65, -0.322)
+	_cyl(root, "LanternGlass", Vector3(0.50, 0.37, -0.13), 0.073, 0.086, 0.17, _mat(Color("ffd281")), 8)
+	for y in [0.27, 0.47]:
+		_cyl(root, "LanternRim", Vector3(0.50, y, -0.13), 0.10, 0.10, 0.031, _mat(C_METAL), 8)
+	_torus(root, "LanternHandle", Vector3(0.50, 0.51, -0.13), 0.042, 0.009, _mat(C_METAL), Vector3(90, 0, 0))
+	return root
+
+
+func _build_chestnut_locksmith() -> Node3D:
+	var root := Node3D.new()
+	root.name = "ChestnutLocksmith"
+	var shell := _mat(Color("854f3b"))
+	var base := _mat(Color("d5a474"))
+	_push(root)
+	var profile := PackedVector2Array([Vector2(0, 0.14), Vector2(0.24, 0.14),
+		Vector2(0.40, 0.24), Vector2(0.43, 0.4), Vector2(0.39, 0.61),
+		Vector2(0.29, 0.79), Vector2(0.12, 0.93), Vector2(0, 0.99)])
+	_lathe("Chestnut", profile, 20, shell, Vector3.ZERO, Vector3.ZERO, Vector3(1, 1, 0.84))
+	_pop()
+	_ball(root, "PaleBase", Vector3(0, 0.28, -0.12), Vector3(0.37, 0.15, 0.245), base)
+	_winter_details(root, shell, _mat(Color("788a57")), 0.61, -0.324)
+	var brass := _mat(Color("d0ac5f"), 0.58, 0.0, 0.25)
+	_torus(root, "KeyBow", Vector3(0.47, 0.53, -0.22), 0.057, 0.014, brass, Vector3(90, 0, 0))
+	_box(root, "KeyStem", Vector3(0.47, 0.403, -0.22), Vector3(0.025, 0.16, 0.024), brass)
+	_box(root, "KeyBit", Vector3(0.499, 0.35, -0.22), Vector3(0.076, 0.035, 0.024), brass)
+	return root
+
+
+func _build_waffle_courier() -> Node3D:
+	var root := Node3D.new()
+	root.name = "WaffleCourier"
+	var dough := _mat(Color("ce995f"))
+	var browned := _mat(Color("996438"))
+	var outline := PackedVector2Array([Vector2(-0.30, 0.17), Vector2(0.30, 0.17),
+		Vector2(0.42, 0.29), Vector2(0.42, 0.89), Vector2(0.30, 1.01),
+		Vector2(-0.30, 1.01), Vector2(-0.42, 0.89), Vector2(-0.42, 0.29)])
+	_push(root)
+	_cookie("Waffle", outline, 0.17, 0.047, dough)
+	_pop()
+	for row in 3:
+		for col in 4:
+			_box(root, "WafflePocket", Vector3((col - 1.5) * 0.17, 0.32 + row * 0.26, -0.17),
+				Vector3(0.114, 0.115, 0.012), browned)
+	_winter_details(root, dough, _mat(Color("9a5267")), 0.72, -0.175)
+	var leather := _mat(Color("4a5874"))
+	_box(root, "SatchelStrap", Vector3(-0.095, 0.60, -0.196), Vector3(0.062, 0.58, 0.04), leather, Vector3(0, 0, -32))
+	_box(root, "Satchel", Vector3(-0.28, 0.37, -0.21), Vector3(0.30, 0.25, 0.13), leather, Vector3(0, 0, -10))
+	_box(root, "Letter", Vector3(-0.28, 0.53, -0.245), Vector3(0.18, 0.15, 0.022), _mat(C_ICING), Vector3(0, 0, -22))
+	_ball(root, "WaxSeal", Vector3(-0.28, 0.53, -0.263), Vector3(0.024, 0.024, 0.009), _mat(C_RED), 8, 4)
+	return root
+
+
+func _build_mint_bellmaker() -> Node3D:
+	var root := Node3D.new()
+	root.name = "MintBellmaker"
+	var mint := _mat(Color("a5c9b7"))
+	_push(root)
+	var profile := PackedVector2Array([Vector2(0, 0.13), Vector2(0.26, 0.13),
+		Vector2(0.36, 0.18), Vector2(0.39, 0.29), Vector2(0.37, 0.73),
+		Vector2(0.33, 0.91), Vector2(0.24, 0.98), Vector2(0, 0.99)])
+	_lathe("Marshmallow", profile, 20, mint, Vector3.ZERO, Vector3.ZERO, Vector3(1, 1, 0.85))
+	_pop()
+	_ball(root, "Icing", Vector3(0, 0.87, -0.01), Vector3(0.334, 0.14, 0.28), _mat(C_ICING))
+	_ball(root, "IcingDrip", Vector3(-0.21, 0.8, -0.189), Vector3(0.092, 0.12, 0.064), _mat(C_ICING), 12, 6)
+	_winter_details(root, mint, _mat(Color("b05c58")), 0.65, -0.306)
+	var bell := _mat(Color("d2a65b"), 0.48, 0.0, 0.4)
+	_cyl(root, "Bell", Vector3(-0.46, 0.40, -0.135), 0.04, 0.11, 0.18, bell, 12)
+	_torus(root, "BellLip", Vector3(-0.46, 0.32, -0.135), 0.099, 0.015, bell)
+	_ball(root, "Clapper", Vector3(-0.46, 0.295, -0.135), Vector3.ONE * 0.037, _mat(C_METAL), 8, 4)
+	return root
+
+
+func _winter_details(root: Node3D, body: Material, fabric: Material, eye_y: float, face_z: float) -> void:
+	for side in [-1.0, 1.0]:
+		var x := float(side)
+		_ball(root, "Boot", Vector3(x * 0.19, 0.085, -0.048),
+			Vector3(0.13, 0.085, 0.15), fabric, 12, 6)
+		_ball(root, "Mitten", Vector3(x * 0.45, 0.52, -0.13),
+			Vector3(0.112, 0.087, 0.095), body, 12, 6)
+		_ball(root, "Eye", Vector3(x * 0.118, eye_y, face_z),
+			Vector3(0.039, 0.049, 0.025), _mat(C_EYE), 10, 5)
+		_ball(root, "EyeGlint", Vector3(x * 0.118 - 0.008, eye_y + 0.014, face_z - 0.022),
+			Vector3.ONE * 0.009, _mat(C_WHITE), 8, 4)
+	_ball(root, "ScarfKnot", Vector3(0.18, eye_y - 0.14, face_z + 0.015),
+		Vector3(0.112, 0.055, 0.063), fabric, 12, 6)
+	_ball(root, "ScarfTail", Vector3(0.23, eye_y - 0.24, face_z),
+		Vector3(0.052, 0.115, 0.027), fabric, 12, 6).rotation_degrees.z = 20.0
+
+
+func _save_extra_resident(root: Node3D, filename: String) -> void:
+	# Merge by material so the four residents don't draw each mitten and accessory separately.
+	var batches: Dictionary[Material, SurfaceTool] = {}
+	for node in root.get_children():
+		var part := node as MeshInstance3D
+		var material := part.material_override
+		if not batches.has(material):
+			var surface := SurfaceTool.new()
+			surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+			surface.set_material(material)
+			batches[material] = surface
+		batches[material].append_from(part.mesh, 0, part.transform)
+		part.free()
+	var combined := ArrayMesh.new()
+	for surface in batches.values():
+		surface.commit(combined)
+	var model := MeshInstance3D.new()
+	model.name = "ClayModel"
+	model.mesh = combined
+	root.add_child(model)
+	_save(root, filename)

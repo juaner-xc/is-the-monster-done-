@@ -1,0 +1,271 @@
+[gd_scene load_steps=22 format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/town_piano_rug.gdshader" id="1_rug"]
+
+[sub_resource type="ShaderMaterial" id="RugMaterial"]
+shader = ExtResource("1_rug")
+
+[sub_resource type="PlaneMesh" id="RugMesh"]
+material = SubResource("RugMaterial")
+size = Vector2(4.0, 3.25)
+
+[sub_resource type="StandardMaterial3D" id="Walnut"]
+albedo_color = Color(0.23, 0.10, 0.071, 1)
+roughness = 0.72
+
+[sub_resource type="StandardMaterial3D" id="Velvet"]
+albedo_color = Color(0.52, 0.115, 0.18, 1)
+roughness = 0.92
+
+[sub_resource type="StandardMaterial3D" id="Brass"]
+albedo_color = Color(0.68, 0.43, 0.19, 1)
+roughness = 0.48
+metallic = 0.42
+
+[sub_resource type="StandardMaterial3D" id="LanternGlow"]
+albedo_color = Color(1.0, 0.73, 0.36, 1)
+roughness = 0.5
+emission_enabled = true
+emission = Color(1, 0.52, 0.19, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="StandardMaterial3D" id="MoteGlow"]
+albedo_color = Color(1, 0.74, 0.36, 1)
+roughness = 1.0
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+
+[sub_resource type="BoxMesh" id="BenchFrame"]
+material = SubResource("Walnut")
+size = Vector3(1.11, 0.115, 0.43)
+
+[sub_resource type="BoxMesh" id="BenchPiping"]
+material = SubResource("Brass")
+size = Vector3(1.15, 0.027, 0.46)
+
+[sub_resource type="BoxMesh" id="BenchCushion"]
+material = SubResource("Velvet")
+size = Vector3(1.12, 0.092, 0.44)
+
+[sub_resource type="CylinderMesh" id="BenchLeg"]
+material = SubResource("Walnut")
+top_radius = 0.062
+bottom_radius = 0.04
+height = 0.455
+radial_segments = 8
+rings = 0
+
+[sub_resource type="CylinderMesh" id="LanternFoot"]
+material = SubResource("Walnut")
+top_radius = 0.105
+bottom_radius = 0.21
+height = 0.09
+radial_segments = 8
+rings = 0
+
+[sub_resource type="CylinderMesh" id="LanternStand"]
+material = SubResource("Walnut")
+top_radius = 0.048
+bottom_radius = 0.063
+height = 0.76
+radial_segments = 8
+rings = 0
+
+[sub_resource type="CylinderMesh" id="LanternBase"]
+material = SubResource("Brass")
+top_radius = 0.15
+bottom_radius = 0.12
+height = 0.064
+radial_segments = 8
+rings = 0
+
+[sub_resource type="CylinderMesh" id="LanternCore"]
+material = SubResource("LanternGlow")
+top_radius = 0.114
+bottom_radius = 0.114
+height = 0.254
+radial_segments = 8
+rings = 0
+
+[sub_resource type="CylinderMesh" id="LanternRoof"]
+material = SubResource("Brass")
+top_radius = 0.047
+bottom_radius = 0.187
+height = 0.145
+radial_segments = 8
+rings = 0
+
+[sub_resource type="BoxMesh" id="LanternBar"]
+material = SubResource("Brass")
+size = Vector3(0.024, 0.288, 0.024)
+
+[sub_resource type="BoxShape3D" id="BenchShape"]
+size = Vector3(1.15, 0.58, 0.46)
+
+[sub_resource type="SphereMesh" id="MoteMesh"]
+material = SubResource("MoteGlow")
+radius = 0.022
+height = 0.044
+radial_segments = 6
+rings = 3
+
+[sub_resource type="Gradient" id="MoteLife"]
+offsets = PackedFloat32Array(0, 0.22, 0.64, 1)
+colors = PackedColorArray(1, 0.85, 0.66, 0, 1, 0.91, 0.71, 0.82, 1, 0.74, 0.4, 0.57, 1, 0.61, 0.27, 0)
+
+[node name="PianoCorner" type="Node3D"]
+
+[node name="WoolRug" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.035, 0.72)
+mesh = SubResource("RugMesh")
+cast_shadow = 0
+
+[node name="PianoBench" type="StaticBody3D" parent="."]
+position = Vector3(0, 0.032, 1.13)
+collision_mask = 0
+
+[node name="BenchCollision" type="CollisionShape3D" parent="PianoBench"]
+position = Vector3(0, 0.29, 0)
+shape = SubResource("BenchShape")
+
+[node name="Frame" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(0, 0.466, 0)
+mesh = SubResource("BenchFrame")
+
+[node name="BrassPiping" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(0, 0.528, 0)
+mesh = SubResource("BenchPiping")
+
+[node name="Cushion" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(0, 0.569, 0)
+mesh = SubResource("BenchCushion")
+
+[node name="Leg1" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(-0.46, 0.2275, -0.155)
+mesh = SubResource("BenchLeg")
+
+[node name="Leg2" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(0.46, 0.2275, -0.155)
+mesh = SubResource("BenchLeg")
+
+[node name="Leg3" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(-0.46, 0.2275, 0.155)
+mesh = SubResource("BenchLeg")
+
+[node name="Leg4" type="MeshInstance3D" parent="PianoBench"]
+position = Vector3(0.46, 0.2275, 0.155)
+mesh = SubResource("BenchLeg")
+
+[node name="TallLantern" type="Node3D" parent="."]
+position = Vector3(1.54, 0.02, 0.12)
+scale = Vector3(1.0, 1.0, 1.0)
+
+[node name="Foot" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0, 0.045, 0)
+mesh = SubResource("LanternFoot")
+
+[node name="Stand" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0, 0.445, 0)
+mesh = SubResource("LanternStand")
+
+[node name="Base" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0, 0.84, 0)
+mesh = SubResource("LanternBase")
+
+[node name="FrostedGlass" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0, 1.0, 0)
+mesh = SubResource("LanternCore")
+
+[node name="Roof" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0, 1.177, 0)
+mesh = SubResource("LanternRoof")
+
+[node name="Bar1" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(-0.1, 1.005, -0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Bar2" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0.1, 1.005, -0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Bar3" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(-0.1, 1.005, 0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Bar4" type="MeshInstance3D" parent="TallLantern"]
+position = Vector3(0.1, 1.005, 0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Candlelight" type="OmniLight3D" parent="TallLantern"]
+position = Vector3(0, 1.03, 0.11)
+light_color = Color(1, 0.62, 0.31, 1)
+light_energy = 1.35
+omni_range = 3.1
+omni_attenuation = 1.45
+
+[node name="LowLantern" type="Node3D" parent="."]
+position = Vector3(-1.5, 0.02, -0.16)
+scale = Vector3(0.72, 0.72, 0.72)
+
+[node name="Foot" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0, 0.045, 0)
+mesh = SubResource("LanternFoot")
+
+[node name="Stand" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0, 0.445, 0)
+mesh = SubResource("LanternStand")
+
+[node name="Base" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0, 0.84, 0)
+mesh = SubResource("LanternBase")
+
+[node name="FrostedGlass" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0, 1.0, 0)
+mesh = SubResource("LanternCore")
+
+[node name="Roof" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0, 1.177, 0)
+mesh = SubResource("LanternRoof")
+
+[node name="Bar1" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(-0.1, 1.005, -0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Bar2" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0.1, 1.005, -0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Bar3" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(-0.1, 1.005, 0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Bar4" type="MeshInstance3D" parent="LowLantern"]
+position = Vector3(0.1, 1.005, 0.1)
+mesh = SubResource("LanternBar")
+
+[node name="Candlelight" type="OmniLight3D" parent="LowLantern"]
+position = Vector3(0, 1.03, 0.11)
+light_color = Color(1, 0.62, 0.31, 1)
+light_energy = 0.95
+omni_range = 3.1
+omni_attenuation = 1.45
+
+[node name="MusicMotes" type="CPUParticles3D" parent="."]
+position = Vector3(0, 1.31, 0.39)
+cast_shadow = 0
+emitting = false
+amount = 12
+lifetime = 2.9
+randomness = 0.62
+mesh = SubResource("MoteMesh")
+emission_shape = 2
+emission_box_extents = Vector3(1.08, 0.28, 0.20)
+direction = Vector3(0, 1, 0)
+spread = 34.0
+gravity = Vector3(0, 0.095, 0)
+initial_velocity_min = 0.11
+initial_velocity_max = 0.30
+scale_amount_min = 0.5
+scale_amount_max = 1.2
+color_ramp = SubResource("MoteLife")

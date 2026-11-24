@@ -109,6 +109,7 @@ func _ready() -> void:
 	dodge_presentation = DodgePresentation.new()
 	add_child(dodge_presentation)
 	dodge_presentation.setup(self, visual_root)
+	pan_heat.volcano_hud = true
 	pan_heat.cooling_rate = 3.0
 	pan_heat.position = Vector3(0.52, 0.65, -0.42)
 	pan_heat.bind_pan(hero_motion.wardrobe.pan if hero_motion != null else pan_root)
@@ -745,32 +746,57 @@ func _build_health_bar() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
 
-	var back := ColorRect.new()
-	back.color = Color(0.08, 0.05, 0.04, 0.85)
-	back.anchor_top = 1.0
-	back.anchor_bottom = 1.0
-	back.offset_left = 28.0
-	back.offset_right = 268.0
-	back.offset_top = -70.0
-	back.offset_bottom = -48.0
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(back)
+	var frame := PanelContainer.new()
+	frame.name = "LifeMeter"
+	frame.position = Vector2(26, 13)
+	frame.custom_minimum_size.x = 214
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(frame)
+	var copper := StyleBoxFlat.new()
+	copper.bg_color = Color("241614ed")
+	copper.border_color = Color("946040")
+	copper.border_width_left = 2
+	copper.border_width_bottom = 1
+	copper.set_corner_radius_all(4)
+	copper.content_margin_left = 10
+	copper.content_margin_right = 10
+	copper.content_margin_top = 4
+	copper.content_margin_bottom = 6
+	frame.add_theme_stylebox_override("panel", copper)
 
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(column)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(row)
+	var title := Label.new()
+	title.text = "♥  生命"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", Color("ffd2b1"))
+	row.add_child(title)
+	var count := Label.new()
+	count.name = "LifeCount"
+	count.add_theme_font_size_override("font_size", 13)
+	count.add_theme_color_override("font_color", Color("edc2a2"))
+	row.add_child(count)
+
+	var track := ColorRect.new()
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.color = Color("4a2827")
+	track.custom_minimum_size.y = 6
+	column.add_child(track)
 	_health_fill = ColorRect.new()
-	_health_fill.color = Color(0.86, 0.36, 0.18)
-	_health_fill.anchor_right = 1.0
-	_health_fill.anchor_bottom = 1.0
-	_health_fill.offset_left = 3.0
-	_health_fill.offset_top = 3.0
-	_health_fill.offset_right = -3.0
-	_health_fill.offset_bottom = -3.0
+	_health_fill.color = Color("dc694e")
 	_health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.add_child(_health_fill)
-
-	health_changed.connect(func(current: float, maximum: float) -> void:
-		if _health_fill != null and maximum > 0.0:
-			_health_fill.anchor_right = clampf(current / maximum, 0.0, 1.0)
-	)
+	track.add_child(_health_fill)
+	_health_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var refresh := func(current: float, maximum: float) -> void:
+		_health_fill.anchor_right = clampf(current / maxf(1.0, maximum), 0.0, 1.0)
+		count.text = "%d / %d" % [ceili(maxf(0.0, current)), roundi(maximum)]
+	health_changed.connect(refresh)
+	refresh.call(health, max_health)
 
 
 func _on_pan_burned() -> void:

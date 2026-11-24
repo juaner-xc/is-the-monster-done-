@@ -687,7 +687,7 @@ const PAINTING_FILES: Array[String] = [
 ]
 
 
-## 两侧墙上的装饰画：白边拍立得 + 胶带，画面是用户给的 7 张奶龙图。
+## 两侧墙上的装饰画：白边拍立得 + 胶带，画面是用户给的 7 张奶蛙图。
 ## 样式参考「料理台上方用胶带贴小画」，贴在原有挂画位置，不影响碰撞。
 func _banquet_paintings(g: Node3D, _frame: Material, _canvas: Material,
 		_snowpaint: Material, _pine: Material) -> void:

@@ -288,7 +288,7 @@ func _build_reveal(column: VBoxContainer) -> void:
 	var box := _panel_column(left, 11)
 	box.add_child(_label("人物档案  /  PLAYER 01", 17, Color("8d6249")))
 	box.add_child(_paragraph("%s，欢迎来到异界。" % RunState.player_name, 32, INK, 42))
-	box.add_child(_paragraph("你操纵的，是误打误撞打开裂缝的见习厨师奶龙。手中的平底锅能击退怪物；手边的食材，还能组成从未有人写下的料理。", 19, INK, 110))
+	box.add_child(_paragraph("你操纵的，是误打误撞打开裂缝的见习厨师奶蛙。手中的平底锅能击退怪物；手边的食材，还能组成从未有人写下的料理。", 19, INK, 110))
 	box.add_child(_paragraph("黄金菜谱被暴食领主撕碎。第一张残页落在雪原。带着你选择的名字，去看看这道料理会走向哪里。", 17, Color("5c514b"), 100))
 	_spacer(box, 8)
 	var embark := _button("前往第一章 · 雪原边境", COPPER)

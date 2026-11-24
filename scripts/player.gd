@@ -48,6 +48,7 @@ var timed: Dictionary = {}
 var spicy_shots := 0
 var crust_hits := 0
 var level := 1
+var magic_progress := preload("res://scripts/magic_progress.gd").new()
 var experience := 0
 var experience_needed := 35
 var attack_cooldown := 0.0
@@ -82,6 +83,8 @@ var water_col_h := 0.0
 var climbing := false
 var climb_speed := 3.6
 var _ladder: Node = null
+var _ladder_search_left := 0.0
+var _action_flash_mesh: CylinderMesh
 var _climb_dir := Vector3.UP
 var _ladder_lock := 0.0  # 到顶翻越后的爬梯锁定，防止在坡顶被重新吸附
 
@@ -90,6 +93,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_to_group("player")
 	add_to_group("Player")
+	if RunState.chapter_mode:
+		magic_progress = RunState.magic_progress
+	_sync_magic_progress()
 	collision_layer = 1
 	collision_mask = 3
 	_build_body()
@@ -131,7 +137,10 @@ func _physics_process(delta: float) -> void:
 	# ---- 爬梯 ----
 	if _ladder_lock > 0.0:
 		_ladder_lock -= delta
-	if _ladder == null or not is_instance_valid(_ladder):
+	_ladder_search_left = maxf(0.0, _ladder_search_left - delta)
+	if not is_instance_valid(_ladder) and _ladder_search_left <= 0.0:
+		# A missing ladder must not trigger a full scene traversal every physics tick.
+		_ladder_search_left = 0.5
 		_ladder = get_tree().get_first_node_in_group("ladder")
 		if _ladder == null:
 			var cur := get_tree().current_scene
@@ -139,7 +148,7 @@ func _physics_process(delta: float) -> void:
 				_ladder = cur.find_child("RopeLadder", true, false)
 	_climb_dir = Vector3.UP
 	var ladder_near := false
-	if _ladder != null:
+	if is_instance_valid(_ladder):
 		var lnode := _ladder as Node3D
 		_climb_dir = lnode.global_basis.y.normalized()
 		var lp := lnode.global_transform.affine_inverse() * global_position
@@ -369,15 +378,17 @@ func heal(amount: float) -> void:
 
 
 func gain_experience(amount: int) -> void:
-	experience += amount
-	if experience >= experience_needed:
-		experience -= experience_needed
-		level += 1
-		experience_needed = roundi(experience_needed * 1.34)
-		experience_changed.emit(experience, experience_needed, level)
+	magic_progress.gain(amount)
+	_sync_magic_progress()
+	experience_changed.emit(experience, experience_needed, level)
+	if magic_progress.pending > 0:
 		level_up_requested.emit()
-	else:
-		experience_changed.emit(experience, experience_needed, level)
+
+
+func _sync_magic_progress() -> void:
+	experience = magic_progress.experience
+	experience_needed = magic_progress.needed
+	level = magic_progress.level
 
 
 func _basic_attack() -> void:
@@ -725,11 +736,13 @@ func _finish_dodge(landed: bool) -> void:
 
 func _spawn_action_flash(color: Color, radius: float, duration: float) -> void:
 	var flash := MeshInstance3D.new()
-	var disk := CylinderMesh.new()
-	disk.top_radius = radius
-	disk.bottom_radius = radius
-	disk.height = 0.035
-	flash.mesh = disk
+	if _action_flash_mesh == null:
+		_action_flash_mesh = CylinderMesh.new()
+		_action_flash_mesh.top_radius = 1.0
+		_action_flash_mesh.bottom_radius = 1.0
+		_action_flash_mesh.height = 0.035
+	flash.mesh = _action_flash_mesh
+	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	flash.position = Vector3(0.0, 0.08, -0.75 if color.r > color.b else 0.0)
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
@@ -737,10 +750,10 @@ func _spawn_action_flash(color: Color, radius: float, duration: float) -> void:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flash.material_override = material
 	add_child(flash)
-	flash.scale = Vector3(0.35, 1.0, 0.35)
+	flash.scale = Vector3(0.35 * radius, 1.0, 0.35 * radius)
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(flash, "scale", Vector3.ONE, duration)
+	tween.tween_property(flash, "scale", Vector3(radius, 1.0, radius), duration)
 	tween.tween_property(material, "albedo_color:a", 0.0, duration)
 	tween.chain().tween_callback(flash.queue_free)
 

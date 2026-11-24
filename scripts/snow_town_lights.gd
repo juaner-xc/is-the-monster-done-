@@ -18,7 +18,6 @@ var _trail: Node3D
 var _spare_bowl: Node3D
 var _marker: Label3D
 var _moving := false
-var _overlook := false
 
 
 func _ready() -> void:
@@ -42,16 +41,11 @@ func _process(_delta: float) -> void:
 		return
 	var at := to_local(game.player.global_position)
 	var near_square := at.distance_to(HANG) < 10.0 or at.distance_to(SWITCH) < 14.0
-	if not _overlook and not game.finished and not game.aftermath_active and RunState.snow_route_unlocked and RunState.snow_town_lights_stage == 0 and near_square:
+	if not game.finished and not game.aftermath_active and RunState.snow_route_unlocked and RunState.snow_town_lights_stage == 0 and near_square:
 		_set_stage(1)
 		get_parent().get_node("candy").say_briefly("放下，那是我家屋顶！")
 		game.hud.show_notice("今年还能亮灯吗 · 顺着掉在雪里的灯去旧货运站")
 	_marker.visible = not _moving and not get_tree().paused and not task_text().is_empty()
-
-
-func set_overlook(active: bool) -> void:
-	_overlook = active
-	visible = not active
 
 
 func task_text() -> String:
@@ -63,7 +57,7 @@ func task_text() -> String:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_action_pressed("interact") or event.is_echo() or get_tree().paused or _moving or _overlook:
+	if not event.is_action_pressed("interact") or event.is_echo() or get_tree().paused or _moving:
 		return
 	var game := get_tree().current_scene
 	if game == null or not is_instance_valid(game.get("player")) or game.finished or game.aftermath_active:

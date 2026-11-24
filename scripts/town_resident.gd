@@ -12,12 +12,16 @@ const NAME_COLOR := Color("efd9a8")
 var resident_id: String = "cocoa"
 var display_name: String = "热可可太太"
 var model_path: String = ""
+var prompt_text: String = ""
 var target_height: float = 1.5
 ## 呼吸/摇晃幅度，越高越"晃"
 var sway: float = 0.012
 var dialogue: Array = []
+var ambient_dialogue := false
+var audience_only := false
 
 var _player_near := false
+var _ambient_speaking := false
 var _prompt: Label3D
 var _body: Node3D
 var _body_base_y := 0.0
@@ -40,12 +44,17 @@ var _saved_mouse := Input.MOUSE_MODE_VISIBLE
 
 
 func _ready() -> void:
+	if audience_only:
+		_t = randf() * TAU
+		_load_model()
+		return
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("town_resident")
 	_t = randf() * TAU
 	_load_model()
 	_build_prompt()
-	_build_ui()
+	if not ambient_dialogue:
+		_build_ui()
 	_build_collision()
 	_build_area()
 
@@ -190,7 +199,7 @@ func _build_collision() -> void:
 
 func _build_prompt() -> void:
 	_prompt = Label3D.new()
-	_prompt.text = "按 F 和" + display_name + "说话"
+	_prompt.text = prompt_text if not prompt_text.is_empty() else "按 F 和" + display_name + "说话"
 	_prompt.font_size = 48
 	_prompt.pixel_size = 0.010
 	_prompt.outline_size = 8
@@ -292,7 +301,7 @@ func _process(delta: float) -> void:
 			puff.position = Vector3(-0.18 + sin(i + phase * 2.8) * 0.08, _cocoa_rim_height + phase * 0.35, 0.02)
 			puff.scale = Vector3(0.10, 0.07, 0.09) * sin(phase * PI)
 	if _prompt != null:
-		_prompt.visible = _player_near and not _open and not get_tree().paused \
+		_prompt.visible = _player_near and not _open and not _ambient_speaking and not get_tree().paused \
 				and not Engine.is_editor_hint()
 
 
@@ -304,11 +313,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			_advance()
 		return
-	if Engine.is_editor_hint() or not _player_near or get_tree().paused:
+	if Engine.is_editor_hint() or not _player_near or _ambient_speaking or get_tree().paused:
 		return
 	if event.is_action_pressed("interact"):
 		get_viewport().set_input_as_handled()
-		_open_dialogue()
+		if ambient_dialogue:
+			_speak_without_pausing()
+		else:
+			_open_dialogue()
+
+
+func _speak_without_pausing() -> void:
+	if dialogue.is_empty():
+		return
+	_ambient_speaking = true
+	await say_briefly(String(dialogue[0]))
+	_ambient_speaking = false
 
 
 func _open_dialogue() -> void:
@@ -321,7 +341,7 @@ func _open_dialogue() -> void:
 		match resident_id:
 			"ginger": _active_dialogue.append("是你找回的灯吧？屋顶的星星我来挂，你到篝火边歇会儿。")
 			"cinnamon": _active_dialogue.append("灯亮了，我也把那扇旧炉门扶回去了。明天还能照常开摊。")
-			_: _active_dialogue.append("灯又亮了，我记得是你找回来的。篝火边给你留了一只碗。")
+			"cocoa", "candy": _active_dialogue.append("灯又亮了，我记得是你找回来的。篝火边给你留了一只碗。")
 	_index = 0
 	_open = true
 	_saved_mouse = Input.mouse_mode
@@ -336,11 +356,19 @@ func say_briefly(line: String) -> void:
 	speech.position.y = target_height + 0.48
 	speech.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	speech.font_size = 40
-	speech.pixel_size = 0.009
+	speech.pixel_size = 0.006 if ambient_dialogue else 0.009
 	speech.modulate = PROMPT_COLOR
 	speech.visibility_range_end = 22.0
 	add_child(speech)
-	await get_tree().create_timer(4.0, false).timeout
+	if ambient_dialogue:
+		speech.modulate.a = 0.0
+		var fade := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_STOP)
+		fade.tween_property(speech, "modulate:a", 1.0, 0.25)
+		fade.tween_interval(4.0)
+		fade.tween_property(speech, "modulate:a", 0.0, 0.35)
+		await fade.finished
+	else:
+		await get_tree().create_timer(4.0, false).timeout
 	speech.queue_free()
 
 

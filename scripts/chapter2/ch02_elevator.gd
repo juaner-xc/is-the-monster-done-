@@ -1,12 +1,12 @@
 class_name Ch02Elevator
 extends Node3D
-## 高层 · 升降平台（通往第三章）
+## 高层 · 升降平台
 ##
-## 规范：
+## 新流程：升降台本身只是「往上走一段」，上去之后是封死的旧闸门，
+## 真正的出口是升降台后面那道岩缝（`scripts/chapter2/ch02_rift.gd`，由 Ch02Blocks 摆在场边）。
 ##  - 初始 Collision 阻挡，不可交互
 ##  - 击败千席宴炉 Boss 之后脚本解锁
-##  - 解锁后触发传送，进入第三章场景
-##  - 残页必须是「对话 give_item」，所以这里再确认一次玩家真的拿到了
+##  - 解锁后按 F 只是乘它上下一次，给玩家「上面没有路」这个信息
 
 const CHAPTER3_SCENE := "res://scenes/final_banquet_hall.tscn"
 
@@ -140,46 +140,25 @@ func _refresh() -> void:
 
 func get_prompt() -> String:
 	if not _unlocked:
-		return "升降台锁着"
-	return "按 [F] 穿过时空裂隙 · 重启魔力 %d / 3" % RunState.final_banquet_magic()
+		return "升降台锁着：主炉过载"
+	return "按 [F] 乘升降台上去"
 
 
 func interact(_who: Node) -> void:
 	if _riding:
 		return
 	if not _unlocked:
-		_announce("升降台锁死了。千席宴炉还在转。")
-		return
-	if not bool(Ch02State.get_flag("player_has_golden_fragment", false)):
-		_announce("还差一步。先把这一章的事办完。")
+		_announce("主炉过载，升降台锁死了。千席宴炉还在转。")
 		return
 	_ride()
 
 
 func _ride() -> void:
 	_riding = true
-	_announce("升降台开始上升。")
-	var layer := CanvasLayer.new()
-	layer.layer = 30
-	get_tree().current_scene.add_child(layer)
-	var fade := ColorRect.new()
-	fade.color = Color(0, 0, 0, 0)
-	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(fade)
-	var tween := create_tween()
-	tween.tween_property(fade, "color:a", 1.0, 1.4)
-	await tween.finished
-	if ResourceLoader.exists(CHAPTER3_SCENE):
-		if not RunState.completed_chapters.has("second"):
-			RunState.completed_chapters.append("second")
-		RunState.select_chapter("third")
-		RunState.save_progress()
-		get_tree().change_scene_to_file(CHAPTER3_SCENE)
-	else:
-		_announce("第三章的场景还没做好。")
-		_riding = false
-		layer.queue_free()
+	_announce("升降台往上升，升到旧闸门底下就停了。")
+	await get_tree().create_timer(1.8).timeout
+	_announce("闸门从里面焊死了。这条路从来就不是回去的路。")
+	_riding = false
 
 
 func _announce(text: String) -> void:

@@ -79,17 +79,18 @@ func _build_sprout(parent: Node3D) -> void:
 
 func update(clip: StringName, moving: bool) -> void:
 	var has_leaf: bool = not hide_adventure_gear and RunState.has_gear(LEAF)
+	var at_table := clip in [&"BenchRest", &"BenchTaste", &"PianoRest", &"PianoLeft", &"PianoRight"]
 	var in_hand := clip in [&"Idle", &"ReceiveGift", &"Wave"] and not moving
 	if combat_mode != "":
 		in_hand = combat_mode == "staff"
 	collar.visible = has_leaf
 	sprout.visible = has_leaf
 	helmet.visible = has_leaf
-	staff_hand.visible = has_leaf and in_hand
-	staff_back.visible = has_leaf and not in_hand
+	staff_hand.visible = has_leaf and in_hand and not at_table
+	staff_back.visible = has_leaf and (not in_hand or at_table)
 	lantern.visible = not hide_adventure_gear and RunState.has_gear(LANTERN)
 	medal.visible = not hide_adventure_gear and RunState.has_gear(MEDAL)
-	pan.visible = pan_received and combat_mode != "staff" and (
+	pan.visible = not at_table and pan_received and combat_mode != "staff" and (
 		combat_mode == "pan" or clip in [&"PanSwing", &"PanReturn"] or bool(pan.get_meta("overheated", false))
 	)
 
@@ -289,4 +290,3 @@ func _tube(parent: Node3D, points: PackedVector3Array, radius: float, mat: Mater
 	surface.index()
 	surface.generate_normals()
 	_mesh(parent, surface.commit(), mat)
-

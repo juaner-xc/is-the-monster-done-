@@ -17,6 +17,7 @@ var _lake_center: Vector2 = Vector2.ZERO
 var _lake_radii: PackedFloat32Array = PackedFloat32Array()
 var _bridge_rect: Rect2 = Rect2()
 var _t := 0.0
+var _redraw_left := 0.0
 
 # [世界中心, 世界尺寸, 类型]  类型决定图形符号（不标名字）
 const LANDMARKS: Array = [
@@ -52,6 +53,14 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if not is_visible_in_tree():
+		_redraw_left = 0.0
+		return
+	_redraw_left -= delta
+	if _redraw_left > 0.0:
+		return
+	# Map icons need 15 updates per second; player movement keeps its full rate.
+	_redraw_left = 1.0 / 15.0
 	queue_redraw()
 
 

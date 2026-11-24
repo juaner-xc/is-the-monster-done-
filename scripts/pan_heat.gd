@@ -74,6 +74,9 @@ var _bar_fill: StyleBoxFlat
 var _preview := false
 var _spark_left := 0.0
 var _show_pan_effects := true
+var volcano_hud := false
+var _snow_embedded := false
+var _panel: PanelContainer
 
 
 func bind_pan(pan: Node3D) -> void:
@@ -102,18 +105,20 @@ func _ready() -> void:
 	edge.material = _edge
 
 	var panel := PanelContainer.new()
+	_panel = panel
+	_panel.name = "HeatMeter"
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_display.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	panel.offset_left = 26.0
 	panel.offset_right = 240.0
-	panel.offset_top = 94.0
-	panel.offset_bottom = 146.0
+	panel.offset_top = 57.0 if volcano_hud else 94.0
+	panel.offset_bottom = panel.offset_top + 52.0
 	var card := StyleBoxFlat.new()
-	card.bg_color = Color("263c3df5")
-	card.border_color = Color("9a8b68")
+	card.bg_color = Color("211612df") if volcano_hud else Color("263c3df5")
+	card.border_color = Color("a6754eaa") if volcano_hud else Color("9a8b68")
 	card.set_border_width_all(1)
-	card.set_corner_radius_all(7)
+	card.set_corner_radius_all(4 if volcano_hud else 7)
 	card.content_margin_left = 12.0
 	card.content_margin_right = 12.0
 	card.content_margin_top = 7.0
@@ -282,7 +287,7 @@ func _update_display() -> void:
 		text = "糊锅 · 洗锅 %.1f 秒" % wash_left
 		tint = Color("a69691")
 	var shown_number := ceili(shown_heat) if overheated else floori(shown_heat)
-	_label.text = "%s   %d" % [text, shown_number]
+	_label.text = ("♨  %s   %d" if _snow_embedded else "%s   %d") % [text, shown_number]
 	_bar.value = shown_heat
 	var swing_flash := _swing_feedback_left / SWING_FEEDBACK_SECONDS
 	_gain_label.visible = swing_flash > 0.0 and not washing and not _preview
@@ -292,6 +297,9 @@ func _update_display() -> void:
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.023)
 	_bar_fill.bg_color = tint.lightened(0.24 * pulse if overheated else 0.32 * swing_flash)
 	var hint := "Shift 闪避 −30 · F1 手册" if overheated else "按 F1 查看锅气与快捷键"
+	if _snow_embedded:
+		hint = "闪避可降温"
+	_hint.visible = overheated or not (volcano_hud or _snow_embedded)
 	if _hint.text != hint:
 		_hint.text = hint
 		_hint.add_theme_color_override("font_color", Color("ffd091") if overheated else Color("ddd5bd"))
@@ -321,3 +329,19 @@ func _update_display() -> void:
 
 func set_display_visible(enabled: bool) -> void:
 	_display.visible = enabled
+	if _snow_embedded:
+		_panel.visible = enabled
+
+
+func attach_snow_meter(parent: VBoxContainer) -> void:
+	_snow_embedded = true
+	_panel.reparent(parent, false)
+	_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_panel.visible = _display.visible
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color("293e4b")
+	track.set_corner_radius_all(2)
+	_bar.add_theme_stylebox_override("background", track)
+	_bar.custom_minimum_size.y = 6
+	_label.add_theme_font_size_override("font_size", 15)
+	_update_display()

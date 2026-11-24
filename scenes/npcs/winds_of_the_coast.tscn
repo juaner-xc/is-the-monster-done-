@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/winds_of_the_coast.gd" id="1_band"]
+[ext_resource type="AudioStream" path="res://assets/Audio/bard_dance.ogg" id="2_music"]
+
+[node name="WindsOfTheCoast" type="Node3D"]
+script = ExtResource("1_band")
+
+[node name="BandMusic" type="AudioStreamPlayer3D" parent="."]
+position = Vector3(0.0, 1.0, -0.55)
+stream = ExtResource("2_music")
+attenuation_model = 3
+volume_db = -80.0
+attenuation_filter_db = 0.0
+panning_strength = 0.55

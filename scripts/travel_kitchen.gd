@@ -1,5 +1,6 @@
 extends CanvasLayer
 
+const Backpack = preload("res://scripts/travel_backpack.gd")
 const Book = preload("res://scripts/book_ui.gd")
 const Recipes = preload("res://scripts/recipe_system.gd")
 const PanHeat = preload("res://scripts/pan_heat.gd")
@@ -25,13 +26,33 @@ var settings := ConfigFile.new()
 var inv := RunState.cooking_inventory
 var pot_fx: Node3D
 var aim_reticle := Label.new()
+var backpack := Backpack.new()
+var backdrop := ColorRect.new()
+
+const DISH_DESCRIPTIONS := {
+	"fire_ring": ["fire_ring", "锅模式下右键释放，对周围敌人造成范围伤害。"],
+	"ice_shot": ["ice_shot", "滚轮向上切法杖，按住右键瞄准，左键发射。命中后使敌人减速。"],
+	"cream_guard": ["cream_guard", "装备后提高 8 点生命上限，每秒恢复 0.35 点生命。"],
+	"pastry_shield": ["pastry_shield", "装备后受到的伤害降低 8%。"],
+	"baked_sweet_potato": ["baked_sweet_potato", "装备后提高 10 点生命上限，受到的伤害降低 8%。"],
+	"dark_dish": ["dark_dish", "装备后伤害提高 28%，生命上限降低 8 点。"],
+	"cold": ["ice_shot", "食用后立刻降低 30 点锅温。洗锅期间无法食用。"],
+	"crust": ["pastry_shield", "食用后获得两次防护，最多持续 10 秒。"],
+	"spicy": ["fire_ring", "食用后强化接下来三次攻击料理。"],
+	"bitter": ["pudding", "4 秒内持续回血，期间移动变慢。"],
+	"dish_lava_pudding": ["pudding", "4 秒内持续回血。"],
+	"dish_caramel_oil": ["sauce", "移动速度提高 15%，持续 10 秒。"],
+	"dish_lava_candy": ["candy", "伤害提高 15%，持续 10 秒。"],
+	"dish_smooth_sauce": ["sauce", "受到的伤害降低 20%，持续 8 秒。"],
+}
 
 func setup(game, chapter_number := 1) -> void:
 	chapter = chapter_number
 	host = game
 	hero = host.player
-	hero.travel_combat = true
-	hero.attack_dish_missing.connect(_show_missing_attack_dish)
+	if chapter != 2:
+		hero.travel_combat = true
+		hero.attack_dish_missing.connect(_show_missing_attack_dish)
 	layer = 85
 	process_mode = PROCESS_MODE_ALWAYS
 	add_child(aim_reticle)
@@ -55,8 +76,17 @@ func setup(game, chapter_number := 1) -> void:
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation",8)
 	shell.hide()
-	settings.load("user://kitchen_settings.cfg")
-	apply_settings()
+	add_child(backdrop)
+	backdrop.color = Color("080c0bce")
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.add_child(backpack)
+	backpack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backpack.setup(close, show_page.bind("备餐"), _open_trial, show_page.bind("任务物品"))
+	backdrop.hide()
+	inv.changed.connect(_on_inventory_changed)
+	if chapter != 2:
+		settings.load("user://kitchen_settings.cfg")
+		apply_settings()
 
 func _process(_delta: float) -> void:
 	aim_reticle.visible = is_instance_valid(hero) and hero.staff_mode and not hero.cooking 		and page.is_empty() and not get_tree().paused and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED 		and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
@@ -74,7 +104,10 @@ func handle(event: InputEvent) -> bool:
 	if chapter == 1 and host.recipe_compose_active:
 		return false
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_F1 or event.physical_keycode == KEY_F1:
+		var key: Key = event.keycode if event.keycode != KEY_NONE else event.physical_keycode
+		if chapter == 2 and key not in [KEY_TAB, KEY_B, KEY_F1] and not (key == KEY_ESCAPE and not page.is_empty()):
+			return false
+		if key == KEY_F1:
 			if page == GUIDE_PAGE:
 				close()
 				return true
@@ -88,36 +121,39 @@ func handle(event: InputEvent) -> bool:
 				return true
 			# 从空状态或任意已开面板都能直接切到备餐（不再要求 page == ""）
 			var can_open: bool = not hero.cooking and not hero.has_meta("opening_combat") and (chapter != 2 or not hero.movement_locked)
-			if page == "":
-				can_open = can_open and not get_tree().paused
+			can_open = can_open and not (get_tree().paused if page.is_empty() else paused_before)
 			if can_open:
 				show_page("备餐")
 				return true
-		var key: Key = event.keycode if event.keycode != KEY_NONE else event.physical_keycode
-		var which := {KEY_TAB:"背包",KEY_B:"装备",KEY_ESCAPE:"设置"}.get(key,"") as String
-		if which != "":
-			if page != "":
-				if which == page or which == "设置":
+		if key in [KEY_TAB, KEY_B, KEY_ESCAPE]:
+			if not page.is_empty():
+				if key == KEY_ESCAPE or (key == KEY_TAB and page == "背包"):
 					close()
-				elif not paused_before:
-					show_page(which)
+				elif key == KEY_TAB:
+					show_page("背包")
+				else:
+					show_page("背包", 1)
 				return true
-			var dialogue_bag: bool = chapter == 1 and host.shelter_dialogue_active and which == "背包"
-			if get_tree().paused and which != "设置" and not dialogue_bag: return false
-			if chapter == 1 and host.aftermath_active and which != "设置": return false
-			if chapter == 2 and hero.movement_locked and which != "设置": return false
-			if hero.cooking and which != "设置": return true
-			show_page(which)
+			if key == KEY_ESCAPE:
+				show_page("设置")
+				return true
+			var dialogue_bag: bool = chapter == 1 and host.shelter_dialogue_active and key == KEY_TAB
+			if get_tree().paused and not dialogue_bag: return false
+			if chapter == 1 and host.aftermath_active: return false
+			if chapter == 2 and (host.riding or host._entry_handoff_active or hero.movement_locked or hero.health <= 0): return false
+			if hero.cooking: return true
+			show_page("背包", 1 if key == KEY_B else -1)
 			return true
-	if page != "": return event is InputEventKey and event.pressed and event.keycode not in [KEY_ENTER,KEY_SPACE,KEY_UP,KEY_DOWN]
-	if get_tree().paused or hero.cooking: return false
+	if page != "":
+		return event is InputEventKey and event.pressed and event.keycode not in [KEY_ENTER, KEY_SPACE, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]
+	if chapter == 2 or get_tree().paused or hero.cooking: return false
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
 		if RunState.has_gear("snowleaf") and not hero.has_meta("opening_combat"):
 			hero.staff_mode = event.button_index == MOUSE_BUTTON_WHEEL_UP
 		return true
 	return false
 
-func show_page(which: String) -> void:
+func show_page(which: String, focus_category: int = -1) -> void:
 	var from_settings := page == "设置"
 	if page == "":
 		was_mouse = Input.mouse_mode
@@ -125,6 +161,11 @@ func show_page(which: String) -> void:
 	page = which
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	backdrop.visible = page == "背包"
+	shell.visible = not backdrop.visible
+	if backdrop.visible:
+		_refresh_backpack(focus_category)
+		return
 	for child in body.get_children():
 		body.remove_child(child)
 		child.queue_free()
@@ -145,38 +186,11 @@ func show_page(which: String) -> void:
 			build_guide()
 			if from_settings:
 				button("返回设置", func(): show_page("设置"))
-		"背包":
-			line("金币　%d" % RunState.coins)
-			var stock := PackedStringArray()
-			for id in inv.ingredient_ids(): stock.append("%s ×%d" % [FoodData.ingredient_name(id),inv.ingredient_count(id)])
-			line("食材　"+"　".join(stock) if stock.size() else "食材　空")
-			# 任务物品（如冰堡钥匙）显示在背包里
-			var _qnames := {"ice_castle_keys": "冰堡钥匙", "coins": "豆奶给的零钱", "matches": "干燥的火柴", "old_recipe_book": "旧食谱"}
-			var _quest := RunState.quest_items
-			if _quest.size() > 0:
-				var _qs := PackedStringArray()
-				for _qid in _quest: _qs.append("%s ×%d" % [_qnames.get(_qid, _qid), _quest[_qid]])
-				line("任务物品　" + "　".join(_qs))
-			if chapter == 1 and hero.has_meta("opening_combat"):
-				var opening = hero.get_meta("opening_combat")
-				if opening.stage == opening.ARM_SOUP and inv.dish_count(opening.HOT_SOUP) > 0:
-					var equip_button := button("热汤 ×1 · 装进锅", func():
-						if opening.equip_soup():
-							close()
-							notice("热汤已装进锅"))
-					equip_button.grab_focus()
-				elif opening.stage in [opening.LOADER_ROUTE, opening.LOADER_FIGHT]:
-					line("锅中料理　热汤 ×1")
-				elif opening.stage in [opening.DELIVERY, opening.FIGHT, opening.HAND_OVER]:
-					line("任务物品　给旅人的热汤 ×1")
-			button("备餐",func(): show_page("备餐"))
-			if at_station(): button("食堂灶台 · 试做",func(): first="";try_note="";show_page("试做"))
-			for id in inv.dish_ids():
-				if id == "snow_tutorial_hot_soup":
-					continue
-				if id in GUARDS or id in ["fire_ring","ice_shot"]:
-					line("%s ×%d" % [dish_name(id),inv.dish_count(id)])
-				else: button("食用　%s ×%d" % [dish_name(id),inv.dish_count(id)],use_food.bind(id))
+		"任务物品":
+			var names := {"ice_castle_keys": "冰堡钥匙", "coins": "豆奶给的零钱", "matches": "干燥的火柴", "old_recipe_book": "旧食谱"}
+			for id in RunState.quest_items:
+				line("%s  ×%d" % [names.get(id, id), RunState.quest_items[id]])
+			button("返回背包", show_page.bind("背包"))
 		"备餐":
 			for data in recipes():
 				if data[0] in RunState.cooking_journal:
@@ -192,13 +206,123 @@ func show_page(which: String) -> void:
 				if id != first: button(FoodData.ingredient_name(id),select_ingredient.bind(id))
 			if first != "":
 				button("重选（清空已选）", func(): first=""; try_note=""; show_page.call_deferred("试做"))
-		"装备":
-			line(("平底锅" if hero.hero_motion == null or hero.hero_motion.wardrobe.pan_received else "平底锅在二楼桌上") + ("　红果木杖 · 叶子披肩 · 雪叶头盔" if RunState.has_gear("snowleaf") else ""))
-			for id in GUARDS:
-				if id in RunState.guards: button("卸下　"+dish_name(id),equip.bind(id))
-				elif inv.dish_count(id)>0: button("装备　"+dish_name(id),equip.bind(id)).disabled = RunState.guards.size() >= 2
-			line("防护料理　%d / 2" % RunState.guards.size())
 	button("返回游戏",close)
+
+func _open_trial() -> void:
+	first = ""
+	try_note = ""
+	show_page("试做")
+
+
+func _on_inventory_changed() -> void:
+	if page == "背包":
+		_refresh_backpack.call_deferred()
+
+
+func _refresh_backpack(focus_category: int = -1) -> void:
+	if page != "背包":
+		return
+	var can_prep: bool = chapter != 2 and not paused_before and not hero.has_meta("opening_combat")
+	var can_try: bool = chapter != 2 and not paused_before and at_station()
+	backpack.update_items([_food_entries(), _gear_entries(), _meal_entries()], RunState.coins, can_prep,
+		can_try, RunState.quest_items.size() > 0, focus_category)
+
+
+func _food_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var ids := inv.ingredient_ids()
+	ids.sort()
+	for id in ids:
+		var description := FoodData.ingredient_desc(id)
+		if description.is_empty():
+			var definition: Dictionary = Recipes.UPGRADE_DEFS.get(id, {})
+			var pair_uses := PackedStringArray()
+			for recipe in recipes():
+				if id == recipe[2] or id == recipe[3]:
+					var title := dish_name(recipe[1])
+					if not pair_uses.has(title):
+						pair_uses.append(title)
+			description = "可用于制作%s。" % "、".join(pair_uses) if not pair_uses.is_empty() else definition.get("description", "可与其他食材搭配试做。")
+		var icon := id if FoodData.INGREDIENTS.has(id) or Recipes.UPGRADE_DEFS.has(id) else "ingredient"
+		entries.append(_item("food_" + id, FoodData.ingredient_name(id), icon, "×%d" % inv.ingredient_count(id), description))
+	return entries
+
+
+func _gear_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	if hero.hero_motion == null or hero.hero_motion.wardrobe.pan_received:
+		entries.append(_item("gear_pan", "平底锅", "pan", "使用中" if not hero.staff_mode else "", "近战武器。左键挥锅，也可用于随身备餐。"))
+	if RunState.has_gear("snowleaf"):
+		var staff_description := "远程武器。滚轮向上切换，按住右键瞄准。"
+		if chapter == 2:
+			staff_description = "肯德齐赠送的远程武器。工坊中沿用本章的战斗操作。"
+		entries.append(_item("gear_staff", "红果木杖", "staff", "使用中" if hero.staff_mode else "", staff_description))
+		entries.append(_item("gear_mantle", "叶子披肩", "mantle", "", "雪叶套装的披肩，拾取后随冒险装穿戴。"))
+		entries.append(_item("gear_helmet", "雪叶头盔", "helmet", "", "雪叶套装的头盔，拾取后随冒险装穿戴。"))
+	if RunState.has_gear("ember_lantern"):
+		entries.append(_item("gear_lantern", "余烬提灯", "lantern", "", "火山工坊获得的随身饰物。"))
+	if RunState.has_gear("banquet_medal"):
+		entries.append(_item("gear_medal", "终宴徽章", "medal", "", "终宴大厅获得的随身饰物。"))
+	return entries
+
+
+func _meal_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var ids := inv.dish_ids()
+	for id: String in RunState.guards:
+		if not ids.has(id):
+			ids.append(id)
+	ids.sort()
+	if chapter == 1 and hero.has_meta("opening_combat"):
+		var opening = hero.get_meta("opening_combat")
+		if opening.stage == opening.ARM_SOUP and inv.dish_count(opening.HOT_SOUP) > 0:
+			entries.append(_item("tutorial_soup", "热汤", "soup", "×1", "肯德齐给的热汤。装进锅后出发。", "装进锅", _equip_tutorial_soup.bind(opening)))
+		elif opening.stage in [opening.LOADER_ROUTE, opening.LOADER_FIGHT]:
+			entries.append(_item("tutorial_soup", "热汤", "soup", "已装锅", "热汤已经装进锅里。"))
+		elif opening.stage in [opening.DELIVERY, opening.FIGHT, opening.HAND_OVER]:
+			entries.append(_item("tutorial_soup", "给旅人的热汤", "soup", "×1", "带给雪原上的旅人。"))
+	for id in ids:
+		if id == "snow_tutorial_hot_soup":
+			continue
+		var data: Array = DISH_DESCRIPTIONS.get(id, ["stew", "收在背包里的料理。"])
+		var equipped := id in RunState.guards
+		var stock := inv.dish_count(id)
+		var badge := "已装备" if equipped else "×%d" % stock
+		var description: String = data[1]
+		if equipped and stock > 0:
+			description += " 背包另有 %d 份。" % stock
+		var entry := _item("meal_" + id, dish_name(id), data[0], badge, description)
+		if chapter == 2:
+			entry.description = "已收进背包。火山工坊可在灶台合成料理。"
+		elif not paused_before:
+			_set_meal_action(entry, id, equipped)
+		entries.append(entry)
+	return entries
+
+
+func _set_meal_action(entry: Dictionary, id: String, equipped: bool) -> void:
+	if id in GUARDS:
+		entry.action_label = "卸下" if equipped else "装备"
+		if not equipped and RunState.guards.size() >= 2:
+			entry.description += " 两个防护位已满。"
+		else:
+			entry.action = equip.bind(id)
+	elif id not in ["fire_ring", "ice_shot"]:
+		entry.action_label = "食用"
+		if id != "cold" or hero.pan_heat.wash_left <= 0:
+			entry.action = use_food.bind(id)
+
+
+func _item(key: String, title: String, icon: String, badge: String, description: String, action_label := "", action := Callable()) -> Dictionary:
+	return {"key": key, "title": title, "icon": icon, "badge": badge, "description": description,
+		"action_label": action_label, "action": action}
+
+
+func _equip_tutorial_soup(opening: Node) -> void:
+	if opening.equip_soup():
+		close()
+		notice("热汤已装进锅")
+
 
 func build_guide() -> void:
 	body.add_child(Book.label("每次操作的火候变化", 23, Book.GOLD))
@@ -253,9 +377,11 @@ func build_guide() -> void:
 func close() -> void:
 	page=""
 	shell.hide()
+	backdrop.hide()
 	get_tree().paused=paused_before
 	Input.mouse_mode=was_mouse
-	hero.input_latch=true
+	if chapter != 2:
+		hero.input_latch=true
 
 func line(value: String) -> void:
 	body.add_child(Book.label(value,19))
@@ -393,7 +519,6 @@ func equip(id: String) -> void:
 		inv.add_dish(id)
 	elif RunState.guards.size()<2 and hero.spend_dish(id): RunState.guards.append(id)
 	RunState.save_progress()
-	show_page("装备")
 
 func use_food(id: String) -> void:
 	if id=="cold" and hero.pan_heat.wash_left>0: return
@@ -406,14 +531,9 @@ func use_food(id: String) -> void:
 		"dish_smooth_sauce": hero.timed[id]=8.0
 		_: hero.timed[id]=10.0
 	RunState.save_progress()
-	show_page("背包")
 
 func at_station() -> bool:
-	if chapter == 1: return bool(host.shelter_active)
-	if chapter == 3: return host.area_at(hero.global_position) == "宴前准备区"
-	return hero.global_position.distance_to(stove_position) <= 3.0
-
-var stove_position := Vector3.ZERO
+	return chapter == 1 and bool(host.shelter_active)
 
 func _show_missing_attack_dish(id: String) -> void:
 	if id == "ice_shot":

@@ -62,6 +62,40 @@ func ingredient():
    draw_line(Vector2(-34,10),Vector2(34,2),Color("e8a76a"),4,true)
    draw_polyline(PackedVector2Array([Vector2(-52,-6),Vector2(-64,-18),Vector2(-72,-20)]),Color("6f8d4f"),6,true)
   "caramel":bottle(Color("d79b4a"))
+  "pan":pan()
+  "staff":
+   draw_line(Vector2(-38,57),Vector2(32,-37),INK,17,true)
+   draw_line(Vector2(-38,57),Vector2(32,-37),Color("af8555"),9,true)
+   oval(Vector2(35,-43),22,Color("bc5b58"))
+   star(Vector2(65,-49),12,Color("f5cd87"))
+  "mantle", "helmet":
+   var leaf_color := Color("78a080") if kind == "mantle" else Color("8ebac3")
+   polygon([Vector2(-49,28),Vector2(-27,-29),Vector2(0,-53),Vector2(27,-29),Vector2(49,28),Vector2(0,49)],leaf_color)
+   draw_polyline(PackedVector2Array([Vector2(-33,14),Vector2(0,32),Vector2(33,14)]),Color("e1d8a0"),4,true)
+   if kind == "helmet":
+    polygon([Vector2(-30,8),Vector2(30,8),Vector2(16,26),Vector2(-16,26)],Color("394c49"))
+   else:
+    oval(Vector2(0,-22),10,Color("ecd18d"))
+  "lantern":
+   draw_arc(Vector2(0,-32),22,PI,TAU,24,Color("d3b77e"),5,true)
+   polygon([Vector2(-31,-33),Vector2(31,-33),Vector2(28,38),Vector2(-28,38)],Color("9d7647"))
+   polygon([Vector2(-19,-22),Vector2(19,-22),Vector2(17,24),Vector2(-17,24)],Color("e2ac63"))
+   star(Vector2(0,0),21,Color("fae3a3"))
+  "medal":
+   polygon([Vector2(-27,-46),Vector2(27,-46),Vector2(12,6),Vector2(-12,6)],Color("629284"))
+   oval(Vector2(0,16),30,Color("d6ad60"))
+   star(Vector2(0,16),20,Color("f6df91"))
+  "chocolate", "butter", "sugar", "burnt_scraps", "ingredient":
+   var block_color := Color({ "chocolate": "986746", "butter": "f0cb6d", "sugar": "e7e2ca", "burnt_scraps": "816362" }.get(kind,"b5a57a"))
+   polygon([Vector2(-50,-19),Vector2(10,-45),Vector2(52,-19),Vector2(50,20),Vector2(-10,44),Vector2(-51,19)],block_color.darkened(0.23))
+   polygon([Vector2(-50,-19),Vector2(10,-45),Vector2(52,-19),Vector2(-10,7)],block_color)
+   draw_line(Vector2(-10,7),Vector2(-10,44),INK,3,true)
+  "soup", "pudding", "candy", "sauce", "stew":
+   var meal_color := Color({"soup":"e9a762","pudding":"c77b61","candy":"de7775","sauce":"eacd93"}.get(kind,"af9ac7"))
+   polygon([Vector2(-53,-9),Vector2(53,-9),Vector2(33,33),Vector2(19,42),Vector2(-19,42),Vector2(-33,33)],Color("8f7257"))
+   oval(Vector2(0,-9),53,meal_color,Vector2(1,0.38))
+   for x in [-22, 8, 28]:
+    draw_arc(Vector2(x,-36),11,1.2,3.7,14,meal_color.lightened(0.32),3,true)
 func _draw():
  _icon_scale=minf(size.x/220.0,size.y/180.0)
  _icon_origin=size*0.5

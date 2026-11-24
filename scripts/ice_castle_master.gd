@@ -50,8 +50,7 @@ func _ready() -> void:
 		_restore_portrait_position.call_deferred()
 	_build_door_hearth.call_deferred()
 	_body = get_node_or_null("Body")
-	# Body 子节点自带 0.9 的抬升（让脚底对齐根原点），必须保留，
-	# 否则脚本把 position.y 归零会把豆包半截埋进地面
+	# Body 的抬升让脚底对齐根原点，行走时以它为基准。
 	if _body != null:
 		_body_base_y = _body.position.y
 	_build_prompt()
@@ -79,7 +78,7 @@ func _build_prompt() -> void:
 	_prompt.text = "按 F 与冰堡主人交谈"
 	_prompt.font_size = 48
 	_prompt.pixel_size = 0.012
-	_prompt.position = Vector3(0, 2.2, 0)
+	_prompt.position = Vector3(0, 2.35, 0)
 	_prompt.modulate = Color(0.85, 0.95, 1.0)
 	_prompt.visible = false
 	add_child(_prompt)
@@ -170,6 +169,10 @@ func _process(delta: float) -> void:
 
 func task_target() -> Vector3:
 	return global_position
+
+
+func awaiting_portrait_dialogue() -> bool:
+	return _walk_done and not _walking and not _open and not RunState.snow_portrait_seen
 
 
 func _update_prompts() -> void:
@@ -316,7 +319,7 @@ func _talk() -> void:
 		0, 4:
 			_dialogue_kind = "offer"
 			_start_dialogue([
-				"我一天到晚守在这儿，手都快冻僵了。门房还有柴，火柴倒是一根也没了。",
+				"刚才多亏你找回了钥匙。门房还有柴，火柴倒是一根也没了。",
 				"圣诞镇广场上有个小姑娘卖火柴。你要是从那儿过，帮我捎一盒？",
 			], ["豆奶", "豆奶"])
 		1:

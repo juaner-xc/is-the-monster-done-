@@ -12,7 +12,7 @@ func _ready() -> void:
     snow_arrival = true
     hero_name = RunState.player_name.strip_edges()
     if hero_name.is_empty():
-        hero_name = "奶龙"
+        hero_name = "奶蛙"
     super._ready()
     narration_panel = Panel.new()
     narration_panel.name = "HeroNarrationPanel"

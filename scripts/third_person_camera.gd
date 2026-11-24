@@ -7,6 +7,8 @@ var pitch := -0.22
 var cinematic_locked := false
 var initialized := false
 var window_focused := true
+var _scene_framing: Node3D
+var _returning_to_player := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -28,7 +30,7 @@ func _notification(what: int) -> void:
 		window_focused = true
 
 func _unhandled_input(event: InputEvent) -> void:
-	if cinematic_locked or get_tree().paused or not window_focused:
+	if cinematic_locked or is_instance_valid(_scene_framing) or get_tree().paused or not window_focused:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw -= event.relative.x * sensitivity
@@ -39,8 +41,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			distance = minf(8.0, distance + 0.35)
 
+func set_scene_framing(marker: Node3D) -> void:
+	_scene_framing = marker
+	_returning_to_player = marker == null
+
+
 func follow(target: CharacterBody3D, delta: float, shake: Vector3) -> void:
 	if get_tree().paused:
+		return
+	if is_instance_valid(_scene_framing):
+		global_transform = global_transform.interpolate_with(_scene_framing.global_transform, 1.0 - exp(-5.5 * delta))
 		return
 	var shelter: Node3D = target.get_meta("snow_shelter") as Node3D if target.has_meta("snow_shelter") else null
 	var indoors := is_instance_valid(shelter)
@@ -61,4 +71,10 @@ func follow(target: CharacterBody3D, delta: float, shake: Vector3) -> void:
 	global_position += shake
 	if indoors:
 		global_position = shelter.constrain_ground_camera(global_position, focus)
-	look_at(focus - backward * (0.2 if indoors else 1.4), Vector3.UP)
+	var gaze := focus - backward * (0.2 if indoors else 1.4)
+	if _returning_to_player and not global_position.is_equal_approx(gaze):
+		var upright := Basis.looking_at(gaze - global_position)
+		global_basis = global_basis.slerp(upright, 1.0 - exp(-8.0 * delta)).orthonormalized()
+		_returning_to_player = not global_basis.is_equal_approx(upright)
+	else:
+		look_at(gaze, Vector3.UP)

@@ -32,12 +32,15 @@ const INGREDIENT_COLORS := {
 
 var health_label: Label
 var health_bar: ProgressBar
-var experience_label: Label
-var experience_bar: ProgressBar
+var magic_meter: Control
+var _snow_status: VBoxContainer
+var _notice_tween: Tween
+var _notice_heading: Label
+var upgrade_only := false
+var magic_level := 1
 var build_label: Label
 var timer_label: Label
 var wave_label: Label
-var help_label: Label
 var notice_label: Label
 var notice_panel: PanelContainer
 var upgrade_overlay: ColorRect
@@ -53,19 +56,21 @@ var pause_resume_button: Button
 var pause_title_button: Button
 var confirming_return := false
 var _debug_label: Label
+var _debug_refresh_left := 0.0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_interface()
-	_build_debug_label()
+	if not upgrade_only:
+		_build_debug_label()
 
 
 func _build_debug_label() -> void:
 	_debug_label = Label.new()
 	_debug_label.text = ""
 	_debug_label.position = Vector2(12, 8)
-	_debug_label.size = Vector2(380, 30)
+	_debug_label.size = Vector2(1000, 60)
 	_debug_label.add_theme_font_size_override("font_size", 14)
 	_debug_label.add_theme_color_override("font_color", Color("9fe8ff"))
 	_debug_label.add_theme_color_override("font_outline_color", Color("101820"))
@@ -82,35 +87,43 @@ func _unhandled_input(event: InputEvent) -> void:
 			_debug_label.visible = not _debug_label.visible
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _debug_label == null or not _debug_label.visible:
 		return
+	_debug_refresh_left -= delta
+	if _debug_refresh_left > 0.0:
+		return
+	_debug_refresh_left = 0.25
 	var p := get_tree().get_first_node_in_group("Player") as Node3D
 	if p != null:
-		_debug_label.text = "坐标 %.2f, %.2f, %.2f" % [p.global_position.x, p.global_position.y, p.global_position.z]
+		_debug_label.text = "FPS %d | Draws %d | Triangles %d | Physics %.2f ms\nXYZ %.2f, %.2f, %.2f" % [
+			Engine.get_frames_per_second(),
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)),
+			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			p.global_position.x, p.global_position.y, p.global_position.z]
 
 
 func update_status(player: Node, recipe_system: Node, time_left: float, wave: int, enemy_count: int) -> void:
 	health_bar.max_value = player.max_health
 	health_bar.value = maxf(player.health, 0.0)
 	health_label.text = "%d / %d" % [roundi(player.health), roundi(player.max_health)]
-	update_condensation(player.experience, player.experience_needed)
+	update_condensation(player.experience, player.experience_needed, player.level)
 	build_label.text = player.kitchen_status() if player.has_method("kitchen_status") else ""
 	var total_seconds := maxi(0, ceili(time_left))
 	timer_label.text = "%02d:%02d" % [floori(float(total_seconds) / 60.0), total_seconds % 60]
 	wave_label.text = "第 %d 波  ·  场上 %d" % [wave, enemy_count]
 
 
-func update_condensation(current: int, needed: int) -> void:
-	var filled := mini(current, needed)
-	experience_bar.max_value = needed
-	experience_bar.value = filled
-	experience_label.text = "%d / %d" % [filled, needed]
+func update_condensation(current: int, needed: int, level: int = -1) -> void:
+	if level > 0:
+		magic_level = level
+	magic_meter.update_magic(current, needed, magic_level)
 
 
-func show_upgrade(options: Array[Dictionary], discovery := false) -> void:
+func show_upgrade(options: Array[Dictionary], discovery := false, reward_level := 0) -> void:
 	upgrade_title.text = "发现魔力凝材" if discovery else "魔力凝材"
-	upgrade_subtitle.text = "散逸的魔力凝结了 · 选择一种食材" if discovery else "选择一种食材"
+	upgrade_subtitle.text = "魔力 Lv.%d  ·  选择 1 种食材" % reward_level if reward_level > 0 else "选择 1 种食材"
 	for child in upgrade_button_box.get_children():
 		upgrade_button_box.remove_child(child)
 		child.queue_free()
@@ -144,16 +157,25 @@ func show_end_screen(won: bool) -> void:
 	end_overlay.visible = true
 
 
-func show_notice(text: String) -> void:
+func show_notice(text: String, heading := "") -> void:
+	_notice_heading.text = heading
+	_notice_heading.visible = not heading.is_empty()
 	notice_label.text = text
-	notice_panel.modulate.a = 1.0
-	var tween := create_tween()
-	tween.tween_interval(1.5)
-	tween.tween_property(notice_panel, "modulate:a", 0.0, 0.55)
+	var half_width := 164.0 if not heading.is_empty() else 260.0
+	notice_panel.offset_left = -half_width
+	notice_panel.offset_right = half_width
+	notice_panel.offset_top = 154.0 if not heading.is_empty() else 110.0
+	notice_panel.offset_bottom = notice_panel.offset_top + 36.0
+	if _notice_tween != null:
+		_notice_tween.kill()
+	notice_panel.modulate.a = 0.0
+	_notice_tween = create_tween()
+	_notice_tween.tween_property(notice_panel, "modulate:a", 1.0, 0.20)
+	_notice_tween.tween_interval(2.2 if not heading.is_empty() else 1.5)
+	_notice_tween.tween_property(notice_panel, "modulate:a", 0.0, 0.55)
 
 
 func set_paused_hint(paused: bool) -> void:
-	help_label.text = "暂停中  ·  按 Esc 返回厨房" if paused else "左键 挥锅 · 右键 调味 · Shift 闪避 · 空格 跳跃\nV 挥手 / Tab 料理手记 / Esc 暂停"
 	pause_overlay.visible = paused
 	confirming_return = false
 	_update_pause_menu()
@@ -251,11 +273,11 @@ func _build_interface() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	_build_status_card(root)
-	_build_condensation_card(root)
-	_build_timer_card(root)
+	if upgrade_only:
+		_build_upgrade_overlay(root)
+		return
+	_build_snow_status(root)
 	_build_recipe_card(root)
-	_build_help_bar(root)
 	_build_notice(root)
 	for child in root.get_children():
 		_make_mouse_transparent(child)
@@ -271,67 +293,85 @@ func _make_mouse_transparent(node: Node) -> void:
 		_make_mouse_transparent(child)
 
 
-func _build_status_card(root: Control) -> void:
-	var frame=load("res://scripts/arcane_trim.gd").new()
+func _build_snow_status(root: Control) -> void:
+	var frame := PanelContainer.new()
+	frame.name = "SnowStatus"
+	frame.position = Vector2(26, 23)
+	frame.custom_minimum_size.x = 246
+	frame.add_theme_stylebox_override("panel", _snow_frame(Color("15252eea"), Color("8caebc")))
 	root.add_child(frame)
-	frame.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	frame.offset_left=28;frame.offset_right=298;frame.offset_top=-160;frame.offset_bottom=-103
-	var title=Label.new();title.text="◇  "+(RunState.player_name if RunState.has_profile() else "奶蛙")
-	title.position=Vector2(16,9);title.add_theme_font_size_override("font_size",16);title.add_theme_color_override("font_color",Color("e1d5b4"));frame.add_child(title)
-	health_bar=ProgressBar.new();frame.add_child(health_bar);health_bar.position=Vector2(17,37);health_bar.size=Vector2(230,8);health_bar.show_percentage=false
-	_style_progress_bar(health_bar,Color("17262b"),Color("81bbb1"))
-	health_bar.add_theme_font_size_override("font_size",1);health_bar.size.y=8
-	health_label=Label.new();frame.add_child(health_label);health_label.position=Vector2(170,10);health_label.size.x=80;health_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT;health_label.add_theme_font_size_override("font_size",14)
+	_snow_status = VBoxContainer.new()
+	_snow_status.add_theme_constant_override("separation", 8)
+	frame.add_child(_snow_status)
+
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 8)
+	_snow_status.add_child(heading)
+	var snowflake := Book.label("❄", 21, Color("b4dcea"))
+	heading.add_child(snowflake)
+	heading.add_child(Book.label(RunState.player_name if RunState.has_profile() else "奶蛙", 18, Color("f4e8cc")))
+	var border := ColorRect.new()
+	border.color = Color("91b1bf66")
+	border.custom_minimum_size.y = 1
+	_snow_status.add_child(border)
+
+	var life := VBoxContainer.new()
+	life.add_theme_constant_override("separation", 4)
+	_snow_status.add_child(life)
+	var row := HBoxContainer.new()
+	life.add_child(row)
+	var caption := Book.label("♥  生命", 15, Color("ffd9ce"))
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(caption)
+	health_label = Book.label("", 13, Color("eec9c3"))
+	row.add_child(health_label)
+	health_bar = ProgressBar.new()
+	health_bar.show_percentage = false
+	health_bar.custom_minimum_size.y = 6
+	_style_progress_bar(health_bar, Color("49313f"), Color("d88082"))
+	life.add_child(health_bar)
+
+	magic_meter = preload("res://scripts/magic_meter.gd").new()
+	magic_meter.name = "MagicMeter"
+	_snow_status.add_child(magic_meter)
+	magic_meter.use_snow_row()
+
+	var timer := VBoxContainer.new()
+	timer.name = "EncounterStatus"
+	_snow_status.add_child(timer)
+	timer.add_child(Book.label("战斗计时", 13, Color("c1dce6")))
+	timer_label = Book.label("", 13, Color("f4e8cc"))
+	timer.add_child(timer_label)
+	wave_label = Book.label("", 12, Color("a1b8c5"))
+	timer.add_child(wave_label)
+	timer.visible = not RunState.chapter_mode
 
 
-func _build_condensation_card(root: Control) -> void:
-	var frame := preload("res://scripts/arcane_trim.gd").new()
-	root.add_child(frame)
-	frame.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	frame.offset_left = 28
-	frame.offset_right = 298
-	frame.offset_top = -93
-	frame.offset_bottom = -30
-	var title := Label.new()
-	title.text = "魔力凝结"
-	title.position = Vector2(17, 10)
-	title.add_theme_font_size_override("font_size", 16)
-	title.add_theme_color_override("font_color", CREAM)
-	frame.add_child(title)
-	experience_label = Label.new()
-	experience_label.position = Vector2(122, 12)
-	experience_label.size.x = 125
-	experience_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	experience_label.add_theme_font_size_override("font_size", 14)
-	frame.add_child(experience_label)
-	experience_bar = ProgressBar.new()
-	experience_bar.position = Vector2(17, 39)
-	experience_bar.size = Vector2(230, 9)
-	experience_bar.show_percentage = false
-	_style_progress_bar(experience_bar, Color("26383c"), Color("e0ba73"))
-	frame.add_child(experience_bar)
+func attach_snow_heat(heat: Node) -> void:
+	heat.attach_snow_meter(_snow_status)
+	_snow_status.move_child(_snow_status.get_node("HeatMeter"), 3)
 
 
-func _build_timer_card(root: Control) -> void:
-	# Keep compatibility with game/aftermath, without a permanent timer panel.
-	var box=VBoxContainer.new();root.add_child(box);box.position=Vector2(30,24)
-	var title=Label.new();title.text="雪原边境";title.add_theme_font_size_override("font_size",14);title.add_theme_color_override("font_color",Color("dbd1b6"));box.add_child(title)
-	timer_label=Label.new();box.add_child(timer_label);timer_label.add_theme_font_size_override("font_size",12)
-	wave_label=Label.new();box.add_child(wave_label);wave_label.hide()
+func _snow_frame(background: Color, accent: Color) -> StyleBoxFlat:
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = background
+	frame.border_color = accent
+	frame.border_width_left = 2
+	frame.border_width_top = 1
+	frame.border_width_bottom = 1
+	frame.set_corner_radius_all(5)
+	frame.content_margin_left = 14
+	frame.content_margin_right = 14
+	frame.content_margin_top = 9
+	frame.content_margin_bottom = 10
+	frame.shadow_color = Color("0a15246b")
+	frame.shadow_size = 6
+	frame.shadow_offset = Vector2(0, 3)
+	return frame
 
 
 func _build_recipe_card(root: Control) -> void:
 	build_label=Label.new();root.add_child(build_label);build_label.hide()
-
-
-func _build_help_bar(root: Control) -> void:
-	# 右下角按键提示常驻（含重生后），暂停时由 set_paused_hint 切换文案
-	help_label=Label.new();root.add_child(help_label)
-	help_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	help_label.offset_left=-330;help_label.offset_right=-30;help_label.offset_top=-66;help_label.offset_bottom=-25
-	help_label.text="左键 挥锅  ·  右键 调味  ·  Shift 闪避 · 空格 跳跃\nV 挥手  /  Tab 背包  /  Esc 暂停"
-	help_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-	help_label.add_theme_font_size_override("font_size",13);help_label.add_theme_color_override("font_color",Color("ddd5bd"));help_label.add_theme_color_override("font_shadow_color",Color("15242a"));help_label.add_theme_constant_override("shadow_outline_size",4)
 
 
 func _build_notice(root: Control) -> void:
@@ -342,14 +382,21 @@ func _build_notice(root: Control) -> void:
 	notice_panel.offset_right = 260.0
 	notice_panel.offset_top = 110.0
 	notice_panel.offset_bottom = 146.0
-	notice_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.11, 0.07, 0.04, 0.94), ORANGE, 18, 2))
+	notice_panel.add_theme_stylebox_override("panel", _snow_frame(Color("13232eea"), Color("c1a97a")))
 	root.add_child(notice_panel)
+	var lines := VBoxContainer.new()
+	lines.add_theme_constant_override("separation", 3)
+	notice_panel.add_child(lines)
+	_notice_heading = Book.label("", 22, Color("f7dba5"))
+	_notice_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notice_heading.hide()
+	lines.add_child(_notice_heading)
 	notice_label = Label.new()
 	notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	notice_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	notice_label.add_theme_font_size_override("font_size", 15)
 	notice_label.add_theme_color_override("font_color", CREAM)
-	notice_panel.add_child(notice_label)
+	lines.add_child(notice_label)
 	notice_panel.modulate.a = 0.0
 
 
@@ -486,15 +533,12 @@ func _style_ingredient_button(button: Button, accent: Color) -> void:
 
 
 func show_aftermath() -> void:
-	experience_label.text = "炉火已熄"
-	experience_bar.hide()
-	upgrade_overlay.hide()
 	pause_overlay.hide()
+	timer_label.get_parent().show()
 	timer_label.get_parent().get_child(0).text = "战斗已结束"
 	timer_label.text = "炉火熄灭"
 	timer_label.add_theme_font_size_override("font_size", 24)
 	wave_label.text = "可自由检视残骸"
-	help_label.text = "WASD 移动    鼠标转镜头    F 检视残骸    Esc 暂停"
 	show_notice("烤炉轰然散落。走近残骸，看看留下了什么。")
 
 

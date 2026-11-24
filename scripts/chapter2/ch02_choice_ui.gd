@@ -6,7 +6,7 @@ extends CanvasLayer
 signal chosen(id: String)
 
 const CREAM := Color("fff2cf")
-const ORANGE := Color("f28b2f")
+const COPPER := Color("cf9b6d")
 
 var _root: Control
 var _title: Label
@@ -51,9 +51,9 @@ func is_open() -> bool:
 
 func _build_card(option: Dictionary) -> Control:
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(390, 0)
-	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	card.add_theme_stylebox_override("panel", _style(Color(0.09, 0.06, 0.04, 0.96)))
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.add_theme_stylebox_override("panel", _style(Color("211612f2")))
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
@@ -62,14 +62,18 @@ func _build_card(option: Dictionary) -> Control:
 	var name_label := Label.new()
 	name_label.text = String(option.get("name", option.get("title", "")))
 	name_label.add_theme_font_size_override("font_size", 24)
-	name_label.add_theme_color_override("font_color", ORANGE)
+	name_label.add_theme_color_override("font_color", COPPER)
 	column.add_child(name_label)
 
-	column.add_child(_line("战斗中", String(option.get("battle", option.get("desc", "")))))
-	column.add_child(_line("世界里", String(option.get("world", ""))))
+	var battle := String(option.get("battle", option.get("desc", "")))
+	var world := String(option.get("world", ""))
+	if not battle.is_empty() and battle != "不改变战斗构筑。":
+		column.add_child(_line(String(option.get("left_title", "战斗")), battle))
+	if not world.is_empty():
+		column.add_child(_line(String(option.get("right_title", "工坊")), world))
 
 	var button := Button.new()
-	button.text = "就这个"
+	button.text = "确认"
 	button.custom_minimum_size = Vector2(0, 46)
 	var id := String(option.get("id", ""))
 	button.pressed.connect(func() -> void:
@@ -91,7 +95,6 @@ func _line(prefix: String, text: String) -> Control:
 	var body := Label.new()
 	body.text = text
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(340, 0)
 	body.add_theme_font_size_override("font_size", 17)
 	body.add_theme_color_override("font_color", CREAM)
 	box.add_child(body)
@@ -106,22 +109,24 @@ func _build() -> void:
 
 	var dim := ColorRect.new()
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.02, 0.01, 0.01, 0.72)
+	dim.color = Color(0.02, 0.01, 0.01, 0.46)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(dim)
 
 	var center := VBoxContainer.new()
-	center.set_anchors_preset(Control.PRESET_CENTER)
-	center.custom_minimum_size = Vector2(840, 0)
-	center.offset_left = -420.0
-	center.offset_right = 420.0
-	center.offset_top = -190.0
-	center.offset_bottom = 190.0
+	var safe_area := MarginContainer.new()
+	_root.add_child(safe_area)
+	safe_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	safe_area.add_theme_constant_override("margin_left", 44)
+	safe_area.add_theme_constant_override("margin_right", 44)
+	safe_area.add_theme_constant_override("margin_bottom", 42)
+	safe_area.add_child(center)
+	center.size_flags_vertical = Control.SIZE_SHRINK_END
 	center.add_theme_constant_override("separation", 18)
-	_root.add_child(center)
 
 	_title = Label.new()
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title.add_theme_font_size_override("font_size", 22)
 	_title.add_theme_color_override("font_color", CREAM)
 	center.add_child(_title)
@@ -135,9 +140,10 @@ func _build() -> void:
 func _style(background: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background
-	style.border_color = ORANGE
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(16)
+	style.border_color = Color("a6754eca")
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(5)
 	style.content_margin_left = 20.0
 	style.content_margin_right = 20.0
 	style.content_margin_top = 16.0

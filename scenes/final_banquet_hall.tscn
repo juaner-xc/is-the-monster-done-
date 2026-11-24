@@ -193,52 +193,7 @@ size = Vector3(1.65, 0.44, 1.65)
 size = Vector3(1.65, 0.44, 1.65)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_yk0tc"]
-size = Vector3(4.4, 0.24, 22)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_wat41"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_2jc4o"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_ujhsw"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_v4plh"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_ql7ns"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_qwr8b"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_ae3md"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_10xmn"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_64npi"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_nu0r1"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_cptxx"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_j4xjm"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_mpduj"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_t8qme"]
-size = Vector3(1.1, 1.4, 1.1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_y5ybi"]
-size = Vector3(1.1, 1.4, 1.1)
+size = Vector3(3.7, 0.20, 22)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_tq3kj"]
 size = Vector3(1.1, 1.3, 1.1)
@@ -8468,68 +8423,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.7, 0.22, -27)
 shape = SubResource("BoxShape3D_d7y3e")
 
 [node name="Long banquet tabletop" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=2004920158]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 1)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.00, 1)
 shape = SubResource("BoxShape3D_yk0tc")
-
-[node name="Chair" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=729629478]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, 9)
-shape = SubResource("BoxShape3D_wat41")
-
-[node name="@CollisionShape3D@50" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=429090924]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, 9)
-shape = SubResource("BoxShape3D_2jc4o")
-
-[node name="@CollisionShape3D@51" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=1461526718]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, 6)
-shape = SubResource("BoxShape3D_ujhsw")
-
-[node name="@CollisionShape3D@52" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=1471564402]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, 6)
-shape = SubResource("BoxShape3D_v4plh")
-
-[node name="@CollisionShape3D@53" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=549729394]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, 3)
-shape = SubResource("BoxShape3D_ql7ns")
-
-[node name="@CollisionShape3D@54" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=1357870274]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, 3)
-shape = SubResource("BoxShape3D_qwr8b")
-
-[node name="@CollisionShape3D@55" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=376482633]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, 0)
-shape = SubResource("BoxShape3D_ae3md")
-
-[node name="@CollisionShape3D@56" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=213342533]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, 0)
-shape = SubResource("BoxShape3D_10xmn")
-
-[node name="@CollisionShape3D@57" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=638944936]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, -3)
-shape = SubResource("BoxShape3D_64npi")
-
-[node name="@CollisionShape3D@58" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=1974156750]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, -3)
-shape = SubResource("BoxShape3D_nu0r1")
-
-[node name="@CollisionShape3D@59" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=721632378]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, -6)
-shape = SubResource("BoxShape3D_cptxx")
-
-[node name="@CollisionShape3D@60" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=935606384]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, -6)
-shape = SubResource("BoxShape3D_j4xjm")
-
-[node name="@CollisionShape3D@61" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=1545996014]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -3.2, 0.7, -9)
-shape = SubResource("BoxShape3D_mpduj")
-
-[node name="@CollisionShape3D@62" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=202484270]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 3.2, 0.7, -9)
-shape = SubResource("BoxShape3D_t8qme")
-
-[node name="@CollisionShape3D@63" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=2135604794]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, -11)
-shape = SubResource("BoxShape3D_y5ybi")
 
 [node name="Boss side console" type="CollisionShape3D" parent="Architecture/MapCollision" unique_id=210765538]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.65, -20)

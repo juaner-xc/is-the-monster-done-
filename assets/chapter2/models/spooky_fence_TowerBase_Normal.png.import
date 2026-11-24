@@ -3,7 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://pdiy1sleyg77"
-valid=false
+path.s3tc="res://.godot/imported/spooky_fence_TowerBase_Normal.png-06610737b929623645814aa5a75a4f23.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
 generator_parameters={
 "md5": "daa0de065b79177f4d1ef22e669e3475"
 }
@@ -11,6 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/chapter2/models/spooky_fence_TowerBase_Normal.png"
+dest_files=["res://.godot/imported/spooky_fence_TowerBase_Normal.png-06610737b929623645814aa5a75a4f23.s3tc.ctex"]
 
 [params]
 

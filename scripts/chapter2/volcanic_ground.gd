@@ -14,6 +14,7 @@ func _ready() -> void:
  lava=load("res://assets/chapter2/materials/mat_lava_pool.tres").duplicate()
  lava.set_shader_parameter("glow_gain",1.15)
  lava.set_shader_parameter("vein_power",1.8)
+ _clear_courtyard_floor()
  _paint_ground()
  var pools := [
   [Vector2(-76,5),5.2], [Vector2(-7,7),4.4],
@@ -31,6 +32,51 @@ func _ready() -> void:
    _rock(at,Vector3(rng.randf_range(3,7),rng.randf_range(4,10),rng.randf_range(3,7)))
  _flush_rocks()
  set_process(false)
+# Keep the volcanic terrain and its collision below the flat workshop deck.
+# Blend past the edge so the cave floor still joins the plaza naturally.
+func _clear_courtyard_floor() -> void:
+ var host := get_parent()
+ var hub := host.get("workshop_hub") as Node3D
+ if hub == null: return
+ var deck := hub.get_node_or_null("HubDeck/Deck_Surface") as MeshInstance3D
+ if deck == null: return
+ var box := deck.global_transform * deck.get_aabb()
+ var center := Vector2(box.get_center().x, box.get_center().z)
+ var radii := Vector2(box.size.x, box.size.z) * 0.5
+ var cap := box.end.y - 0.18
+ var terrain := host.get_node("Terrain_Main/Terrain/TerrainMesh") as MeshInstance3D
+ if _lower_courtyard_mesh(terrain, center, radii, cap):
+  var collider := terrain.get_parent().get_node("TerrainCollision") as CollisionShape3D
+  collider.shape = terrain.mesh.create_trimesh_shape()
+ var cracks := host.get_node_or_null("Terrain_Main/LavaCracks") as MeshInstance3D
+ if cracks != null:
+  _lower_courtyard_mesh(cracks, center, radii, cap + 0.025)
+
+func _lower_courtyard_mesh(instance: MeshInstance3D, center: Vector2, radii: Vector2, cap: float) -> bool:
+ var original := instance.mesh as ArrayMesh
+ if original == null: return false
+ var adjusted := ArrayMesh.new()
+ var transform_to_world := instance.global_transform
+ var transform_to_local := transform_to_world.affine_inverse()
+ var changed := false
+ for surface in original.get_surface_count():
+  var arrays := original.surface_get_arrays(surface)
+  var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+  for i in vertices.size():
+   var point := transform_to_world * vertices[i]
+   if point.y <= cap: continue
+   var distance := ((Vector2(point.x, point.z) - center) / radii).length()
+   if distance >= 1.22: continue
+   point.y = lerpf(cap, point.y, smoothstep(1.04, 1.22, distance))
+   vertices[i] = transform_to_local * point
+   changed = true
+  arrays[Mesh.ARRAY_VERTEX] = vertices
+  adjusted.add_surface_from_arrays(original.surface_get_primitive_type(surface), arrays)
+  adjusted.surface_set_material(surface, original.surface_get_material(surface))
+ if changed:
+  instance.mesh = adjusted
+ return changed
+
 func _paint_ground() -> void:
  var host:=get_parent()
  var terrain:=host.get_node_or_null("Terrain_Main/Terrain/TerrainMesh") as MeshInstance3D

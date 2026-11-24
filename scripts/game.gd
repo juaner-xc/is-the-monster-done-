@@ -18,13 +18,17 @@ const IngredientPickupScript = preload("res://scripts/ingredient_pickup.gd")
 const INGREDIENT_IDS := ["chili", "oil", "fruit", "ice", "mushroom", "cream", "flour", "black_salt", "sweet_potato", "caramel"]
 const RUN_DURATION := 120.0
 const BOSS_TIME := 60.0
-const MAX_ENEMIES := 24
+const MAX_WILDERNESS_ENEMIES := 8
+const WILDERNESS_SPAWN_INTERVAL := 9.0
+const WILDERNESS_SPAWN_SPACING := 18.0
+const WILDERNESS_DESPAWN_DISTANCE := 90.0
+const SNOWFIELD_SPAWN_EDGE := 390.0 # 地图雪地从 -400 到 400 米。
 const TERRAIN_SIZE := 220.0
 const TERRAIN_RESOLUTION := 110
 
 const SnowRoute := preload("res://scripts/snow_town_link.gd")
 var snow_town := SnowRoute.new()
-var ground_arrows: Node3D = preload("res://scripts/ground_arrows.gd").new()
+var snow_guide := preload("res://scripts/ground_arrows.gd").new()
 var kitchen = preload("res://scripts/travel_kitchen.gd").new()
 var recipe_arrival_active := false
 ## 卖火柴小姑娘的「食谱合成料理」入口打开期间，屏蔽食堂页面对 Tab/F1 的抢占
@@ -35,6 +39,7 @@ var _quest_hint_label: Label
 var recipe_book: CanvasLayer
 var recipe_book_was_paused := false
 var recipe_book_mouse_mode := Input.MOUSE_MODE_CAPTURED
+var upgrade_mouse_mode := Input.MOUSE_MODE_CAPTURED
 var player: CharacterBody3D
 var game_camera: Camera3D
 var recipe_system: Node
@@ -91,8 +96,8 @@ func _ready() -> void:
 	furnace_encounter.configure(self)
 	add_child(furnace_encounter)
 	add_child(snow_town)
-	ground_arrows.setup(self)
-	add_child(ground_arrows)
+	snow_guide.setup(self)
+	add_child(snow_guide)
 	_apply_debug_arguments()
 	if cinematic_entry:
 		_finish_cinematic_entry.call_deferred()
@@ -114,7 +119,7 @@ func _process(delta: float) -> void:
 			_riding = false
 			if ferris_wheel != null and ferris_wheel.is_riding():
 				ferris_wheel.stop_ride()
-	# 乘坐中：奶龙朝向跟随鼠标（镜头）方向（与平时移动转向同一套约定）
+	# 乘坐中：奶蛙朝向跟随鼠标（镜头）方向（与平时移动转向同一套约定）
 	if _riding and game_camera != null and player != null and is_instance_valid(player):
 		var forward := -game_camera.global_basis.z
 		forward.y = 0.0
@@ -247,6 +252,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if cinematic_entry or recipe_arrival_active:
 		return
+	if event.is_action_pressed("show_snow_guide") and snow_guide.reveal():
+		get_viewport().set_input_as_handled()
+		return
 	if is_holiday_interaction_available() and event.is_action_pressed("interact"):
 		if holiday_presents.open_nearest(player.global_position, hud):
 			get_viewport().set_input_as_handled()
@@ -273,8 +281,6 @@ func _set_game_paused(paused: bool) -> void:
 	get_tree().paused = paused
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
 	hud.set_paused_hint(paused)
-	if aftermath_active and not paused:
-		hud.help_label.text = "WASD 移动    鼠标转镜头    F 检视残骸    Esc 暂停"
 
 
 func _return_to_title() -> void:
@@ -311,6 +317,7 @@ func _start_run() -> void:
 	kitchen.setup(self)
 	hud = HudScript.new()
 	add_child(hud)
+	hud.attach_snow_heat(player.pan_heat)
 	hud.upgrade_chosen.connect(_on_upgrade_chosen)
 	hud.restart_requested.connect(_restart_run)
 	hud.route_map_requested.connect(_return_to_route_map)
@@ -324,10 +331,14 @@ func _start_run() -> void:
 	hud.update_status(player, recipe_system, time_left, current_wave, 0)
 	_spawn_ingredient_pickups()
 	var encounter_names := {"battle": "普通战斗", "elite": "精英战斗", "boss": "最终 Boss"}
-	hud.show_notice("第一章 · 雪原边境" if RunState.chapter_mode else "雪原遭遇：%s" % encounter_names.get(RunState.selected_type, "普通战斗"))
+	if RunState.chapter_mode:
+		if not cinematic_entry:
+			_show_snow_chapter_title()
+	else:
+		hud.show_notice("雪原遭遇：%s" % encounter_names.get(RunState.selected_type, "普通战斗"))
 
 	spawn_timer = Timer.new()
-	spawn_timer.wait_time = 4.0
+	spawn_timer.wait_time = WILDERNESS_SPAWN_INTERVAL
 	spawn_timer.autostart = not cinematic_entry
 	spawn_timer.process_mode = Node.PROCESS_MODE_PAUSABLE
 	spawn_timer.timeout.connect(_on_spawn_timer)
@@ -340,10 +351,14 @@ func _start_run() -> void:
 		spawn_timer.stop()
 		$SnowWorld/House.begin_opening(self)
 	elif not cinematic_entry:
-		for index in 2:
-			_spawn_enemy("slime")
+		_spawn_enemy("slime")
 	if cinematic_entry:
 		hud.hide()
+
+
+func _show_snow_chapter_title() -> void:
+	const Banner := preload("res://scripts/location_banner.gd")
+	Banner.new().announce(self, Banner.ThemeKind.SNOW, "第一章 · 雪原边境")
 
 
 func _finish_cinematic_entry() -> void:
@@ -362,12 +377,13 @@ func _finish_cinematic_entry() -> void:
 	hud.show()
 	hud.show_notice("雪原边境 · WASD 移动，鼠标转向，左键挥锅")
 	cinematic_entry = false
+	if RunState.chapter_mode:
+		_show_snow_chapter_title()
 	if $SnowWorld/House.opening_active():
 		$SnowWorld/House.opening.start()
 	else:
 		spawn_timer.start()
-		for index in 2:
-			_spawn_enemy("slime")
+		_spawn_enemy("slime")
 	CinematicFlow.stop_wind(2.5)
 
 
@@ -477,33 +493,23 @@ func _update_wave() -> void:
 		return
 	var elapsed := run_duration - time_left
 	var wave_length := maxf(14.0, (run_duration - boss_time) / 4.0)
-	var next_wave := clampi(int(elapsed / wave_length) + 1, 1, 4)
-	if next_wave == current_wave:
-		return
-	current_wave = next_wave
-	var messages := {
-		2: "第二波：餐叉小鬼开始冲锋",
-		3: "第三波：远程面包怪与腐坏蘑菇入场",
-		4: "第四波：厨房全面失控",
-	}
-	hud.show_notice(String(messages[current_wave]))
-	_on_camera_shake_requested(0.22, 0.35)
+	current_wave = clampi(int(elapsed / wave_length) + 1, 1, 4)
 
 
 func _on_spawn_timer() -> void:
-	if shelter_active or snow_town.in_town:
+	if not _can_spawn_wilderness_enemies():
 		return
-	if is_instance_valid(furnace_encounter) and (furnace_encounter.observed or furnace_encounter.started):
-		return
-	if aftermath_active or finished or boss_spawned and get_tree().get_nodes_in_group("enemies").size() >= 28:
-		return
-	var enemy_count := get_tree().get_nodes_in_group("enemies").size()
-	if enemy_count >= MAX_ENEMIES:
+	var active_count := 0
+	for enemy in get_tree().get_nodes_in_group("wilderness_enemies"):
+		if enemy.global_position.distance_to(player.global_position) > WILDERNESS_DESPAWN_DISTANCE:
+			enemy.queue_free()
+		elif not enemy.is_queued_for_deletion():
+			active_count += 1
+	if active_count >= MAX_WILDERNESS_ENEMIES:
 		return
 	if current_wave >= 2 and elite_cooldown <= 0.0:
-		elite_cooldown = 42.0
-		_spawn_enemy("elite_cooker")
-		hud.show_notice("精英单位：高压锅守卫")
+		if _spawn_enemy("elite_cooker"):
+			elite_cooldown = 42.0
 		return
 	var pool: Array[String] = ["slime", "swelling_dough", "swelling_dough"]
 	if current_wave >= 2:
@@ -512,26 +518,57 @@ func _on_spawn_timer() -> void:
 		pool.append_array(["toast", "toast", "mushroom", "fork_imp"])
 	if current_wave >= 4:
 		pool.append_array(["cargo_loader", "swelling_dough", "mushroom"])
-	var spawn_count := 1
-	if current_wave >= 3 and rng.randf() < 0.38:
-		spawn_count = 2
-	for index in spawn_count:
-		_spawn_enemy(pool[rng.randi_range(0, pool.size() - 1)])
+	_spawn_enemy(pool[rng.randi_range(0, pool.size() - 1)])
 
 
-func _spawn_enemy(kind: String) -> void:
+func _can_spawn_wilderness_enemies() -> bool:
+	if not is_instance_valid(player) or get_tree().paused or finished or aftermath_active or shelter_active:
+		return false
+	if cinematic_entry or recipe_arrival_active or player.has_meta("opening_combat"):
+		return false
+	if is_instance_valid(furnace_encounter) and (furnace_encounter.observed or furnace_encounter.started):
+		return false
+	return not snow_town.is_town_position(player.global_position)
+
+
+func _wilderness_spawn_position() -> Vector3:
+	var at := player.global_position
+	var enemies := get_tree().get_nodes_in_group("wilderness_enemies")
+	for attempt in 16:
+		var direction := Vector2.RIGHT.rotated(rng.randf_range(0.0, TAU))
+		var offset := direction * rng.randf_range(24.0, 42.0)
+		var candidate := Vector3(at.x + offset.x, 0.0, at.z + offset.y)
+		if absf(candidate.x) > SNOWFIELD_SPAWN_EDGE or absf(candidate.z) > SNOWFIELD_SPAWN_EDGE:
+			continue
+		if snow_town.is_town_position(candidate, 4.0) or candidate.distance_to(SnowRoute.DINING_HALL) < 12.0:
+			continue
+		candidate.y = _terrain_height(candidate.x, candidate.z) + 0.2
+		var spaced := true
+		for enemy in enemies:
+			if enemy.is_queued_for_deletion():
+				continue
+			if minf(candidate.distance_to(enemy.home_position), candidate.distance_to(enemy.global_position)) < WILDERNESS_SPAWN_SPACING:
+				spaced = false
+				break
+		if spaced:
+			return candidate
+	return Vector3.INF
+
+
+func _spawn_enemy(kind: String) -> bool:
 	if kind == "boss_furnace":
-		if not get_tree().get_nodes_in_group("enemies").any(func(e): return e.is_boss):
-			_spawn_furnace(FurnaceEncounter.PASS + Vector3.UP * 0.2)
-		return
-	if aftermath_active or finished or shelter_active or player == null or not is_instance_valid(player):
-		return
+		if get_tree().get_nodes_in_group("enemies").any(func(e): return e.is_boss):
+			return false
+		_spawn_furnace(FurnaceEncounter.PASS + Vector3.UP * 0.2)
+		return true
+	if not _can_spawn_wilderness_enemies():
+		return false
+	var spawn_position := _wilderness_spawn_position()
+	if spawn_position == Vector3.INF:
+		return false
 	var enemy := ENEMY_SCENE.instantiate()
-	var angle := rng.randf_range(0.0, TAU)
-	var radius := rng.randf_range(26.0, 38.0)
-	var spawn_x := clampf(player.global_position.x + cos(angle) * radius, -TERRAIN_SIZE * 0.43, TERRAIN_SIZE * 0.43)
-	var spawn_z := clampf(player.global_position.z + sin(angle) * radius, -TERRAIN_SIZE * 0.43, TERRAIN_SIZE * 0.43)
-	enemy.position = Vector3(spawn_x, _terrain_height(spawn_x, spawn_z) + 0.2, spawn_z)
+	enemy.position = spawn_position
+	enemy.add_to_group("wilderness_enemies")
 	add_child(enemy)
 	var elapsed_ratio := 1.0 - time_left / run_duration
 	var enemy_health := 40.0 + elapsed_ratio * 62.0
@@ -549,11 +586,10 @@ func _spawn_enemy(kind: String) -> void:
 		"elite_cooker":
 			enemy_health *= 3.4
 			enemy_speed *= 0.92
-		"boss_furnace":
-			enemy_health = {"battle": 300.0, "elite": 520.0, "boss": 900.0}.get(RunState.selected_type, 300.0)
-			enemy_speed = 1.65
 	enemy.setup(player, enemy_health, enemy_speed, kind)
+	enemy.set_home()
 	enemy.killed.connect(_on_enemy_killed)
+	return true
 
 
 func _spawn_furnace(at: Vector3) -> Node:
@@ -570,7 +606,7 @@ func _on_enemy_killed(experience_value: int, death_position: Vector3, was_boss: 
 		return
 	if was_boss:
 		_begin_furnace_aftermath()
-		# Reward experience without interrupting the quiet aftermath with upgrade cards.
+		# The furnace can also earn an ingredient choice.
 		player.gain_experience(experience_value)
 		hud.update_status(player, recipe_system, time_left, current_wave, 0)
 		hud.show_aftermath()
@@ -615,28 +651,43 @@ func _begin_furnace_aftermath() -> void:
 
 
 func _on_level_up_requested() -> void:
-	if aftermath_active:
+	var progress = player.magic_progress
+	if progress.pending <= 0 or hud.is_upgrade_open():
 		return
+	if not get_tree().paused:
+		upgrade_mouse_mode = Input.mouse_mode
 	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	map_mini.hide()
-	hud.update_condensation(player.experience, player.experience_needed)
-	hud.show_upgrade(recipe_system.get_upgrade_options(3), player.has_meta("opening_combat"))
+	hud.update_condensation(player.experience, player.experience_needed, player.level)
+	hud.show_upgrade(recipe_system.get_upgrade_options(3), player.has_meta("opening_combat"),
+			progress.level - progress.pending + 1)
 
 
 func _on_upgrade_chosen(id: String) -> void:
+	if not player.magic_progress.consume_choice():
+		return
 	RunState.cooking_inventory.add_ingredient(id)
+	RunState.save_progress()
+	if player.magic_progress.pending > 0:
+		_on_level_up_requested()
+		return
 	map_mini.visible = RunState.snow_route_unlocked and not map_open
+	Input.mouse_mode = upgrade_mouse_mode
 	get_tree().paused = false
 
 func _update_quest_hint() -> void:
 	var text := ""
 	if not finished and not aftermath_active and not cinematic_entry:
-		if RunState.snow_portrait_seen and not RunState.snow_route_unlocked:
+		var castle_master := get_node_or_null("SnowWorld/IceCastleMaster")
+		if castle_master != null and castle_master.awaiting_portrait_dialogue():
+			text = "豆奶好像还有话说（按 F）"
+		elif RunState.snow_portrait_seen and not RunState.snow_route_unlocked:
 			text = "主线 · 在礼堂查看旧运输路线图"
 		elif RunState.snow_route_unlocked:
 			text = "主线 · 沿旧运输路线前往山口（M 查看地图）"
 			match RunState.match_girl_stage:
-				1: text += "    |    支线 · 去广场买火柴"
+				1: text += "    |    支线 · 去圣诞小镇买火柴"
 				2: text += "    |    支线 · 把火柴带回礼堂门房"
 			if is_instance_valid(snow_town):
 				var lights_task: String = snow_town.lights_task_text()
@@ -1181,6 +1232,7 @@ func _ensure_input_actions() -> void:
 	_add_key_action("dodge", KEY_SHIFT)
 	_add_key_action("jump", KEY_SPACE)
 	_add_key_action("interact", KEY_F)
+	_add_key_action("show_snow_guide", KEY_G)
 	_add_key_action("side_skill_1", KEY_Q)
 	_add_key_action("side_skill_2", KEY_E)
 	_add_key_action("pause", KEY_ESCAPE)

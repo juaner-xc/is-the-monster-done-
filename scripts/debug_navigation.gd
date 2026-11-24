@@ -5,6 +5,7 @@ const Book = preload("res://scripts/book_ui.gd")
 const CHAPTER_SCENES = ["res://scenes/route_map.tscn", "res://scenes/main.tscn", "res://scenes/chapter2/volcano_cave.tscn", "res://scenes/final_banquet_hall.tscn"]
 var home_button: Button
 var returning := false
+var _chapter_shortcut_available := false
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -35,13 +36,15 @@ func _ready():
 func _process(_delta):
 	var scene = get_tree().current_scene
 	var in_chapter = is_instance_valid(scene) and scene.scene_file_path in CHAPTER_SCENES
-	home_button.visible = in_chapter and not returning
+	_chapter_shortcut_available = in_chapter and not returning
+	home_button.visible = _chapter_shortcut_available and scene.scene_file_path not in [
+		"res://scenes/main.tscn", "res://scenes/chapter2/volcano_cave.tscn"]
 	if not in_chapter: returning = false
 
 func _input(event):
 	if not event is InputEventKey or not event.pressed or event.echo: return
 	var key = event.physical_keycode if event.physical_keycode else event.keycode
-	if key == KEY_F10 and home_button.visible:
+	if key == KEY_F10 and _chapter_shortcut_available:
 		get_viewport().set_input_as_handled()
 		return_home()
 

@@ -476,12 +476,16 @@ func _make_upgrade(pos: Vector3) -> Node3D:
 # ------------------------------------------------------------------ 主炉控制区
 func _build_core_gate() -> void:
 	var room := origin + Vector3(62.0, 0, 0)
-	_floor(room, Vector3(20.0, 0.4, 22.0))
+	# 台面往西多铺 7 m：帐篷挪到西半侧、放大到 1.25 倍后，帐体要有地方落，
+	# 同时把南面那 6 m 门洞（x -42..-36）整条让出来，人上楼不再被帐角堵住。
+	# 帐背落在 -55.44，台面到 -56，留 0.5 m 台沿，不然帐基贴着台边像要掉下去。
+	_floor(room + Vector3(-3.5, 0, 0), Vector3(27.0, 0.4, 22.0))
 	# 主路改成沿 -Z 叠层后，控制区的主门必须开在南北两面：
 	# 南面接 L1→L2 大阶梯，北面接千席宴炉；东西两面留作侧门。
-	for x_side in [-1.0, 1.0]:
-		_box(Vector3(7.0, 5.0, 0.6), room + Vector3(6.5 * x_side, 2.5, -11.0), _panel)
-		_box(Vector3(7.0, 5.0, 0.6), room + Vector3(6.5 * x_side, 2.5, 11.0), _panel)
+	# 西半段墙跟着台面一起往西延长，东半段不动。
+	for z_side in [-1.0, 1.0]:
+		_box(Vector3(14.0, 5.0, 0.6), room + Vector3(-10.0, 2.5, 11.0 * z_side), _panel)
+		_box(Vector3(7.0, 5.0, 0.6), room + Vector3(6.5, 2.5, 11.0 * z_side), _panel)
 	_box(Vector3(6.0, 1.6, 0.6), room + Vector3(0, 4.2, -11.0), _panel)
 	_box(Vector3(6.0, 1.6, 0.6), room + Vector3(0, 4.2, 11.0), _panel)
 

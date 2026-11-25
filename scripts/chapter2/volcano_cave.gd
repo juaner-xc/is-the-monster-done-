@@ -2040,12 +2040,17 @@ func _build_terrace_b() -> void:
 
 ## 剧情文档里它是「魔法师当年试菜的地方」，也是《黄金食谱》前半本与那锅汤的所在。
 const TENT_YAW := PI * 0.5
+## 帐篷整体放大倍数：把形体做大，但不碰 ch02_tent.gd 里那套局部坐标。
+## 放大后帐体进深 10.5 → 13.1 m，所以台面必须往西多铺一截（见 ch02_blocks.gd）。
+const TENT_SCALE := 1.25
 
 
 func _ch02_tent_anchor() -> Vector3:
-	# 主炉控制台（CoreConsole 在 (-35, 14, -74)）西侧、往南两米：门朝东正对控制台，
-	# 台子本身和从南边上来的那条路都空着。
-	return Vector3(-42.0, L3_Y + 0.02, -72.0)
+	# 上来的门洞是 x -42..-36（南墙正中 6 m），帐体东墙必须退到 -42 以西才不挡路。
+	# 放大 1.25 倍后帐体进深 13.1 m，东沿在 -42.92，西沿（台基斜面外缘）压在 -55.99，
+	# 台面铺到 -56 —— 帐背正好贴着西侧台边，不再留一截空台沿。
+	# 南北向帐体 13.9 m 居中在 z=-71.8：南边离门洞墙 1.8 m，北边离 Boss 门 6.2 m。
+	return Vector3(-49.96, L3_Y + 0.02, -71.8)
 
 
 func _build_ch02_tent() -> void:
@@ -2059,13 +2064,15 @@ func _build_ch02_tent() -> void:
 	tent.set("host", self)
 	add_child(tent)
 	tent.call("setup", workshop_hub, self, _ch02_tent_anchor())
+	tent.scale = Vector3.ONE * TENT_SCALE
 	tent.rotation.y = TENT_YAW
 	_tent_heat_pipe(tent)
 	tent_marker = tent
 
 
-## 帐篷里那根细管：从帐篷北侧引出去，接到主炉控制台那一片的立管上。
-## 剧本里「听见管里往回吸就关侧阀」全靠这根管子读得出来，不能让它断在帐篷里。
+## 帐篷里那根细管：从帐篷北墙穿出来，贴着帐外北侧往东走，再下到控制台脚下的地面管口。
+## 剧本里「听见管里往回吸就关侧阀」全靠这根管子读得出来，不能让它断在帐篷里；
+## 也不能再横在正立面 2.3m 高——那样正好把门和木牌挡掉。
 func _tent_heat_pipe(tent: Node3D) -> void:
 	if tent == null:
 		return
@@ -2073,16 +2080,24 @@ func _tent_heat_pipe(tent: Node3D) -> void:
 	copper.albedo_color = Color("c07a3e")
 	copper.roughness = 0.55
 	copper.metallic = 0.6
-	var base: Vector3 = tent.global_position
 	var run := Node3D.new()
 	run.name = "TentPipeRun"
 	add_child(run)
+	# 起点由帐篷自己报：墙上那个穿管口，跟着它一起挪
+	var start: Vector3 = tent.call("pipe_exit_world")
+	var y := start.y
+	# 贴着帐外北墙走：横段不能用写死的 z，帐体放大/挪位以后会直接穿进屋里
+	var wall_z := start.z - 0.14
+	# 帐体挪西之后管子要横穿大半个前庭，1.5 m 高就成了拦在腰上的栏杆，
+	# 改成顺墙升到顶、走头顶上空再落到控制台，视野和人行的道都让开
+	var high_y := L3_Y + 3.2
 	var pts := [
-		base + Vector3(1.2, 2.3, -2.8),
-		base + Vector3(4.6, 2.3, -2.8),
-		Vector3(-36.0, base.y + 2.3, -74.2),
-		Vector3(-34.4, base.y + 2.3, -74.2),
-		Vector3(-34.4, base.y + 0.9, -74.2),
+		start,
+		Vector3(start.x, y, wall_z),
+		Vector3(start.x, high_y, wall_z),
+		Vector3(-36.7, high_y, wall_z),
+		Vector3(-36.7, high_y, -74.9),
+		Vector3(-36.7, L3_Y + 0.1, -74.9),
 	]
 	for i in range(pts.size() - 1):
 		_tent_pipe_segment(run, pts[i], pts[i + 1], 0.07, copper)
@@ -2095,6 +2110,17 @@ func _tent_heat_pipe(tent: Node3D) -> void:
 		node.position = pt
 		node.material_override = copper
 		run.add_child(node)
+	# 墙上的穿管法兰，别让管子像是插进布里
+	var flange := CylinderMesh.new()
+	flange.top_radius = 0.16
+	flange.bottom_radius = 0.16
+	flange.height = 0.06
+	var disc := MeshInstance3D.new()
+	disc.mesh = flange
+	disc.position = start + Vector3(0.0, 0.0, -0.05)
+	disc.rotation.x = PI * 0.5
+	disc.material_override = copper
+	run.add_child(disc)
 
 
 func _tent_pipe_segment(parent: Node3D, a: Vector3, b: Vector3, radius: float, mat: Material) -> void:
@@ -2118,6 +2144,7 @@ func _place_ch02_tent() -> void:
 	if tent_marker == null or not is_instance_valid(tent_marker):
 		return
 	tent_marker.global_position = _ch02_tent_anchor()
+	tent_marker.scale = Vector3.ONE * TENT_SCALE
 	tent_marker.rotation.y = TENT_YAW
 
 

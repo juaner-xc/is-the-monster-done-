@@ -199,6 +199,28 @@ static func taotao_tent_hint() -> Array:
 	]
 
 
+## 帐篷里的三件小东西：靴子、擦手布、书架。只给气氛，不给任务。
+static func tent_boots() -> Array:
+	return [
+		{"who": "", "text": "床边摆着两双靴子，鞋尖都烫穿了，露出里面焦黑的一层。"},
+		{"who": "奶蛙", "text": "两双。一个人穿不了两双。"},
+	]
+
+
+static func tent_apron() -> Array:
+	return [
+		{"who": "", "text": "钉子上挂着块擦手布，洗得发白，边角磨成了毛的。"},
+		{"who": "", "text": "布上有几处洗不掉的褐色印子，像是端锅的时候溅上去的。"},
+	]
+
+
+static func tent_shelf() -> Array:
+	return [
+		{"who": "", "text": "书架最下一层塞着账本。翻开来，全是同一家药铺的欠条。"},
+		{"who": "", "text": "日期挤在同一年的秋天，一张也没销。"},
+	]
+
+
 ## 章末：主炉停下之后的两套世界状态，最后都收到那本手稿上。
 static func taotao_ending(energy: String) -> Array:
 	var opening: Array

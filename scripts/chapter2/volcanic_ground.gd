@@ -84,6 +84,8 @@ func _paint_ground() -> void:
  for node in host.find_children("*","MeshInstance3D",true,false):
   var mesh_node:=node as MeshInstance3D
   if mesh_node.mesh==null: continue
+  # 自己管材质的构件（帐篷的木台面、石台基等）不要被刷成玄武岩
+  if mesh_node.has_meta("keep_material") or mesh_node.is_in_group("keep_material"): continue
   var label:=String(mesh_node.name)
   var parent_name:=String(mesh_node.get_parent().name)
   if parent_name.begins_with("Topo_") or label.begins_with("Topo_"):

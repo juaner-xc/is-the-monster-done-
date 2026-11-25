@@ -1641,7 +1641,7 @@ func _ch02_map_markers() -> Array:
 		markers.append(_ch02_marker("kitchen", "备用小厨房", "kitchen",
 			(terrace_b as Node3D).global_position, target))
 	if tent_marker != null:
-		markers.append(_ch02_marker("tent", "大平台上的紫帐篷", "tent",
+		markers.append(_ch02_marker("tent", "千席宴炉外的紫帐篷", "tent",
 			(tent_marker as Node3D).global_position, target))
 	return markers
 
@@ -2038,12 +2038,14 @@ func _build_terrace_b() -> void:
 	terrace_b.setup(center)
 
 
-## 旧帐篷：立在中层大平台（台地 D）的西侧空地，门朝广场中央。
 ## 剧情文档里它是「魔法师当年试菜的地方」，也是《黄金食谱》前半本与那锅汤的所在。
+const TENT_YAW := PI * 0.5
+
+
 func _ch02_tent_anchor() -> Vector3:
-	# 运输站上去之后的那块空地（4F 控制区前庭）：楼梯上来先看到这一片空场。
-	# 门朝 +Z（南），正对从运输站上来的楼梯。
-	return Vector3(-49.0, L3_Y + 0.02, -59.0)
+	# 主炉控制台（CoreConsole 在 (-35, 14, -74)）西侧、往南两米：门朝东正对控制台，
+	# 台子本身和从南边上来的那条路都空着。
+	return Vector3(-42.0, L3_Y + 0.02, -72.0)
 
 
 func _build_ch02_tent() -> void:
@@ -2057,7 +2059,58 @@ func _build_ch02_tent() -> void:
 	tent.set("host", self)
 	add_child(tent)
 	tent.call("setup", workshop_hub, self, _ch02_tent_anchor())
+	tent.rotation.y = TENT_YAW
+	_tent_heat_pipe(tent)
 	tent_marker = tent
+
+
+## 帐篷里那根细管：从帐篷北侧引出去，接到主炉控制台那一片的立管上。
+## 剧本里「听见管里往回吸就关侧阀」全靠这根管子读得出来，不能让它断在帐篷里。
+func _tent_heat_pipe(tent: Node3D) -> void:
+	if tent == null:
+		return
+	var copper := StandardMaterial3D.new()
+	copper.albedo_color = Color("c07a3e")
+	copper.roughness = 0.55
+	copper.metallic = 0.6
+	var base: Vector3 = tent.global_position
+	var run := Node3D.new()
+	run.name = "TentPipeRun"
+	add_child(run)
+	var pts := [
+		base + Vector3(1.2, 2.3, -2.8),
+		base + Vector3(4.6, 2.3, -2.8),
+		Vector3(-36.0, base.y + 2.3, -74.2),
+		Vector3(-34.4, base.y + 2.3, -74.2),
+		Vector3(-34.4, base.y + 0.9, -74.2),
+	]
+	for i in range(pts.size() - 1):
+		_tent_pipe_segment(run, pts[i], pts[i + 1], 0.07, copper)
+	for pt in pts:
+		var joint := SphereMesh.new()
+		joint.radius = 0.09
+		joint.height = 0.18
+		var node := MeshInstance3D.new()
+		node.mesh = joint
+		node.position = pt
+		node.material_override = copper
+		run.add_child(node)
+
+
+func _tent_pipe_segment(parent: Node3D, a: Vector3, b: Vector3, radius: float, mat: Material) -> void:
+	var length := a.distance_to(b)
+	if length < 0.05:
+		return
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = radius
+	cyl.bottom_radius = radius
+	cyl.height = length
+	var node := MeshInstance3D.new()
+	node.mesh = cyl
+	node.position = (a + b) * 0.5
+	node.quaternion = Quaternion(Vector3.UP, (b - a).normalized())
+	node.material_override = mat
+	parent.add_child(node)
 
 
 ## 台地挪位之后再钉一次帐篷，否则它会留在建场景时的原点附近
@@ -2065,6 +2118,7 @@ func _place_ch02_tent() -> void:
 	if tent_marker == null or not is_instance_valid(tent_marker):
 		return
 	tent_marker.global_position = _ch02_tent_anchor()
+	tent_marker.rotation.y = TENT_YAW
 
 
 ## 清理两个实测会挡住主路的窄梁/墙头：运输站东门内和 S1 桥口。

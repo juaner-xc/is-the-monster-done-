@@ -51,7 +51,7 @@ static func stage() -> Dictionary:
 	if _f("ch02.energy_branch_set"):
 		if _f("ch02.tent_seen"):
 			return _stage("soup", "帐篷里那口汤", ["用魔法台把汤做出来"])
-		return _stage("tent", "大平台上的紫帐篷", ["上中层大平台，看看那顶帐篷"])
+		return _stage("tent", "千席宴炉外的紫帐篷", ["开打之前，先去炉子外面看看那顶帐篷"])
 	if _f("ch02.tent_seen"):
 		return _stage("kitchen", "稀缺能源只有一份", ["检查备用小厨房的分流装置"])
 	if _f("ch02.has_energy"):

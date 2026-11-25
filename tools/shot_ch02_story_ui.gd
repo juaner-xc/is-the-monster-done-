@@ -106,15 +106,38 @@ func _ready() -> void:
 	await _shot("l3_landing", Vector3(-39.0, 14.0, -18.0), Vector3(-45.0, 9.6, -30.0))
 
 	await _shot("l4_landing", Vector3(-39.0, 22.0, -50.0), Vector3(-39.0, 14.5, -68.0))
-	await _shot("l4_top", Vector3(-42.0, 40.0, -60.0), Vector3(-42.0, 14.5, -60.0))
+	await _shot("l4_top", Vector3(-38.0, 34.0, -74.0), Vector3(-38.0, 14.5, -74.0))
 	await _shot("l4_wide", Vector3(-30.0, 20.0, -48.0), Vector3(-45.0, 14.5, -70.0))
+
+	var sp := get_viewport().world_3d.direct_space_state
+	var hpos := (scene.get("workshop_hub") as Node3D).global_position
+	var edge := "edge: "
+	for zz in range(0, 30, 2):
+		var q := PhysicsRayQueryParameters3D.create(hpos + Vector3(10.0, 8.0, float(zz)), hpos + Vector3(10.0, -2.0, float(zz)))
+		var hit := sp.intersect_ray(q)
+		edge += "%d:%s " % [zz, ("Y" if hit else "-")]
+	print("[deckedge] ", edge)
+
+	var hub3: Node = scene.get("workshop_hub")
+	if hub3 != null:
+		var hp: Vector3 = (hub3 as Node3D).global_position
+		await _shot("living_wide", hp + Vector3(-1.0, 5.5, 28.0), hp + Vector3(3.0, 0.5, 12.0))
+		await _shot("cart_canopy", hp + Vector3(5.0, 3.2, 8.6), hp + Vector3(5.2, 1.9, 3.2))
+		await _shot("queue_zone", hp + Vector3(11.5, 3.0, 10.5), hp + Vector3(7.2, 0.6, 5.2))
+		await _shot("tent_rings", hp + Vector3(-13.0, 2.6, 12.5), hp + Vector3(-16.2, 0.4, 7.8))
+		await _shot("pipe_branch", hp + Vector3(-2.0, 3.2, 12.0), hp + Vector3(-3.0, 3.4, 2.0))
 
 	var tn2: Node3D = scene.get("tent_marker") as Node3D
 	if tn2 != null:
 		var tp := tn2.global_position
-		await _shot("plaza_tent_wide", tp + Vector3(7.0, 4.6, 11.0), tp + Vector3(0.0, 1.5, 0.0))
-		await _shot("plaza_tent_front", tp + Vector3(1.2, 2.6, 9.5), tp + Vector3(0.0, 1.7, 0.0))
-		await _shot("plaza_approach", tp + Vector3(-1.0, 4.0, 22.0), tp + Vector3(0.0, 1.2, 0.0))
+		var door: Vector3 = tn2.global_transform.basis.z.normalized()
+		var side: Vector3 = tn2.global_transform.basis.x.normalized()
+		await _shot("plaza_tent_wide", tp + door * 11.0 + side * 7.0 + Vector3(0, 4.6, 0),
+			tp + Vector3(0.0, 1.5, 0.0))
+		await _shot("plaza_tent_front", tp + door * 9.5 + side * 0.8 + Vector3(0, 2.6, 0),
+			tp + Vector3(0.0, 1.7, 0.0))
+		await _shot("plaza_approach", tp + door * 20.0 + Vector3(0, 5.0, 0),
+			tp + Vector3(0.0, 1.2, 0.0))
 
 	var tent := scene.get("tent_marker") as Node3D
 	if tent != null:

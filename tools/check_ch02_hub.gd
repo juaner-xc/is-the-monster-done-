@@ -183,6 +183,37 @@ func _run() -> void:
 			"查看车盖会播一段对白")
 	_check(player != null and bool(player.get("movement_locked")), "查看时锁住玩家")
 
+	# ---- 生活区方案 A：分区 / 痕迹 / 管线 / 供热阀 / 可穿越布景 ----
+	var zone_names := ["QueueMat", "DockMat", "StoveMat", "PathMat"]
+	var zones_found := 0
+	for zn in zone_names:
+		if scene.get_node_or_null(zn) != null:
+			zones_found += 1
+	_check(zones_found >= 3, "地面分区色块至少铺了三块")
+	_check(scene.get_node_or_null("OldTentRing") != null, "生活区留着魔法师的旧帐篷痕迹")
+	_check(scene.get_node_or_null("TentPeg") != null, "旧帐篷的断桩还在")
+	_check(scene.get_node_or_null("Prop_tent_rings") != null, "焦印可以查看，且有对应文本")
+	_check(scene.get_node_or_null("Prop_heat_valve") != null, "生活区供热阀可以查看")
+	_check(scene.get_node_or_null("LivingHeatWheel") != null, "供热阀的黄铜手轮在")
+	_check(scene.find_child("CanopyStripe_0", true, false) != null, "餐车有帆布棚")
+
+	# 菜园和翻倒的货车只是布景：碰撞要全部关掉，玩家能直接穿过去
+	for pair in [["Garden", "菜园"], ["DockWreck", "翻倒的货车"]]:
+		var node: Node = scene.find_child(String(pair[0]), true, false)
+		if node == null:
+			_fail("%s 不在场景里" % String(pair[1]))
+			continue
+		var solid := 0
+		for body in node.find_children("*", "StaticBody3D", true, false):
+			if (body as StaticBody3D).collision_layer != 0:
+				solid += 1
+		var active := 0
+		for shape in node.find_children("*", "CollisionShape3D", true, false):
+			if not (shape as CollisionShape3D).disabled:
+				active += 1
+		_check(solid == 0 and active == 0, "%s 不可阻挡（碰撞已关）" % String(pair[1]))
+
+
 
 func _check(ok: bool, label: String) -> void:
 	if ok:

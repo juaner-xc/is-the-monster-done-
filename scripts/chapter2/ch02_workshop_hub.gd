@@ -129,6 +129,8 @@ func _ready() -> void:
 	_build_room()
 	_build_pipes()
 	_build_living_space()
+	_build_cottages()
+	_build_garden()
 	_build_loading_dock()
 	_build_residents()
 	_build_living_props()
@@ -430,8 +432,10 @@ func _open_gate() -> void:
 
 # ------------------------------------------------------------------ 管道与陈设
 func _build_pipes() -> void:
-	# 生活区不再横穿东西向主管；运输管改由 volcano_cave 沿西侧南北向铺设。
-	return
+	# 生活区自己的架空主管 + 两条支管（灶台 / 餐车）。
+	# volcano_cave 那套西侧南北向的长管是场景级的，这里只补营地这一小段，
+	# 让「热从哪儿来」在生活区读得出来。
+	_build_center_pipe()
 
 
 ## 生活区中央的架空运输管：从陶陶餐车后方经过，不挡主路。
@@ -448,6 +452,34 @@ func _build_center_pipe() -> void:
 	for px in [-12.0, 14.0]:
 		_pipe_drop(Vector3(px, y, z), _metal)
 	_add_omni(Vector3(2.0, y + 0.4, z), Color(1.0, 0.56, 0.24), 1.8, 20.0)
+	_build_pipe_branches()
+
+
+## 从中央主管往下接两条支管：一条到灶台，一条到餐车。
+## 生活区的管子以前是一根断头垂管，玩家看不出「热是从哪儿来的」。
+func _build_pipe_branches() -> void:
+	var copper := _zone_mat(Color("c07a3e"), 0.55)
+	var brass := _zone_mat(Color("e0b45c"), 0.45)
+	# 灶台支管：先在主管上接一段横移，再落到灶台上方
+	_pipe_section(Vector3(-8.4, 5.0, -1.0), Vector3(-8.4, 5.0, 4.6), 0.07, copper)
+	_pipe_joint(Vector3(-8.4, 5.0, 4.6), 0.1, copper)
+	_pipe_section(Vector3(-8.4, 5.0, 4.6), Vector3(-8.4, 1.6, 4.6), 0.07, copper)
+	_pipe_joint(Vector3(-8.4, 1.6, 4.6), 0.09, copper)
+	# 餐车支管：走到餐车后上方，最后一段朝下
+	_pipe_section(Vector3(2.8, 5.0, -1.0), Vector3(2.8, 5.0, 3.4), 0.07, copper)
+	_pipe_joint(Vector3(2.8, 5.0, 3.4), 0.1, copper)
+	_pipe_section(Vector3(2.8, 5.0, 3.4), Vector3(2.8, 2.9, 3.4), 0.07, copper)
+	_pipe_joint(Vector3(2.8, 2.9, 3.4), 0.09, copper)
+	# 灶台支管上的手轮：玩家能看到「哪一个阀管这一路」
+	var wheel_mesh := TorusMesh.new()
+	wheel_mesh.inner_radius = 0.22
+	wheel_mesh.outer_radius = 0.31
+	var wheel := _add_mesh_part(self, wheel_mesh, Vector3(-8.4, 2.35, 4.55), brass)
+	wheel.name = "LivingHeatWheel"
+	wheel.rotation.x = PI * 0.5
+	_pipe_joint(Vector3(-8.4, 2.35, 4.55), 0.06, brass)
+	_add_prop("heat_valve", self, Vector3(-8.4, 2.2, 4.9),
+			"按 [F] 看看供热阀", 2.8)
 
 
 ## 东墙那组：卸货台、吊臂和铃、翻倒的货车、翻上来的白汽，以及一户人家的楼梯。
@@ -493,6 +525,8 @@ func _build_loading_dock() -> void:
 	wreck.position = Vector3(17.2, 0.0, 8.0)
 	wreck.rotation.y = 0.72
 	add_child(wreck)
+	# 翻倒的货车只是布景：玩家清运输线时要能穿过去，不被车斗卡住
+	_make_passable(wreck)
 	var wreck_body := _add_box_part(wreck, Vector3(2.3, 1.15, 1.15), Vector3(0.0, 0.62, 0.0), _metal)
 	wreck_body.rotation.z = 0.17
 	for sx in [-0.75, 0.75]:
@@ -613,14 +647,14 @@ func _build_living_decor() -> void:
 	rug_mat.albedo_color = Color(0.36, 0.13, 0.08)
 	rug_mat.roughness = 0.95
 	var rug := CylinderMesh.new()
-	rug.top_radius = 3.8
-	rug.bottom_radius = 3.8
+	rug.top_radius = 4.6
+	rug.bottom_radius = 4.6
 	rug.height = 0.012
 	rug.radial_segments = 32
 	var rug_node := MeshInstance3D.new()
 	rug_node.mesh = rug
 	rug_node.name = "TaoTaoRug"
-	rug_node.position = Vector3(3.2, 0.008 + _living_floor_offset(), 4.0)
+	rug_node.position = Vector3(3.9, 0.008 + _living_floor_offset(), 4.7)
 	rug_node.material_override = rug_mat
 	add_child(rug_node)
 
@@ -629,6 +663,146 @@ func _build_living_decor() -> void:
 	_add_cylinder_collider(self, 0.3, 1.4, Vector3(-15.2, 0.7, 12.8))
 	_place_model("plant.glb", to_global(Vector3(14.2, 0.0, 11.5)), 1.0, 2.2)
 	_add_cylinder_collider(self, 0.3, 1.4, Vector3(14.2, 0.7, 11.5))
+	_build_living_zones()
+	_build_mage_traces()
+
+
+## 把一件摆设的碰撞全部关掉：玩家、怪、锅都能直接穿过去，不会被它卡住。
+## 只用于纯装饰物（菜畦、翻倒的货车）——有玩法意义的东西别这么处理。
+func _make_passable(root: Node3D) -> void:
+	for body in root.find_children("*", "StaticBody3D", true, false):
+		(body as StaticBody3D).collision_layer = 0
+		(body as StaticBody3D).collision_mask = 0
+	for shape in root.find_children("*", "CollisionShape3D", true, false):
+		(shape as CollisionShape3D).disabled = true
+
+
+## 生活区的分区色块：地面铺色 + 一圈矮栏 + 三盏分区灯。
+## 不用墙也不用顶——先让「这是排队的地方 / 这是卸货的地方」读得出来。
+func _zone_mat(color: Color, metallic := 0.0) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = 0.88
+	m.metallic = metallic
+	return m
+
+
+func _build_living_zones() -> void:
+	var off := _living_floor_offset()
+	# ---- 地面色块：四块，颜色拉开，别再一水儿深棕
+	var mats := [
+		["QueueMat", Vector3(8.4, 0.012, 4.0), Vector3(7.6, 0.0, 6.4), Color("7a3324")],
+		["DockMat", Vector3(6.5, 0.012, 4.5), Vector3(20.0, 0.0, 5.0), Color("3d4652")],
+		["StoveMat", Vector3(5.0, 0.012, 3.6), Vector3(-8.4, 0.0, 4.4), Color("5a4426")],
+		["PathMat", Vector3(12.0, 0.010, 2.2), Vector3(2.0, 0.0, 8.5), Color("6e5a44")],
+	]
+	for item in mats:
+		var mat := _zone_mat(item[3], 0.45 if String(item[0]) == "DockMat" else 0.0)
+		var piece := _add_box_part(self, item[1], item[2] + Vector3(0.0, off + 0.006, 0.0), mat)
+		piece.name = String(item[0])
+		piece.rotation.y = 0.4 if String(item[0]) == "PathMat" else 0.0
+
+	# ---- 排队区的矮栏：五根柱 + 两根横杆，把队伍围成一条通道
+	var wood := _zone_mat(Color("a8703c"))
+	var brass := _zone_mat(Color("d9a45b"), 0.3)
+	# 栏放在队伍的东侧（x=9.3），顺着队伍方向排开——放在餐车和队伍中间就把路堵死了
+	for i in 5:
+		var pz := 5.2 + 0.8 * float(i)
+		var post := _add_box_part(self, Vector3(0.12, 1.05, 0.12),
+				Vector3(9.6, off + 0.53, pz), wood)
+		post.name = "QueuePost_%d" % i
+	for rail_y in [0.95, 0.55]:
+		var rail := _add_box_part(self, Vector3(0.07, 0.07, 3.4),
+				Vector3(9.6, off + rail_y, 6.8), brass)
+		rail.name = "QueueRail_%s" % str(rail_y)
+
+	# ---- 卸货区的矮石台沿：一条边，把货台和通道分开
+	var kerb := _add_box_part(self, Vector3(6.5, 0.35, 0.3),
+			Vector3(20.0, off + 0.17, 7.1), _zone_mat(Color("8a7f72")))
+	kerb.name = "DockKerb"
+
+	# ---- 灶区两块铜挡板：防止火星往人那边飞
+	var copper := _zone_mat(Color("b06a3c"), 0.4)
+	for spec in [[Vector3(1.5, 1.4, 0.06), Vector3(-10.6, 0.7, 4.4)],
+			[Vector3(1.5, 1.4, 0.06), Vector3(-8.4, 0.7, 2.8)]]:
+		var screen := _add_box_part(self, spec[0], spec[1] + Vector3(0.0, off, 0.0), copper)
+		screen.name = "StoveScreen"
+
+	# ---- 三盏分区灯：色温分开，一眼看出哪块是干什么的
+	_add_omni(Vector3(-8.4, 2.2, 4.0) + Vector3(0.0, off, 0.0), Color(1.0, 0.62, 0.32), 1.6, 9.0)
+	_add_omni(Vector3(7.4, 3.0, 5.4) + Vector3(0.0, off, 0.0), Color(0.86, 0.90, 1.0), 1.1, 8.0)
+	_add_omni(Vector3(19.5, 3.2, 4.5) + Vector3(0.0, off, 0.0), Color(1.0, 0.45, 0.30), 1.3, 10.0)
+
+
+## 生活区里「魔法师原来在这儿扎过帐篷」的三件痕迹：焦印、断桩、破布。
+## 实体帐篷在 4F 主炉控制区，这儿只留痕迹——不抢主线，又能把两条线接上。
+func _build_mage_traces() -> void:
+	var off := _living_floor_offset()
+	var ring := TorusMesh.new()
+	ring.inner_radius = 2.3
+	ring.outer_radius = 2.46
+	var ring_node := _add_mesh_part(self, ring,
+			Vector3(-16.5, off + 0.03, 8.0), _zone_mat(Color("4a3426")))
+	ring_node.name = "OldTentRing"
+
+	var scorch := _add_box_part(self, Vector3(3.2, 0.012, 2.4),
+			Vector3(-16.0, off + 0.012, 8.4), _zone_mat(Color("2a211b")))
+	scorch.name = "ScorchPatch"
+
+	# 断在土里的木桩 + 三根散开的绳子
+	var peg := _add_mesh_part(self, _cylinder(0.09, 0.55),
+			Vector3(-14.8, off + 0.27, 6.4), _zone_mat(Color("8a6a42")))
+	peg.name = "TentPeg"
+	peg.rotation.z = 0.28
+	for i in 3:
+		var angle := 0.8 + float(i) * 1.9
+		var rope := _add_box_part(self, Vector3(1.3, 0.03, 0.03),
+				Vector3(-14.8 + cos(angle) * 0.65, off + 0.02, 6.4 + sin(angle) * 0.65),
+				_zone_mat(Color("c8b48a")))
+		rope.name = "TentRope_%d" % i
+		rope.rotation.y = -angle
+
+	# 压在地下的一角紫布：唯一还看得出颜色的东西
+	var scrap := _add_box_part(self, Vector3(0.62, 0.02, 0.44),
+			Vector3(-15.6, off + 0.02, 6.9), _zone_mat(Color("6a3f8a")))
+	scrap.name = "TentClothScrap"
+	scrap.rotation.y = 0.7
+
+	_add_prop("tent_rings", self, Vector3(-16.4, off + 0.7, 7.6),
+			"按 [F] 看看地上那圈焦印", 3.2)
+
+
+## 餐车棚：四根柱子 + 一块红白条纹帆布。原来那把伞收起来了。
+func _build_cart_canopy(cart: Node3D) -> void:
+	for child in cart.get_children():
+		var mi := child as MeshInstance3D
+		if mi == null:
+			continue
+		var cm := mi.mesh as CylinderMesh
+		if cm != null and cm.top_radius < cm.bottom_radius * 0.5:
+			mi.visible = false
+
+	var wood := _zone_mat(Color("b07a42"))
+	var red := _zone_mat(Color("c23b2e"))
+	var cream := _zone_mat(Color("f0e2c4"))
+	for corner in [Vector2(-1.6, -1.1), Vector2(1.6, -1.1), Vector2(-1.6, 1.1), Vector2(1.6, 1.1)]:
+		var post := _add_box_part(cart, Vector3(0.1, 3.0, 0.1),
+				Vector3(corner.x, 1.5, corner.y), wood)
+		post.name = "CanopyPost_%d_%d" % [int(corner.x), int(corner.y)]
+	# 条纹布：两块红、两块米白交替，边上一圈金边
+	# 条纹布贴着柱顶铺平，别悬空：五条各自 0.72 宽，拼成 3.6 宽的一块
+	for i in 5:
+		var mat := red if i % 2 == 0 else cream
+		var stripe := _add_box_part(cart, Vector3(0.73, 0.06, 2.6),
+				Vector3(-1.46 + 0.73 * float(i), 3.02, 0.0), mat)
+		stripe.name = "CanopyStripe_%d" % i
+	# 前沿挂一圈红布帘，摊子才「有脸」
+	var valance := _add_box_part(cart, Vector3(3.7, 0.42, 0.06),
+			Vector3(0.0, 2.78, 1.32), red)
+	valance.name = "CanopyValance"
+	var trim := _add_box_part(cart, Vector3(3.76, 0.05, 0.09),
+			Vector3(0.0, 2.56, 1.32), _zone_mat(Color("d9a45b"), 0.4))
+	trim.name = "CanopyTrim"
 
 
 ## 一段直管：从 a 指向 b，用四元数把圆柱的 Y 轴转过去
@@ -692,7 +866,10 @@ func _build_living_space() -> void:
 ## 一半浮在空中——既读不出是「屋子」，又把营地围成一圈挡视线的墙。
 func _build_cottages() -> void:
 	# 石屋已预制体化，见 scenes/chapter2/living/cottage.tscn（位置与朝向烘在根节点上）
-	add_child(preload("res://scenes/chapter2/living/cottage.tscn").instantiate())
+	# 石屋推到东北角，后墙贴着栏杆，把场地中间让出来
+	var cottage := preload("res://scenes/chapter2/living/cottage.tscn").instantiate() as Node3D
+	cottage.position = Vector3(17.4, 0.0, -6.8)
+	add_child(cottage)
 	_build_cottage_props()
 
 
@@ -726,11 +903,11 @@ func _build_residents() -> void:
 	pair_b.face_target = pair_a
 	_make_resident("resident_pipe", "烤红薯", Vector3(-13.5, 0, -1.0), PI,
 			preload("res://assets/chapter2/models/food_residents/roast_sweet_potato.glb"))
-	var queue_front := _make_resident("resident_queue", "肉桂卷", Vector3(6.4, 0, 4.4), 0.98,
+	var queue_front := _make_resident("resident_queue", "肉桂卷", Vector3(6.6, 0, 5.6), 0.98,
 			preload("res://assets/chapter2/models/food_residents/cinnamon_roll.glb"))
-	var queue_middle := _make_resident("resident_queue_b", "老饭团", Vector3(7.3, 0, 5.7), 0.81,
+	var queue_middle := _make_resident("resident_queue_b", "老饭团", Vector3(7.5, 0, 6.9), 0.81,
 			preload("res://assets/chapter2/models/food_residents/sesame_rice_ball.glb"))
-	var queue_end := _make_resident("resident_queue_c", "南瓜面包", Vector3(8.2, 0, 7.0), 0.75,
+	var queue_end := _make_resident("resident_queue_c", "南瓜面包", Vector3(8.4, 0, 8.2), 0.75,
 			preload("res://assets/chapter2/models/food_residents/pumpkin_bread.glb"))
 	for resident in [queue_front, queue_middle, queue_end]:
 		resident.face_target = null
@@ -825,7 +1002,7 @@ func _build_living_props() -> void:
 func _build_taotao() -> void:
 	# 陶陶 + 餐车摆在中轴偏南：玩家从隧道下来往北走，第一眼就看见她。
 	# 她面朝南（yaw=PI），是迎着进场方向站的 —— 原来正面朝北，看见的是后脑勺。
-	_taotao = _make_npc("taotao", "陶陶", Vector3(2.0, _living_floor_offset(), 4.0),
+	_taotao = _make_npc("taotao", "陶陶", Vector3(1.1, _living_floor_offset(), 4.6),
 			Color("eae2d0"), Color("e08a3c"), PI, "taotao")
 	if _taotao != null:
 		_taotao.interact_range = 3.2
@@ -833,10 +1010,13 @@ func _build_taotao() -> void:
 	var cart := preload("res://scenes/chapter2/taotao_food_cart.tscn").instantiate() as Node3D
 	cart.position = Vector3(5.2, _living_floor_offset(), 3.2)
 	cart.rotation.y = -0.55
+	# 整体放大一点：摊子要撑得住这个平台，别像个手推车玩具
+	cart.scale = Vector3.ONE * 1.55
 	add_child(cart)
 	_add_box_collider(cart, Vector3(1.7, 1.05, 0.95), Vector3(0, 0.7, 0))
 	_add_omni(Vector3(5.1, 2.4, 3.0), Color(1.0, 0.7, 0.4), 2.6, 12.0)
 	_build_cart_props(cart)
+	_build_cart_canopy(cart)
 
 
 ## 车上的那几件东西：掀开的车盖（内侧是地图）、挂着的三个锅盖、带扣的饭盒、小锅。
@@ -1710,11 +1890,15 @@ func _model_aabb(root: Node3D) -> AABB:
 ## 种植园：白色矮栅栏围一个长方形，里面整齐排几盆植物。
 ## 生活区不能只有机器和箱子，得有一块「他们在种东西」的地方。
 func _build_garden() -> void:
-	# 菜畦原来正压在关卡轴线上；入洞隧道改成从南侧沿轴线进来之后，
-	# 把它整体挪到营地东半边，别挡住矿车滑行和下车落点。
-	# 菜畦已预制体化，见 scenes/chapter2/living/garden.tscn
-	add_child(preload("res://scenes/chapter2/living/garden.tscn").instantiate())
-
+	# 还是原来那块方形菜畦，只是整体挪到平台东侧、斜 45° 靠边
+	var garden := preload("res://scenes/chapter2/living/garden.tscn").instantiate() as Node3D
+	# 预制体内容中心大约在原点 + (8, 0, 9)，所以这里写 (5, 0, 6) → 落点 (13, 0, 15)
+	# 下车点在南侧、面向营地，这块正好在右手边，且离石屋(17.4,-6.8)和货台(20,5)都远
+	garden.position = Vector3(-2.0, 0.0, 10.0)
+	garden.name = "Garden"
+	_make_passable(garden)
+	garden.rotation.y = deg_to_rad(30.0)
+	add_child(garden)
 
 
 ## 主炉接口：一段加粗的管接头，一圈发红的接头环，地上丢着扳手。

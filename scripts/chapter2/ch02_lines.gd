@@ -105,7 +105,7 @@ static func resident(key: String) -> Array:
 			]
 		"resident_tent":
 			return [
-				{"who": "居民", "text": "中层大平台上那顶紫帐篷？那是早年一个魔法师扎的，谁也不敢动。"},
+				{"who": "居民", "text": "千席宴炉外头那顶紫帐篷？早年一个魔法师扎的，谁也不敢动。"},
 			]
 	return [{"who": "居民", "text": "……"}]
 
@@ -192,7 +192,7 @@ static func soup_done() -> Array:
 ## 帐篷外：陶陶只知道那盏灯和那道会响的墙。具体的事留给裂隙现场。
 static func taotao_tent_hint() -> Array:
 	return [
-		{"who": "陶陶", "text": "紫布金顶，扎得比我们的工棚讲究多了。我上来第一眼就看见它。"},
+		{"who": "陶陶", "text": "紫布金顶，扎得比我们的工棚讲究多了。就在炉子外面，没人敢碰。"},
 		{"who": "陶陶", "text": "升降台背后那道岩壁，最近又开始响了。"},
 		{"who": "奶蛙", "text": "响？"},
 		{"who": "陶陶", "text": "像有人在里面摆桌子。"},
@@ -365,5 +365,16 @@ static func prop(key: String) -> Array:
 			return [
 				{"who": "", "text": "柱子上嵌着一截黄铜管，喇叭口朝外。"},
 				{"who": "", "text": "管口有一层热气，另一头有人。"},
+			]
+		"heat_valve":
+			return [
+				{"who": "", "text": "黄铜手轮上刻着一道槽，槽里还留着粉笔灰。"},
+				{"who": "", "text": "这一路是给灶台供热的。开一半，锅就不容易糊底。"},
+			]
+		"tent_rings":
+			return [
+				{"who": "", "text": "地上一圈焦印，四个角各留着一个断在土里的木桩。"},
+				{"who": "", "text": "砖缝里压着一角紫布，颜色比周围的灰都新。"},
+				{"who": "", "text": "我小时候这儿扎过一顶紫帐篷。后来那人再没回来，东西也被收走了。"},
 			]
 	return []

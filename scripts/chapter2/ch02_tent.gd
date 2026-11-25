@@ -108,7 +108,7 @@ func _build_tent() -> void:
 	var side_w := half_w - door_half
 	for side in [-1.0, 1.0]:
 		var wing := _box(Vector3(side_w, door_h, 0.1),
-			Vector3(side * (door_half + side_w * 0.5), door_h * 0.5, depth * 0.5), CLOTH)
+			Vector3(side * (door_half + side_w * 0.5), door_h * 0.5, depth * 0.5), CLOTH_DARK)
 		wing.name = "TentDoorWing" if side < 0.0 else "TentDoorWingR"
 		var trim := _box(Vector3(0.07, door_h, 0.12),
 			Vector3(side * door_half, door_h * 0.5, depth * 0.5 + 0.02), GOLD)
@@ -137,7 +137,7 @@ func _build_tent() -> void:
 	crown.name = "TentCrownLight"
 	crown.position = Vector3(0.0, height + 1.6, -0.3)
 	crown.light_color = Color(0.72, 0.55, 1.0)
-	crown.light_energy = 1.4
+	crown.light_energy = 1.0
 	crown.omni_range = 13.0
 	add_child(crown)
 
@@ -264,7 +264,7 @@ func _build_outside_props() -> void:
 	label.font_size = 96
 	label.pixel_size = 0.006
 	label.modulate = Color("2b1a12")
-	label.position = Vector3(-4.4, 1.52, 3.53)
+	label.position = Vector3(-4.4, 1.52, 3.75)
 	label.rotation.y = 0.0
 	add_child(label)
 
